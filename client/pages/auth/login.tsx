@@ -32,7 +32,7 @@ export default function LoginPage(): ReactElement {
           {
             content: (
               <PasswordLoginForm
-                className='[&_[data-slot=input]]:h-12 [&_[data-slot=input-group]]:h-12 [&_button[type=submit]]:h-12'
+                className='max-sm:[&_[data-slot=input]]:h-[2.75rem] max-sm:[&_[data-slot=input-group]]:h-[2.75rem] max-sm:[&_[data-slot=input-group-control]]:h-full'
                 error={login.error?.message}
                 footer={
                   signUpAvailable ? (
