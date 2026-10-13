@@ -8,7 +8,7 @@ export function useProcessIdentity() {
   return JSON.stringify([session?.user.id, revision]);
 }
 export function useProcessResource<T>(
-  path: string,
+  path: string | null,
   query?: Record<string, string>,
 ) {
   const api = useApiClient(),
@@ -24,6 +24,7 @@ export function useProcessResource<T>(
     error?: unknown;
   }>();
   useEffect(() => {
+    if (path === null) return;
     const abort = new AbortController();
     api
       .request<T>({
@@ -50,11 +51,12 @@ export function useProcessResource<T>(
       );
     return () => abort.abort();
   }, [api, path, queryKey, source, key]);
-  const current = result?.source === source ? result : undefined;
+  const current =
+    path !== null && result?.source === source ? result : undefined;
   return {
     data: current?.data,
     error: current?.error,
-    loading: current?.key !== key,
+    loading: path !== null && current?.key !== key,
     reload,
     update(data: T) {
       setResult({ source, key, data });

@@ -95,11 +95,11 @@ const settingsRoutes: AppClientRouteContribution = defineAppRoutes([
     componentLoader: () => import('../pages/platform/approval-rules/index.js'),
     children: [
       {
-        // /approval-rules/edit/spend.vp: the change dialog alone over the list (a row's menu)
+        // Legacy edit URLs redirect to the owning process node.
         name: 'platform-approval-rules-edit',
         path: 'edit/:key',
         componentLoader: () =>
-          import('../pages/platform/approval-rules/change-dialog.js'),
+          import('../pages/platform/approval-rules/node-redirect.js'),
       },
       {
         // /approval-rules/spend.vp: the version history drawer
@@ -109,11 +109,11 @@ const settingsRoutes: AppClientRouteContribution = defineAppRoutes([
           import('../pages/platform/approval-rules/history-drawer.js'),
         children: [
           {
-            // /approval-rules/spend.vp/edit: the change dialog stacked on the drawer
+            // Legacy history edit URL also opens the owning process node.
             name: 'platform-approval-rules-history-edit',
             path: 'edit',
             componentLoader: () =>
-              import('../pages/platform/approval-rules/change-dialog.js'),
+              import('../pages/platform/approval-rules/node-redirect.js'),
           },
         ],
       },

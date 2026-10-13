@@ -10,6 +10,7 @@ import {
   useLocation,
   useParams,
   useResolvedPath,
+  useNavigate,
 } from 'react-router';
 import { RouteChildPage } from '#components/route-child-page';
 import { PageContainer } from '#components/page-container';
@@ -26,6 +27,12 @@ import { ApplicationTableSkeleton } from '#components/application-table-skeleton
 import { useProcessResource } from './resource.js';
 import { EmptyList, Failure, Refresh, State } from './shared.js';
 import { ProcessGraph } from './graph.js';
+import { useNodeSettings } from './use-node-settings.js';
+import {
+  rulesForNode,
+  hasVendorNodeSettings,
+  committeeVersionForNode,
+} from './node-settings.js';
 import type {
   DefinitionDto,
   ExecutionDto,
@@ -44,6 +51,23 @@ export default function ProcessDefinitionPage() {
     { kind, pageSize: '5' },
   );
   const pagePath = useResolvedPath('.').pathname;
+  const navigate = useNavigate();
+  const settings = useNodeSettings(kind, Boolean(data) && !resource.error);
+  const configurableNodes = new Set(
+    data?.states
+      .filter(
+        (state) =>
+          (settings.canUpdateRules &&
+            rulesForNode(kind, state.name).length > 0) ||
+          (settings.canManageVendor &&
+            hasVendorNodeSettings(kind, state.name) &&
+            (state.name === 'removalReview' ||
+              settings.configuration.data?.data.versions.some(
+                (v) => v.version === committeeVersionForNode(kind, state.name),
+              ))),
+      )
+      .map((state) => state.name),
+  );
   const reloadList = useContext(ProcessListContext);
   useEffect(() => {
     if (
@@ -116,6 +140,14 @@ export default function ProcessDefinitionPage() {
                 <CardContent>
                   <ProcessGraph
                     definition
+                    configurableNodes={configurableNodes}
+                    onConfigure={(node) => {
+                      void navigate({
+                        pathname: `${pagePath}/nodes/${encodeURIComponent(node)}/settings`,
+                        search: location.search,
+                        hash: location.hash,
+                      });
+                    }}
                     states={data.states}
                     initial={data.initial}
                     edges={data.transitions.flatMap((edge) =>
@@ -303,7 +335,18 @@ export default function ProcessDefinitionPage() {
             </>
           )
         )}
-        <Outlet />
+        <Outlet
+          context={{
+            definition: data,
+            loading: resource.loading,
+            error: resource.error,
+            reload: () => {
+              resource.reload();
+              settings.rules.reload();
+              settings.configuration.reload();
+            },
+          }}
+        />
       </PageContainer>
     </RouteChildPage>
   );

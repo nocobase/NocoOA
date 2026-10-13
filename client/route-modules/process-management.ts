@@ -44,6 +44,12 @@ export default defineAppRoutes([
               import('../pages/process-management/definition.js'),
             children: [
               {
+                name: 'oa-process-node-settings',
+                path: 'nodes/:node/settings',
+                componentLoader: () =>
+                  import('../pages/process-management/node-settings-dialog.js'),
+              },
+              {
                 name: 'oa-process-definition-execution',
                 path: 'executions/:recordId',
                 componentLoader: () =>

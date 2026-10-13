@@ -3,6 +3,8 @@ import { isProcessOverviewEdge } from './overview.js';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Badge } from '#components/ui/badge';
 import { FlowDiagram } from '#components/flow-diagram';
+import { Button } from '#components/ui/button';
+import { Pencil } from 'lucide-react';
 /** Use the registry's React Flow/ELK renderer so cycles and return paths are routed
  * automatically. Parallel transitions share one visual edge; full rules remain below. */
 export function ProcessGraph({
@@ -12,6 +14,8 @@ export function ProcessGraph({
   initial,
   definition = false,
   history,
+  configurableNodes,
+  onConfigure,
 }: {
   states: { name: string; final: boolean }[];
   edges: {
@@ -25,6 +29,8 @@ export function ProcessGraph({
   initial?: string;
   definition?: boolean;
   history?: { from: string; to: string; name: string }[];
+  configurableNodes?: ReadonlySet<string>;
+  onConfigure?: (node: string) => void;
 }) {
   const { t } = useTranslation(),
     text = useProcessText();
@@ -113,6 +119,11 @@ export function ProcessGraph({
         </div>
       )}
       <FlowDiagram
+        className='[&_.react-flow__node]:cursor-default'
+        onNodeClick={(node) => {
+          if (definition && configurableNodes?.has(node.id))
+            onConfigure?.(node.id);
+        }}
         ariaLabel={t('processManagement.graphView')}
         direction='DOWN'
         autoHeight
@@ -123,6 +134,13 @@ export function ProcessGraph({
           label: text.state(state.name),
           highlighted: state.name === current,
           visited: visitedStates.has(state.name),
+          className:
+            definition && configurableNodes?.has(state.name)
+              ? 'cursor-pointer transition-colors hover:border-primary hover:bg-accent hover:ring-2 hover:ring-primary/20'
+              : 'cursor-default',
+          // Reserve room for the node's configuration control in ELK's layout.
+          height:
+            definition && configurableNodes?.has(state.name) ? 96 : undefined,
         }))}
         edges={graphEdges.map((edge) => ({
           id: edge.key,
@@ -134,6 +152,23 @@ export function ProcessGraph({
         renderNode={(node) => (
           <div className='flex flex-col items-center gap-1'>
             <span>{node.label}</span>
+            {definition && configurableNodes?.has(node.id) && (
+              <Button
+                variant='ghost'
+                size='sm'
+                className='nodrag nopan'
+                aria-label={t('processManagement.nodeSettings.editNamed', {
+                  name: node.label,
+                })}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onConfigure?.(node.id);
+                }}
+              >
+                <Pencil data-icon='inline-start' />
+                {t('processManagement.nodeSettings.edit')}
+              </Button>
+            )}
             {history && node.highlighted ? (
               <Badge>{t('processManagement.currentNode')}</Badge>
             ) : history && node.visited ? (

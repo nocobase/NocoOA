@@ -7,7 +7,7 @@ const platformEnUS = {
     navigation: {
       calendar: 'Work calendar',
       dictionaries: 'Dictionaries',
-      rules: 'Approval rules',
+      rules: 'Rule overview and history',
       sequences: 'Document numbers',
       auditLogs: 'Audit log',
     },
@@ -16,7 +16,7 @@ const platformEnUS = {
       section: 'OA platform',
       calendar: 'Work calendar',
       dictionaries: 'Dictionaries',
-      rules: 'Approval rules',
+      rules: 'Rule overview and history',
       sequences: 'Document numbers',
       auditLogs: 'Audit log',
       actions: { read: 'View', update: 'Edit' },
@@ -227,9 +227,11 @@ const platformEnUS = {
       },
     },
     rules: {
-      title: 'Approval rules',
+      relatedFlows: 'Related processes (edit at node)',
+      editAtNode: 'Edit at process node',
+      title: 'Rule overview and history',
       description:
-        'Adjust the amounts, days and hours flows use. A change applies only to requests submitted after it takes effect.',
+        'View current rules, scheduled changes and history. Open a related process node to edit; shared rules affect multiple processes.',
       loadFailedTitle: 'Could not load the approval rules',
       notFound: 'This rule does not exist.',
       change: 'Change',
