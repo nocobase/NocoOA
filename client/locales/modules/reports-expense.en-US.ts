@@ -31,7 +31,7 @@ export default {
       month: 'Expense month',
       category: 'Category code',
       settledRequestCount: 'Settled requests',
-      settledExpenseCents: 'Settled gross expense (cents, not cash)',
+      settledExpenseCents: 'Settled gross expense (CNY, not cash)',
     },
   },
 };

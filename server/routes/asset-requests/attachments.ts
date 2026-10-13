@@ -1,3 +1,4 @@
+import { attachmentSelectionFilters } from '../attachment-selection.js';
 import { AssetError } from '../../providers/assets/errors.js';
 import {
   authenticationToken,
@@ -47,19 +48,14 @@ const generated = defineFileRepositoryApiRoutes<Principal>({
       accessPath: '/uploads/asset-requests',
       accessMode: 'stream',
       policy: (p) => ({
-        read:
-          p.ids?.length === 0
-            ? false
-            : {
-                scope: (f) =>
-                  f.and([
-                    f.string('requestId').eq(p.requestId),
-                    ...(p.ids
-                      ? [f.or(p.ids.map((id) => f.string('id').eq(id)))]
-                      : []),
-                  ]),
-                fields: ASSET_PHOTO_FIELDS,
-              },
+        read: {
+          scope: (f) =>
+            f.and([
+              f.string('requestId').eq(p.requestId),
+              ...attachmentSelectionFilters(f, p.ids),
+            ]),
+          fields: ASSET_PHOTO_FIELDS,
+        },
         create: p.upload
           ? {
               scope: { requestId: p.requestId, ownerId: p.actorId },

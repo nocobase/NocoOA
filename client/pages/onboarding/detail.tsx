@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { StatusBadge } from '#components/status-badge';
 import { Timeline } from './timeline.js';
 import { Attachments } from './attachments.js';
@@ -14,7 +15,6 @@ import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { RecordDetailDrawer } from '#components/record-detail-drawer';
 import { Button } from '#components/ui/button';
-import { Badge } from '#components/ui/badge';
 import { Failure, Loading } from '../work-items/states.js';
 import { useOnboardingResource, useViewerKey } from './resource.js';
 import { resource, type Detail, type Source } from './types.js';
@@ -41,7 +41,7 @@ function Private({ id, kind }: { id: string; kind: 'bank' | 'salary' }) {
         r.loading ? (
           <Loading />
         ) : r.error ? (
-          <Failure error={r.error} retry={r.reload} />
+          <Failure module='onboarding' error={r.error} retry={r.reload} />
         ) : (
           <dl>
             {Object.entries(r.data?.data ?? {}).map(([key, value]) => (
@@ -82,15 +82,7 @@ function Body() {
     <RecordDetailDrawer
       headerStatus={
         d ? (
-          <StatusBadge
-            tone={
-              ['approved', 'completed', 'issued', 'active'].includes(
-                d.record.status,
-              )
-                ? 'success'
-                : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(d.record.status)}>
             {t(`onboarding.states.${d.record.status}`)}
           </StatusBadge>
         ) : null
@@ -121,7 +113,7 @@ function Body() {
       {r.loading ? (
         <Loading />
       ) : r.error ? (
-        <Failure error={r.error} retry={r.reload} />
+        <Failure module='onboarding' error={r.error} retry={r.reload} />
       ) : d ? (
         <div className='flex flex-col gap-5'>
           <dl className='grid gap-3 sm:grid-cols-2'>
@@ -164,11 +156,13 @@ function Body() {
                 )}
               </h3>
               <div className='flex flex-wrap gap-2'>
-                <Badge variant='secondary'>
+                <StatusBadge tone={statusTone(task.status)}>
                   {t(`onboarding.states.${task.status}`)}
-                </Badge>
+                </StatusBadge>
                 {task.forced ? (
-                  <Badge variant='destructive'>{t('onboarding.forced')}</Badge>
+                  <StatusBadge tone='warning'>
+                    {t('onboarding.forced')}
+                  </StatusBadge>
                 ) : null}
               </div>
               <p>

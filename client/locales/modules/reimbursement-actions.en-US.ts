@@ -9,6 +9,17 @@ export default {
       'This action is no longer available. Read the latest reimbursement.',
     unsupported:
       'This action needs an input contract that this page does not support.',
+    submitRequirements:
+      'Approval uses the reason and expense lines saved in the draft. Edit the reimbursement to enter its reason, expense categories, dates, amounts and invoice numbers, and select evidence files for every line.',
+    reasonRequired:
+      'The draft has no reimbursement reason. Edit the reimbursement first.',
+    linesRequired:
+      'The draft has no expense lines. Edit the reimbursement and upload evidence files first.',
+    lineIncomplete:
+      'Expense line {{number}} is incomplete. Add a category, date, positive amount, invoice number and evidence files.',
+    duplicateLines:
+      'Expense lines are duplicated. Edit the reimbursement and review its lines.',
+    editDraft: 'Edit reimbursement',
     comment: 'Opinion or reason',
     person: 'Recipient',
     mode: 'Signer position',

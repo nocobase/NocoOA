@@ -10,7 +10,7 @@ export function FieldList({
   }[];
 }): ReactElement {
   return (
-    <dl className='grid grid-cols-[8rem_1fr] gap-x-4 gap-y-3 text-sm'>
+    <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm'>
       {items.map((item) => (
         <FieldRow key={item.label} label={item.label} value={item.value} />
       ))}

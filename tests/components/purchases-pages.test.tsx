@@ -699,15 +699,20 @@ it('preserves receipt date and notes after loading a new order version', async (
         exact: true,
       }),
     );
-  await user.click(
-    await screen.findByRole('button', { name: 'Load latest', exact: true }),
-  );
+  const latestButton = await screen.findByRole('button', {
+    name: 'Load latest',
+    exact: true,
+  });
+  const readsBeforeReload = api.request.mock.calls.filter(
+    ([request]) => request.path === 'purchaseOrders/order1',
+  ).length;
+  await user.click(latestButton);
   await waitFor(() =>
     expect(
       api.request.mock.calls.filter(
         ([request]) => request.path === 'purchaseOrders/order1',
       ),
-    ).toHaveLength(3),
+    ).toHaveLength(readsBeforeReload + 1),
   );
   expect(screen.getByLabelText(/Receipt date/)).toHaveValue('2026-10-11');
   expect(screen.getByLabelText(/Reason/)).toHaveValue(

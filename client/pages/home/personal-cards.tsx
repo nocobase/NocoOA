@@ -32,7 +32,7 @@ export function PersonalCards() {
   });
   if (!session) return null;
   return (
-    <div className='grid items-start gap-4 lg:grid-cols-3'>
+    <div className='flex flex-col items-stretch gap-4 lg:flex-row'>
       <LeaveCard />
       {meetings.can && !meetings.isPending && !meetings.error ? (
         <MeetingCard
@@ -64,7 +64,7 @@ function SummaryCard({
 }) {
   const { t } = useTranslation();
   return (
-    <Card className='min-w-0'>
+    <Card className='min-w-0 flex-1'>
       <CardHeader>
         <CardTitle>
           <h2>{t(title)}</h2>
@@ -86,7 +86,7 @@ function SummaryCard({
           children
         )}
       </CardContent>
-      <CardFooter className='flex flex-wrap gap-2'>
+      <CardFooter className='mt-auto flex flex-wrap gap-2'>
         <Button variant='outline' size='sm' disabled={loading} onClick={reload}>
           {t('approvals.refresh')}
         </Button>

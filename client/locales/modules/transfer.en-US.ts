@@ -1,4 +1,33 @@
 export default {
+  businessErrors: {
+    TRANSFER_INVALID_DATE:
+      'Select a valid effective date for the personnel change.',
+    TRANSFER_NO_CHANGE:
+      'No business details changed. Modify at least one permitted field.',
+    TRANSFER_SALARY_INVALID:
+      'Enter a valid salary amount within the supported range.',
+    TRANSFER_RATIO_INVALID:
+      'Check the salary adjustment ratio against the configured limit.',
+    TRANSFER_INVALID_PROMOTION:
+      'The selected grade does not qualify as a promotion. Check the current and target grades.',
+    TRANSFER_TARGET_DEPARTMENT_UNAVAILABLE:
+      'Select an active target department.',
+    TRANSFER_TARGET_POSITION_UNAVAILABLE:
+      'Select an active position in the target department.',
+    TRANSFER_ACCOUNT_UNAVAILABLE:
+      'Select a matching initialized headcount account with sufficient capacity.',
+    TRANSFER_YEAR_REBIND_REQUIRED:
+      'The year changed. Rebind the request to the matching annual headcount account.',
+    TRANSFER_SOURCE_CHANGED:
+      "The employee's current assignment changed. Refresh and revise the proposal.",
+    TRANSFER_COMPENSATION_CHANGED:
+      "The employee's salary changed. Refresh before revising compensation.",
+    TRANSFER_NOT_DUE:
+      'The effective date has not arrived. Wait until the scheduled date.',
+    TRANSFER_INVALID_KINDS:
+      'Choose the personnel change types that match the changed fields.',
+  },
+
   moreActions: 'More actions',
   return: 'Return',
   destructiveConsequence:

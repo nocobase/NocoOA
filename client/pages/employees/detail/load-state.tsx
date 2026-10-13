@@ -52,7 +52,10 @@ export function TabSkeleton(): ReactElement {
       className='flex flex-col gap-3 rounded-lg border p-6'
     >
       {Array.from({ length: 5 }, (_, index) => (
-        <div key={index} className='grid grid-cols-[8rem_1fr] gap-4'>
+        <div
+          key={index}
+          className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-4'
+        >
           <Skeleton className='h-4 w-20' />
           <Skeleton className='h-4 w-48' />
         </div>

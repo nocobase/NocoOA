@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApprovalProgress } from '#components/approval-progress';
 import { useEffect, useMemo, useReducer } from 'react';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -221,19 +222,7 @@ export default function ProbationDetailPage() {
     <RecordDetailDrawer
       headerStatus={
         data ? (
-          <StatusBadge
-            tone={
-              ['approved'].includes(data.record.status)
-                ? 'success'
-                : ['rejected', 'terminated'].includes(data.record.status)
-                  ? 'warning'
-                  : ['draft', 'revision', 'withdrawn'].includes(
-                        data.record.status,
-                      )
-                    ? 'neutral'
-                    : 'info'
-            }
-          >
+          <StatusBadge tone={statusTone(data.record.status)}>
             {t(`probationRequests.statuses.${data.record.status}`)}
           </StatusBadge>
         ) : null

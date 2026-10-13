@@ -322,3 +322,14 @@ it('already initialized reconciliation shows a terminal explanation', async () =
     screen.getByRole('button', { name: 'Confirm initialization', exact: true }),
   ).toBeDisabled();
 });
+
+it('does not present uninitialized availability as usable capacity or group the year', async () => {
+  mount();
+  await screen.findByText('Engineering / Engineer / 2026');
+  expect(screen.getByText('2026')).toBeVisible();
+  expect(screen.queryByText('2,026')).not.toBeInTheDocument();
+  expect(screen.queryByText('4')).not.toBeInTheDocument();
+  expect(screen.getAllByText('Not initialized').length).toBeGreaterThanOrEqual(
+    2,
+  );
+});

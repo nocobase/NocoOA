@@ -1,10 +1,11 @@
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { ApplicationSearch } from '#components/application-search';
 import { useCallback, useMemo, useState } from 'react';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Link, Outlet, useLocation, useResolvedPath } from 'react-router';
 import { format, parseISO } from 'date-fns';
-import { MoreHorizontal, RefreshCw, Plus, Eye, Pencil } from 'lucide-react';
+import { MoreHorizontal, Plus, Eye, Pencil } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -279,31 +280,26 @@ export default function AttendanceManagementPage() {
             <Loading />
           ) : view.error || !allowed ? (
             <Failure error={view.error} denied={!view.can} />
+          ) : context.error ? (
+            <Failure error={context.error} retry={context.reload} />
+          ) : !context.data ? (
+            <Loading />
           ) : (
             <>
-              {context.error ? (
-                <Failure error={context.error} retry={context.reload} />
-              ) : context.data ? (
-                <p className='text-sm text-muted-foreground'>
-                  {t('attendanceManagement.timeZone')}:{' '}
-                  {context.data.data.timeZone}
-                </p>
-              ) : (
-                <Loading />
-              )}
+              <p className='text-sm text-muted-foreground'>
+                {t('attendanceManagement.timeZone')}:{' '}
+                {context.data.data.timeZone}
+              </p>
               {tab === 'shifts' ? (
                 <>
                   <ApplicationToolbar
                     actions={
                       <>
-                        <Button
-                          variant='outline'
+                        <ApplicationRefreshButton
+                          label={t('attendanceManagement.refresh')}
                           onClick={reload}
-                          disabled={shifts.loading}
-                        >
-                          <RefreshCw data-icon='inline-start' />
-                          {t('attendanceManagement.refresh')}
-                        </Button>
+                          loading={shifts.loading}
+                        />
                         {canManage ? (
                           <Button
                             nativeButton={false}
@@ -397,14 +393,11 @@ export default function AttendanceManagementPage() {
                   <ApplicationToolbar
                     actions={
                       <>
-                        <Button
-                          variant='outline'
+                        <ApplicationRefreshButton
+                          label={t('attendanceManagement.refresh')}
                           onClick={reload}
-                          disabled={schedule.loading}
-                        >
-                          <RefreshCw data-icon='inline-start' />
-                          {t('attendanceManagement.refresh')}
-                        </Button>
+                          loading={schedule.loading}
+                        />
                         {canManage ? (
                           <Button
                             nativeButton={false}
@@ -477,7 +470,7 @@ export default function AttendanceManagementPage() {
                     </Alert>
                   ) : (
                     <div className='flex flex-col gap-4'>
-                      <dl className='grid grid-cols-[8rem_1fr] gap-3 text-sm'>
+                      <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-3 text-sm'>
                         <dt>{t('attendanceManagement.date')}</dt>
                         <dd>
                           {new Intl.DateTimeFormat(i18n.language, {

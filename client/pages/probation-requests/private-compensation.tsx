@@ -120,7 +120,7 @@ export function PrivateCompensationSection({
               {t('status.loading')}
             </p>
           ) : null}
-          <dl className='grid gap-4 sm:grid-cols-[8rem_1fr]'>
+          <dl className='grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]'>
             <dt className='text-muted-foreground'>{f('grade')}</dt>
             <dd className='min-w-0 break-words'>
               {grades?.find((g) => g.id === data.gradeId)?.title ??

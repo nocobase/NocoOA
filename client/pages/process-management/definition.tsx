@@ -16,6 +16,7 @@ import { RouteChildPage } from '#components/route-child-page';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { Button } from '#components/ui/button';
+import { Badge } from '#components/ui/badge';
 import {
   Card,
   CardHeader,
@@ -127,154 +128,158 @@ export default function ProcessDefinitionPage() {
         ) : (
           data && (
             <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {t('processManagement.definitionGraph')}
-                  </CardTitle>
-                  <CardDescription>
-                    {t('processManagement.graphDescription')}{' '}
-                    {t('processManagement.snapshotConditions')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ProcessGraph
-                    definition
-                    configurableNodes={configurableNodes}
-                    onConfigure={(node) => {
-                      void navigate({
-                        pathname: `${pagePath}/nodes/${encodeURIComponent(node)}/settings`,
-                        search: location.search,
-                        hash: location.hash,
-                      });
-                    }}
-                    states={data.states}
-                    initial={data.initial}
-                    edges={data.transitions.flatMap((edge) =>
-                      edge.from.flatMap((from) =>
-                        edge.to.map((to) => ({
-                          from,
-                          to,
-                          name: edge.name,
-                          conditional:
-                            edge.name !== 'edit' && edge.to.length > 1,
-                          condition: edge.conditions[to],
-                        })),
-                      ),
-                    )}
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('processManagement.rules')}</CardTitle>
-                  <CardDescription>
-                    {t('processManagement.dynamicPeople')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className='flex flex-col gap-6'>
-                    {data.states.map((state) => {
-                      const stage = data.stages.find(
-                        (item) => item.name === state.name,
-                      );
-                      const transitions = data.transitions.filter((edge) =>
-                        edge.from.includes(state.name),
-                      );
-                      if (!stage && !transitions.length) return null;
-                      return (
-                        <section
-                          key={state.name}
-                          className='flex flex-col gap-2'
-                        >
-                          <h3 className='font-medium'>
-                            <State value={state.name} />
-                          </h3>
-                          {stage && (
-                            <div className='flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground'>
-                              <span>
-                                {t('processManagement.policy')}:{' '}
-                                {t(
-                                  `processManagement.policies.${stage.policy}`,
-                                  { defaultValue: stage.policy },
-                                )}
-                              </span>
-                              <span>
-                                {t('processManagement.peopleSource')}:{' '}
-                                {t(
-                                  `processManagement.peopleSources.${stage.peopleSource}`,
-                                )}
-                              </span>
-                              <span>
-                                {t('processManagement.coveredCount', {
-                                  count: stage.covered.length,
-                                })}
-                              </span>
-                            </div>
-                          )}
-                          <ul className='flex flex-col gap-2 text-sm'>
-                            {transitions.flatMap((edge) =>
-                              // Editable state unions describe content edits, not cross-state changes.
-                              edge.to
-                                .filter(
-                                  (to) =>
-                                    edge.name !== 'edit' || to === state.name,
-                                )
-                                .map((to) => (
-                                  <li
-                                    key={`${edge.name}:${to}`}
-                                    className='flex flex-wrap items-baseline gap-2'
-                                  >
-                                    <span>
-                                      {text.transition(edge.name)} →{' '}
-                                      {text.state(to)}
-                                    </span>
-                                    <span className='text-xs text-muted-foreground'>
-                                      {t(
-                                        edge.manual
-                                          ? 'processManagement.manual'
-                                          : 'processManagement.automatic',
-                                      )}
-                                    </span>
-                                    {edge.conditions[to] && (
-                                      <span className='text-muted-foreground'>
+              <div className='grid items-stretch gap-6 lg:grid-cols-2'>
+                <Card className='min-w-0'>
+                  <CardHeader>
+                    <CardTitle>
+                      {t('processManagement.definitionGraph')}
+                    </CardTitle>
+                    <CardDescription>
+                      {t('processManagement.graphDescription')}{' '}
+                      {t('processManagement.snapshotConditions')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ProcessGraph
+                      definition
+                      configurableNodes={configurableNodes}
+                      onConfigure={(node) => {
+                        void navigate({
+                          pathname: `${pagePath}/nodes/${encodeURIComponent(node)}/settings`,
+                          search: location.search,
+                          hash: location.hash,
+                        });
+                      }}
+                      states={data.states}
+                      initial={data.initial}
+                      edges={data.transitions.flatMap((edge) =>
+                        edge.from.flatMap((from) =>
+                          edge.to.map((to) => ({
+                            from,
+                            to,
+                            name: edge.name,
+                            conditional:
+                              edge.name !== 'edit' && edge.to.length > 1,
+                            condition: edge.conditions[to],
+                          })),
+                        ),
+                      )}
+                    />
+                    <section className='mt-6 flex flex-col gap-2 border-t pt-4'>
+                      <h3 className='text-sm font-medium'>
+                        {t('processManagement.capabilities')}
+                      </h3>
+                      <div className='flex flex-wrap gap-2 text-sm'>
+                        {data.capabilities.length ? (
+                          data.capabilities.map((action) => (
+                            <Badge key={action} variant='secondary'>
+                              {t(`processManagement.${action}`)}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span>{t('processManagement.readOnly')}</span>
+                        )}
+                      </div>
+                      <p className='text-sm text-muted-foreground'>
+                        {t('processManagement.safeHistory')}
+                      </p>
+                    </section>
+                  </CardContent>
+                </Card>
+                <Card className='min-w-0'>
+                  <CardHeader>
+                    <CardTitle>{t('processManagement.rules')}</CardTitle>
+                    <CardDescription className='text-xs'>
+                      {t('processManagement.dynamicPeople')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className='text-xs leading-5'>
+                    <div className='flex flex-col gap-4'>
+                      {data.states.map((state) => {
+                        const stage = data.stages.find(
+                          (item) => item.name === state.name,
+                        );
+                        const transitions = data.transitions.filter((edge) =>
+                          edge.from.includes(state.name),
+                        );
+                        if (!stage && !transitions.length) return null;
+                        return (
+                          <section
+                            key={state.name}
+                            className='flex flex-col gap-1.5'
+                          >
+                            <h3 className='text-sm font-medium'>
+                              <State value={state.name} />
+                            </h3>
+                            {stage && (
+                              <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground'>
+                                <span>
+                                  {t('processManagement.policy')}:{' '}
+                                  {t(
+                                    `processManagement.policies.${stage.policy}`,
+                                    { defaultValue: stage.policy },
+                                  )}
+                                </span>
+                                <span>
+                                  {t('processManagement.peopleSource')}:{' '}
+                                  {t(
+                                    `processManagement.peopleSources.${stage.peopleSource}`,
+                                  )}
+                                </span>
+                                <span>
+                                  {t('processManagement.coveredCount', {
+                                    count: stage.covered.length,
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                            <ul className='flex flex-col gap-1 text-xs'>
+                              {transitions.flatMap((edge) =>
+                                // Editable state unions describe content edits, not cross-state changes.
+                                edge.to
+                                  .filter(
+                                    (to) =>
+                                      edge.name !== 'edit' || to === state.name,
+                                  )
+                                  .map((to) => (
+                                    <li
+                                      key={`${edge.name}:${to}`}
+                                      className='flex flex-wrap items-baseline gap-2'
+                                    >
+                                      <span>
+                                        {text.transition(edge.name)} →{' '}
+                                        {text.state(to)}
+                                      </span>
+                                      <span className='text-xs text-muted-foreground'>
                                         {t(
-                                          `processManagement.branchConditions.${edge.conditions[to]}`,
+                                          edge.manual
+                                            ? 'processManagement.manual'
+                                            : 'processManagement.automatic',
                                         )}
                                       </span>
-                                    )}
-                                  </li>
-                                )),
-                            )}
-                          </ul>
-                        </section>
-                      );
-                    })}
-                  </div>
-                  <p className='mt-4 text-sm text-muted-foreground'>
-                    {t('processManagement.frozenCount', {
-                      count: data.frozen.length,
-                    })}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('processManagement.capabilities')}</CardTitle>
-                  <CardDescription>
-                    {t('processManagement.safeHistory')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {data.capabilities.length ? (
-                    data.capabilities.map((action) => (
-                      <p key={action}>{t(`processManagement.${action}`)}</p>
-                    ))
-                  ) : (
-                    <p>{t('processManagement.readOnly')}</p>
-                  )}
-                </CardContent>
-              </Card>
+                                      {edge.conditions[to] && (
+                                        <span className='text-muted-foreground'>
+                                          {t(
+                                            `processManagement.branchConditions.${edge.conditions[to]}`,
+                                          )}
+                                        </span>
+                                      )}
+                                    </li>
+                                  )),
+                              )}
+                            </ul>
+                          </section>
+                        );
+                      })}
+                    </div>
+                    <p className='mt-4 text-xs text-muted-foreground'>
+                      {t('processManagement.frozenCount', {
+                        count: data.frozen.length,
+                      })}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
               <Card>
                 <CardHeader>
                   <CardTitle>{t('processManagement.executions')}</CardTitle>
@@ -313,25 +318,20 @@ export default function ProcessDefinitionPage() {
                       onClear={() => {}}
                     />
                   )}
-                </CardContent>
-              </Card>
-              {recent.data && (
-                <Button
-                  variant='outline'
-                  nativeButton={false}
-                  render={
+                  <div className='mt-4 border-t pt-4'>
                     <Link
+                      className='text-sm text-primary underline-offset-4 hover:underline'
                       to={{
                         pathname: '../../executions',
                         search: new URLSearchParams({ kind }).toString(),
                         hash: location.hash,
                       }}
-                    />
-                  }
-                >
-                  {t('processManagement.viewExecutions')}
-                </Button>
-              )}
+                    >
+                      {t('processManagement.viewExecutions')}
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             </>
           )
         )}

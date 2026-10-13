@@ -1,3 +1,6 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { useMemo } from 'react';
@@ -17,7 +20,6 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from '#components/ui/tooltip';
-import { Badge } from '#components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '#components/ui/tabs';
 import { useUrlSearch } from '#hooks/use-url-search';
 import { OptionSelect } from './select.js';
@@ -85,7 +87,7 @@ export default function WorkItemsPage() {
       ),
       cell: ({ row }) => (
         <Link
-          className='text-primary underline break-words'
+          className='font-medium text-foreground underline-offset-4 hover:underline break-words'
           to={{
             pathname: `${basePath}/${row.original.id}`,
             search: location.search,
@@ -125,10 +127,12 @@ export default function WorkItemsPage() {
       ),
       cell: ({ row }) => (
         <div className='flex flex-wrap gap-1'>
-          <Badge variant='secondary'>
+          <StatusBadge tone={statusTone(row.original.status)}>
             {t(`workItems.states.${row.original.status}`)}
-          </Badge>
-          {row.original.forced ? <Badge>{t('workItems.forced')}</Badge> : null}
+          </StatusBadge>
+          {row.original.forced ? (
+            <StatusBadge tone='warning'>{t('workItems.forced')}</StatusBadge>
+          ) : null}
         </div>
       ),
     },
@@ -145,7 +149,7 @@ export default function WorkItemsPage() {
             timeZone: ctx.data?.data.timeZone ?? 'UTC',
           }).format(new Date(row.original.dueAt))}
           {row.original.overdue ? (
-            <Badge variant='destructive'>{t('workItems.overdue')}</Badge>
+            <StatusBadge tone='warning'>{t('workItems.overdue')}</StatusBadge>
           ) : null}
         </div>
       ),
@@ -286,11 +290,28 @@ export default function WorkItemsPage() {
                     p.delete('page');
                   })
                 }
-                emptyMessage={t(
-                  search || status !== 'all' || overdue !== 'all'
-                    ? 'workItems.noMatches'
-                    : 'workItems.empty',
-                )}
+                emptyMessage={
+                  <ApplicationTableEmpty
+                    title={t(
+                      search || status !== 'all' || overdue !== 'all'
+                        ? 'workItems.noMatches'
+                        : 'workItems.empty',
+                    )}
+                    clearFilters={
+                      search || status !== 'all' || overdue !== 'all'
+                        ? {
+                            label: t('workItems.clear'),
+                            onClick: () =>
+                              clear((p) => {
+                                ['status', 'overdue', 'page'].forEach((k) =>
+                                  p.delete(k),
+                                );
+                              }),
+                          }
+                        : undefined
+                    }
+                  />
+                }
               />
             ) : null}
           </>

@@ -244,7 +244,7 @@ export default function HeadcountDetail() {
         {r.loading && !r.data ? <Loading /> : null}
         {r.data ? (
           <>
-            <dl className='grid grid-cols-1 gap-4 sm:grid-cols-[8rem_1fr]'>
+            <dl className='grid grid-cols-1 gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]'>
               {fields.map((key) => (
                 <Fragment key={key}>
                   <dt className='text-muted-foreground'>
@@ -271,6 +271,10 @@ export default function HeadcountDetail() {
                         dateStyle: 'medium',
                         timeStyle: 'short',
                       }).format(new Date(r.data!.data[key]))
+                    ) : key === 'year' ? (
+                      String(r.data!.data.year)
+                    ) : key === 'available' && !r.data!.data.initialized ? (
+                      t('headcounts.uninitialized')
                     ) : typeof r.data!.data[key] === 'number' ? (
                       new Intl.NumberFormat(i18n.language).format(
                         Number(r.data!.data[key]),

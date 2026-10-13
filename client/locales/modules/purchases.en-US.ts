@@ -1,5 +1,25 @@
 export default {
   purchases: {
+    businessErrors: {
+      PURCHASE_INVALID_ITEMS:
+        'Each purchase item needs a name, unit and positive quantity. Check for duplicate items.',
+      PURCHASE_INVALID_DATE: 'Select a valid expected receipt date.',
+      PURCHASE_INVALID_PRICE:
+        'Enter a positive actual price, select a supplier and attach its quote evidence.',
+      PURCHASE_INVALID_QUOTES:
+        'A quote file cannot be reused for different suppliers. Select separate evidence.',
+      PURCHASE_QUOTES_REQUIRED:
+        'This amount requires quotes from three different suppliers, each with an attachment.',
+      PURCHASE_PRICE_CONFIRMATION_REQUIRED:
+        'Revise the estimated budget to the confirmed quoted price before resubmitting.',
+      PURCHASE_INVALID_INPUT:
+        'Add purchase items and a purpose, and enter a positive estimated amount.',
+      PURCHASE_DEPARTMENT_REQUIRED:
+        'The applicant needs an active primary department. Ask HR to update the employee record.',
+      INVALID_RECEIPT:
+        'Select the actual receipt date and enter a receipt confirmation reason.',
+    },
+
     discardThenNavigate:
       'Discard these unsaved changes? After confirming, select your destination again.',
     localInputsRetained:

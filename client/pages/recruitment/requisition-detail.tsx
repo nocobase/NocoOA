@@ -66,7 +66,7 @@ export default function RequisitionDetail() {
       ) : r.loading ? (
         <Loading />
       ) : record ? (
-        <dl className='grid grid-cols-[8rem_1fr] gap-3'>
+        <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-3'>
           {(
             [
               'id',

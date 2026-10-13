@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { ApiClientError, useApiClient, useToaster } from '@nocobase/app-client';
 import { useLocale, useTranslation } from '@nocobase/i18n/client';
@@ -8,7 +9,6 @@ import {
   PowerOffIcon,
   SearchIcon,
   UsersIcon,
-  UsersRoundIcon,
 } from 'lucide-react';
 import {
   type ReactElement,
@@ -43,13 +43,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#components/ui/dropdown-menu';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#components/ui/empty';
 import {
   InputGroup,
   InputGroupAddon,
@@ -349,21 +342,6 @@ export default function DutyRolesPage(): ReactElement {
     );
   } else if (!roles || !allRoles) {
     content = <TableSkeleton />;
-  } else if (allRoles.length === 0) {
-    // Roles are seeded; an empty pool means the seed has not run. Nothing to create here.
-    content = (
-      <Empty className='min-h-48 border border-dashed'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <UsersRoundIcon />
-          </EmptyMedia>
-          <EmptyTitle>{t('org.dutyRoles.emptyTitle')}</EmptyTitle>
-          <EmptyDescription>
-            {t('org.dutyRoles.emptyDescription')}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
   } else {
     content = (
       <DataTable
@@ -373,12 +351,21 @@ export default function DutyRolesPage(): ReactElement {
         showSelectedCount={false}
         pageSize={20}
         emptyMessage={
-          <div className='flex flex-col items-center gap-2'>
-            <span>{t('org.common.noResults')}</span>
-            <Button variant='link' size='sm' onClick={clearFilters}>
-              {t('org.common.clearFilters')}
-            </Button>
-          </div>
+          <ApplicationTableEmpty
+            title={
+              hasFilters
+                ? t('org.common.noResults')
+                : t('org.dutyRoles.emptyTitle')
+            }
+            description={
+              hasFilters ? undefined : t('org.dutyRoles.emptyDescription')
+            }
+            clearFilters={
+              hasFilters
+                ? { label: t('org.common.clearFilters'), onClick: clearFilters }
+                : undefined
+            }
+          />
         }
       />
     );

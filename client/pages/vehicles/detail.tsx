@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { StatusBadge } from '#components/status-badge';
 import { UserName } from '#components/user-name';
 import {
@@ -146,15 +147,7 @@ export default function RequestDetail() {
     <RecordDetailDrawer
       headerStatus={
         record ? (
-          <StatusBadge
-            tone={
-              ['approved', 'completed', 'issued', 'active'].includes(
-                record.status,
-              )
-                ? 'success'
-                : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(record.status)}>
             {t(`vehicles.status.${record.status}`)}
           </StatusBadge>
         ) : null

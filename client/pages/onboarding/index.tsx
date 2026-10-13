@@ -1,3 +1,7 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { UserName } from '#components/user-name';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -8,7 +12,7 @@ import {
   useResolvedPath,
   useSearchParams,
 } from 'react-router';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -16,7 +20,6 @@ import { ApplicationToolbar } from '#components/application-toolbar';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
 import { DataTableServer } from '#components/data-table';
 import { Button } from '#components/ui/button';
-import { Badge } from '#components/ui/badge';
 import { OptionSelect } from '../work-items/select.js';
 import { Failure } from '../work-items/states.js';
 import { useOnboardingResource } from './resource.js';
@@ -52,7 +55,7 @@ export default function List() {
       header: t('onboarding.employee'),
       cell: ({ row }) => (
         <Link
-          className='text-primary underline'
+          className='font-medium text-foreground underline-offset-4 hover:underline'
           to={{
             pathname: `${basePath}/${row.original.id}`,
             search: location.search,
@@ -73,9 +76,9 @@ export default function List() {
       accessorKey: 'status',
       header: t('onboarding.status'),
       cell: ({ row }) => (
-        <Badge variant='secondary'>
+        <StatusBadge tone={statusTone(row.original.status)}>
           {t(`onboarding.states.${row.original.status}`)}
-        </Badge>
+        </StatusBadge>
       ),
     },
   ];
@@ -95,14 +98,11 @@ export default function List() {
             <ApplicationToolbar
               actions={
                 <>
-                  <Button
-                    variant='outline'
-                    disabled={r.loading}
+                  <ApplicationRefreshButton
+                    label={t('onboarding.refresh')}
+                    loading={r.loading}
                     onClick={r.reload}
-                  >
-                    <RefreshCw />
-                    {t('onboarding.refresh')}
-                  </Button>
+                  />
                   {create.can && !create.isPending && !create.error ? (
                     <Button
                       nativeButton={false}
@@ -143,7 +143,7 @@ export default function List() {
             {r.loading && !r.data ? (
               <ApplicationTableSkeleton columns={4} />
             ) : r.error ? (
-              <Failure error={r.error} retry={r.reload} />
+              <Failure module='onboarding' error={r.error} retry={r.reload} />
             ) : r.data ? (
               <DataTableServer
                 columns={columns}
@@ -159,7 +159,24 @@ export default function List() {
                     return old;
                   })
                 }
-                emptyMessage={t('onboarding.empty')}
+                emptyMessage={
+                  <ApplicationTableEmpty
+                    title={t('onboarding.empty')}
+                    clearFilters={
+                      status
+                        ? {
+                            label: t('onboarding.clear'),
+                            onClick: () =>
+                              setParams((p) => {
+                                p.delete('status');
+                                p.delete('page');
+                                return p;
+                              }),
+                          }
+                        : undefined
+                    }
+                  />
+                }
               />
             ) : null}
           </>

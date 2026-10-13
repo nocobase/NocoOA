@@ -436,6 +436,20 @@ function BusinessForm({
   }
   async function save(values: z.infer<typeof schema>) {
     if (runningRef.current || locked || uploadBusy) return;
+    if (
+      submission.intent.current === 'submit' &&
+      kind === 'attendanceChange' &&
+      !values.proof.trim() &&
+      !values.attachments.length
+    ) {
+      form.setError('proof', {
+        message: t('attendanceChange.errors.ATTENDANCE_CHANGE_PROOF_REQUIRED'),
+      });
+      requestAnimationFrame(() =>
+        document.getElementById('business-proof')?.focus(),
+      );
+      return;
+    }
     runningRef.current = true;
     onBusy(true);
     setError(undefined);
@@ -670,22 +684,27 @@ function BusinessForm({
           </Field>
           {kind === 'attendanceChange' ? (
             <>
-              <Field>
+              <Field data-invalid={!!form.formState.errors.proof}>
                 <FieldLabel htmlFor='business-proof'>
                   {t('attendanceChange.proof')}
                 </FieldLabel>
                 <Textarea
                   id='business-proof'
                   {...form.register('proof')}
+                  aria-invalid={!!form.formState.errors.proof}
                   disabled={disabled}
                 />
               </Field>
+              {form.formState.errors.proof && (
+                <FieldError errors={[form.formState.errors.proof]} />
+              )}
               <AttendanceChangeAttachmentEditor
                 attendanceChangeId={record?.id}
                 ids={selectedAttachments}
-                onChange={(ids) =>
-                  form.setValue('attachments', ids, { shouldDirty: true })
-                }
+                onChange={(ids) => {
+                  form.setValue('attachments', ids, { shouldDirty: true });
+                  if (ids.length) form.clearErrors('proof');
+                }}
                 ensureDraft={async () => {
                   if (record) return record.id;
                   if (!(await form.trigger()))

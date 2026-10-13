@@ -1,5 +1,22 @@
 export default {
   travel: {
+    businessErrors: {
+      TRAVEL_ITINERARY_REQUIRED:
+        'International travel requires an itinerary attachment. Upload or select one before submitting.',
+      TRAVEL_OVERLAP:
+        'This period overlaps an approved trip. Adjust the travel dates.',
+      TRAVEL_COMPANIONS_INVALID:
+        'Select distinct companions other than the applicant.',
+      TRAVEL_COMPANION_INACTIVE:
+        'A selected traveller is no longer active. Select current employees again.',
+      TRAVEL_DEPARTMENT_REQUIRED:
+        'The applicant needs an active primary department. Ask HR to update the employee record.',
+      TRAVEL_INVALID_DATE:
+        'The trip end must be later than its start. Check both dates and times.',
+      TRAVEL_INVALID_INPUT:
+        'Complete the destination and reason, and enter valid nonnegative travel costs.',
+    },
+
     requestLoan: 'Request linked loan',
     reviseTrip: 'Revise trip and restart approval',
     revisionWarning:
@@ -68,6 +85,7 @@ export default {
     configuration: 'The approval clock configuration is unsupported.',
     invalid: 'Check the request fields and reload the latest record if needed.',
     stages: {
+      completed: 'Completed',
       manager: 'Direct manager',
       head: 'Department head',
       finance: 'Finance',

@@ -6,7 +6,7 @@ import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { Input } from '#components/ui/input';
@@ -43,7 +43,7 @@ export default function RepaymentDialog() {
     [discard, setDiscard] = useState(false);
   const resolveRef = useRef<((v: boolean) => void) | null>(null);
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t('loanRequests.recordCash')}
       beforeClose={() => {
         if (busy) return false;
@@ -96,7 +96,7 @@ export default function RepaymentDialog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({ busy, disabled }: { busy: boolean; disabled: boolean }) {

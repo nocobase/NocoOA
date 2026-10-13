@@ -138,7 +138,7 @@ export default function AttendanceHistory() {
               displayTimeZone={company.data?.data.timeZone}
             />
           ) : schedule.data?.data ? (
-            <dl className='grid grid-cols-[8rem_1fr] gap-3 text-sm'>
+            <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-3 text-sm'>
               <dt>{t('attendanceManagement.date')}</dt>
               <dd>{schedule.data.data.date}</dd>
               <dt>{t('attendanceManagement.version')}</dt>
@@ -219,7 +219,7 @@ export function ShiftRevisionDetail({
   const { t, i18n } = useTranslation();
   return (
     <div className='flex flex-col gap-4'>
-      <dl className='grid grid-cols-[8rem_1fr] gap-3 text-sm'>
+      <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-3 text-sm'>
         <dt>{t('attendanceManagement.name')}</dt>
         <dd className='break-words'>{revision.name}</dd>
         <dt>{t('attendanceManagement.version')}</dt>

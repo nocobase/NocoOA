@@ -683,6 +683,7 @@ describe('approval action dialog', () => {
       '/approvals/done/leave/l1/action/approve/run-1?q=Alice',
     );
     const dialog = await screen.findByRole('dialog', { name: /^Approve/ });
+    expect(dialog).toHaveAttribute('data-presentation', 'drawer');
     expect(
       await within(dialog).findByText('Fresh reason for this decision'),
     ).toBeInTheDocument();

@@ -1,9 +1,25 @@
 export default {
   vehicles: {
+    businessErrors: {
+      VEHICLE_INVALID_INTERVAL:
+        'Enter an ordered trip interval and a positive passenger count.',
+      VEHICLE_NO_AVAILABLE_CAPACITY:
+        'No vehicle can carry this many people in the selected period. Adjust the time or passenger count.',
+      VEHICLE_TYPE_INACTIVE: 'Select an enabled vehicle type.',
+      VEHICLE_UNAVAILABLE: 'Select an active vehicle with enough seats.',
+      VEHICLE_INVALID_USAGE: 'Enter valid nonnegative mileage and fuel usage.',
+      VEHICLE_NOT_DISPATCHED:
+        'The vehicle has not been dispatched. Record usage after dispatch.',
+      VEHICLE_OUTSTANDING_USE:
+        'Complete outstanding vehicle usage before disabling this driver.',
+      VEHICLE_CONTENT_CHANGED:
+        'The approved trip changed. Refresh before dispatching.',
+    },
+
     title: 'Vehicle requests',
     garage: 'Vehicle garage',
-    new: 'New request',
-    edit: 'Edit request',
+    new: 'New vehicle request',
+    edit: 'Edit vehicle request',
     newVehicle: 'New vehicle',
     editVehicle: 'Edit vehicle',
     newDriver: 'New driver',

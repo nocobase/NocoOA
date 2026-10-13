@@ -1,3 +1,4 @@
+import { useRouteFormCloseGuard } from '#hooks/use-route-form-close-guard';
 import { useState, useRef } from 'react';
 import {
   useLocation,
@@ -106,6 +107,12 @@ function AssignmentForm({
   const [confirm, setConfirm] = useState(false);
   const [discard, setDiscard] = useState(false);
   const allowLeaveRef = useRef(false);
+  useRouteFormCloseGuard(() => {
+    if (busy) return false;
+    if (allowLeaveRef.current || !changed.length) return true;
+    setDiscard(true);
+    return false;
+  });
   useNavigationGuard(
     () =>
       allowLeaveRef.current ||

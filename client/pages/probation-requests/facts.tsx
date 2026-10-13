@@ -78,7 +78,7 @@ export function ProbationFacts({
   ];
   return (
     <div className='flex flex-col gap-6'>
-      <dl className='grid gap-4 sm:grid-cols-[8rem_1fr]'>
+      <dl className='grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]'>
         {values.map(([label, value]) => (
           <div key={label} className='contents'>
             <dt className='text-muted-foreground'>{label}</dt>
@@ -91,7 +91,7 @@ export function ProbationFacts({
       <section className='flex flex-col gap-4'>
         <h2 className='text-base font-medium'>{f('rules')}</h2>
         {record.ruleSnapshot ? (
-          <dl className='grid gap-4 sm:grid-cols-[8rem_1fr]'>
+          <dl className='grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]'>
             {[
               'grade.managerRank',
               'sla.remindHours',

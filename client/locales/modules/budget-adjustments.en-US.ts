@@ -1,5 +1,17 @@
 export default {
   budgetAdjustments: {
+    businessErrors: {
+      BUDGET_ADJUSTMENT_INVALID_ACCOUNT:
+        'Select an active department and valid budget year.',
+      BUDGET_ADJUSTMENT_INVALID_AMOUNT:
+        'Enter a positive adjustment amount and a reason.',
+      BUDGET_ADJUSTMENT_INVALID_SUBJECT: 'Select an enabled budget subject.',
+      BUDGET_ADJUSTMENT_INVALID_TRANSFER:
+        'For a transfer, use different source and target subjects. For an increase, clear the source subject.',
+      BUDGET_ADJUSTMENT_INACTIVE_HEAD:
+        'The department head is unavailable. Ask an administrator to update the department assignment.',
+    },
+
     authz: {
       resource: 'Budget adjustments',
       submit: 'Submit a budget adjustment',

@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { UserNameText } from '#components/user-name';
 import { UserName } from '#components/user-name';
 import { useEffect, useRef, useState } from 'react';
@@ -93,9 +94,7 @@ function Body({ id }: { id: string }) {
     <RouteDrawer
       headerStatus={
         d ? (
-          <StatusBadge
-            tone={d.record.status === 'issued' ? 'success' : 'neutral'}
-          >
+          <StatusBadge tone={statusTone(d.record.status)}>
             {t(`certificates.states.${d.record.status}`)}
           </StatusBadge>
         ) : null

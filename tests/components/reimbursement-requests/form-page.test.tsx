@@ -240,6 +240,9 @@ it('reads a conflicting latest version without replacing typed input, then write
   );
   await screen.findByText(/Latest version read/);
   expect(screen.getByLabelText('Reason *')).toHaveValue('Retained');
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /Save draft/ })).toBeEnabled(),
+  );
   fireEvent.click(screen.getByRole('button', { name: /Save draft/ }));
   await waitFor(() =>
     expect(api.request).toHaveBeenCalledWith(

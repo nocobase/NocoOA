@@ -190,7 +190,7 @@ export default function BudgetDetail() {
         hash: location.hash,
       }}
     >
-      <div className='space-y-6'>
+      <div className='flex flex-col gap-6'>
         {r.error ? <BudgetError error={r.error} retry={r.reload} /> : null}
         {!b ? (
           r.loading ? (
@@ -210,7 +210,10 @@ export default function BudgetDetail() {
                   'availableCents',
                 ] as const
               ).map((key) => (
-                <div key={key} className='grid grid-cols-[8rem_1fr] gap-2'>
+                <div
+                  key={key}
+                  className='grid grid-cols-2 gap-2 sm:grid-cols-[8rem_1fr]'
+                >
                   <dt className='text-sm text-muted-foreground'>
                     {t(`budgets.${key}`)}
                   </dt>

@@ -180,7 +180,7 @@ export function useBatchApprove(
           {t('approvalCenter.batch.loading')}
         </p>
       ) : null}
-      {enabled && candidates.length > 0 ? (
+      {enabled && selected.length > 0 ? (
         <div className='flex flex-wrap items-center gap-2'>
           <Button
             variant='outline'

@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
@@ -198,19 +199,7 @@ export default function ReimbursementsPage() {
         header: t('approvals.status'),
         enableSorting: false,
         cell: ({ row }) => (
-          <StatusBadge
-            tone={
-              ['paid', 'forcedPaid'].includes(row.original.status)
-                ? 'success'
-                : ['exception', 'revision'].includes(row.original.status)
-                  ? 'warning'
-                  : ['draft', 'rejected', 'withdrawn', 'terminated'].includes(
-                        row.original.status,
-                      )
-                    ? 'neutral'
-                    : 'info'
-            }
-          >
+          <StatusBadge tone={statusTone(row.original.status)}>
             {t(`reimbursementRequests.statuses.${row.original.status}`)}
           </StatusBadge>
         ),

@@ -1,3 +1,21 @@
+import { StatusBadge as ApplicationStatusBadge } from '#components/status-badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '#components/ui/dialog';
+import { Input } from '#components/ui/input';
+import { Textarea } from '#components/ui/textarea';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '#components/ui/select';
 import { Button } from '#components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { ApplicationToolbar } from '#components/application-toolbar';
@@ -255,45 +273,28 @@ function TestNotificationDialog({
   };
 
   return (
-    <div
-      className='fixed inset-0 z-50 grid place-items-center bg-black/45 p-4'
-      role='presentation'
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !sending) onClose();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !sending) onClose();
       }}
     >
-      <section
-        aria-labelledby='notification-test-title'
-        aria-modal='true'
-        className='max-h-[calc(100svh-2rem)] w-full max-w-xl overflow-y-auto rounded-xl border bg-popover shadow-xl'
-        role='dialog'
+      <DialogContent
+        showCloseButton={!sending}
+        className='flex flex-col overflow-hidden sm:max-w-xl'
       >
-        <div className='flex items-start justify-between gap-4 border-b px-5 py-4'>
-          <div>
-            <h2 id='notification-test-title' className='font-semibold'>
-              {t('test.title', { defaultValue: 'Send test notification' })}
-            </h2>
-            <p className='mt-1 text-sm text-muted-foreground'>
-              {t('test.description', {
-                defaultValue:
-                  'Select a Channel, then click Send. The message is sent to the recipient you provide and recorded below.',
-              })}
-            </p>
-          </div>
-          <button
-            aria-label={t('test.close', {
-              defaultValue: 'Close test notification dialog',
+        <DialogHeader>
+          <DialogTitle>
+            {t('test.title', { defaultValue: 'Send test notification' })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('test.description', {
+              defaultValue:
+                'Select a Channel, then click Send. The message is sent to the recipient you provide and recorded below.',
             })}
-            className='grid size-8 shrink-0 place-items-center rounded-md text-lg hover:bg-muted disabled:opacity-50'
-            disabled={sending}
-            onClick={onClose}
-            type='button'
-          >
-            ×
-          </button>
-        </div>
-
-        <div className='space-y-4 px-5 py-5'>
+          </DialogDescription>
+        </DialogHeader>
+        <div className='flex min-h-0 flex-col gap-4 overflow-y-auto'>
           {targetsError ? (
             <div className='rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive'>
               {targetsError}
@@ -315,21 +316,18 @@ function TestNotificationDialog({
               {t('test.channelProvider', {
                 defaultValue: 'Delivery method',
               })}
-              <select
-                aria-label={t('test.channelProvider', {
-                  defaultValue: 'Delivery method',
-                })}
-                className='h-9 w-full rounded-md border bg-transparent px-3 font-normal outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50'
+              <Select
+                items={targets.map((item) => ({
+                  value: providerKey(item),
+                  label: item.channel.name,
+                }))}
                 disabled={sending}
-                onChange={(event) => {
-                  setSelected(
-                    targets?.find(
-                      (item) => providerKey(item) === event.target.value,
-                    ),
+                value={selected ? providerKey(selected) : null}
+                onValueChange={(value) => {
+                  const target = targets.find(
+                    (item) => providerKey(item) === value,
                   );
-                  const target = targets?.find(
-                    (item) => providerKey(item) === event.target.value,
-                  );
+                  setSelected(target);
                   setValues(
                     Object.fromEntries(
                       (target?.fields ?? []).map((field) => [
@@ -339,19 +337,30 @@ function TestNotificationDialog({
                     ),
                   );
                 }}
-                value={selected ? providerKey(selected) : ''}
               >
-                <option value=''>
-                  {t('test.selectProvider', {
-                    defaultValue: 'Select a delivery method',
+                <SelectTrigger
+                  className='w-full'
+                  aria-label={t('test.channelProvider', {
+                    defaultValue: 'Delivery method',
                   })}
-                </option>
-                {targets.map((item) => (
-                  <option key={item.channel.name} value={item.channel.name}>
-                    {item.channel.name}
-                  </option>
-                ))}
-              </select>
+                >
+                  <SelectValue
+                    placeholder={t('test.selectProvider', {
+                      defaultValue: 'Select a delivery method',
+                    })}
+                  />
+                </SelectTrigger>
+                <SelectContent className='w-auto max-w-[min(var(--container-sm),var(--available-width))] min-w-(--anchor-width) [&_[data-slot=select-item]>:first-child]:whitespace-normal'>
+                  {targets.map((item) => (
+                    <SelectItem
+                      key={providerKey(item)}
+                      value={providerKey(item)}
+                    >
+                      {item.channel.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
           )}
 
@@ -362,9 +371,8 @@ function TestNotificationDialog({
             >
               {field.label}
               {field.type === 'textarea' ? (
-                <textarea
+                <Textarea
                   aria-label={field.label}
-                  className='min-h-24 resize-y rounded-md border bg-transparent px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring'
                   disabled={sending}
                   maxLength={field.maxLength}
                   onChange={(event) =>
@@ -378,9 +386,8 @@ function TestNotificationDialog({
                   value={values[field.name] ?? ''}
                 />
               ) : (
-                <input
+                <Input
                   aria-label={field.label}
-                  className='h-9 rounded-md border bg-transparent px-3 font-normal outline-none focus:ring-2 focus:ring-ring'
                   disabled={sending}
                   maxLength={field.maxLength}
                   onChange={(event) =>
@@ -404,22 +411,21 @@ function TestNotificationDialog({
             </div>
           ) : null}
           {success ? (
-            <div className='rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400'>
+            <div className='rounded-lg border border-(--status-success)/30 bg-(--status-success-background) p-3 text-sm text-(--status-success)'>
               {success}
             </div>
           ) : null}
         </div>
-        <div className='flex justify-end gap-2 border-t px-5 py-4'>
-          <button
-            className='inline-flex h-9 items-center justify-center rounded-md border bg-transparent px-4 text-sm font-medium shadow-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50'
+        <DialogFooter>
+          <Button
+            variant='outline'
             disabled={sending}
             onClick={onClose}
             type='button'
           >
             {t('test.cancel', { defaultValue: 'Cancel' })}
-          </button>
-          <button
-            className='inline-flex h-9 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50'
+          </Button>
+          <Button
             disabled={
               sending ||
               !selected ||
@@ -433,10 +439,10 @@ function TestNotificationDialog({
             {sending
               ? t('test.sending', { defaultValue: 'Sending…' })
               : t('test.send', { defaultValue: 'Send' })}
-          </button>
-        </div>
-      </section>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -524,7 +530,7 @@ function NotificationTableRow({
   readonly details: NotificationLogDetails;
   readonly targets?: readonly NotificationTestTarget[];
 }): ReactElement {
-  const { t } = useTranslation('@nocobase/app-plugin-notification');
+  const { t, i18n } = useTranslation('@nocobase/app-plugin-notification');
   const [open, setOpen] = useState(false);
   return (
     <Fragment>
@@ -572,7 +578,7 @@ function NotificationTableRow({
         </td>
         <td className='whitespace-nowrap px-4 py-3 text-muted-foreground'>
           <time dateTime={details.log.createdAt}>
-            {formatTime(details.log.createdAt)}
+            {formatTime(details.log.createdAt, i18n.language)}
           </time>
         </td>
       </tr>
@@ -594,7 +600,7 @@ function DeliveryTable({
   readonly deliveries: readonly NotificationDeliveryDetails[];
   readonly targets?: readonly NotificationTestTarget[];
 }): ReactElement {
-  const { t } = useTranslation('@nocobase/app-plugin-notification');
+  const { t, i18n } = useTranslation('@nocobase/app-plugin-notification');
   if (deliveries.length === 0) {
     return (
       <p className='py-4 text-center text-sm text-muted-foreground'>
@@ -653,7 +659,7 @@ function DeliveryTable({
                     {details.attempts.length}
                   </td>
                   <td className='whitespace-nowrap px-4 py-3 text-muted-foreground'>
-                    {formatTime(details.delivery.updatedAt)}
+                    {formatTime(details.delivery.updatedAt, i18n.language)}
                   </td>
                 </tr>
                 <tr className='border-b bg-muted/10'>
@@ -746,26 +752,26 @@ function StatusBadge({
 }): ReactElement {
   const { t } = useTranslation('@nocobase/app-plugin-notification');
   return (
-    <span
-      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusTone(status)}`}
-    >
+    <ApplicationStatusBadge tone={statusTone(status)}>
       {t(`status.${status}`, { defaultValue: status.replace('_', ' ') })}
-    </span>
+    </ApplicationStatusBadge>
   );
 }
 
-function statusTone(status: NotificationStatus): string {
+function statusTone(
+  status: NotificationStatus,
+): 'success' | 'destructive' | 'warning' {
   if (status === 'completed' || status === 'accepted') {
-    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+    return 'success';
   }
   if (status === 'failed' || status === 'unknown' || status === 'partial') {
-    return 'border-destructive/20 bg-destructive/10 text-destructive';
+    return 'destructive';
   }
-  return 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400';
+  return 'warning';
 }
 
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+function formatTime(value: string, language: string): string {
+  return new Intl.DateTimeFormat(language, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));

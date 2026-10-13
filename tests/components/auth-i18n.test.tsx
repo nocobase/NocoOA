@@ -2,7 +2,7 @@ import { I18nRuntime } from '@nocobase/i18n';
 import { I18nProvider } from '@nocobase/i18n/client';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import locales from '../../client/locales/index.js';
 import ForgotPasswordPage from '../../client/pages/auth/forgot-password.js';
@@ -11,8 +11,9 @@ import RegisterPage from '../../client/pages/auth/register.js';
 import ResetPasswordPage from '../../client/pages/auth/reset-password.js';
 import { Loading } from '../../client/components/loading.js';
 
+const availability = vi.hoisted(() => ({ signUp: true }));
 vi.mock('@nocobase/app-plugin-authentication/client', () => ({
-  useSignUpAvailable: () => true,
+  useSignUpAvailable: () => availability.signUp,
 }));
 
 vi.mock('@nocobase/app-plugin-authentication/client/actions', () => ({
@@ -43,6 +44,28 @@ function renderPage(value: I18nRuntime, page: ReactElement) {
   );
 }
 describe('authentication translations', () => {
+  it('hides registration and redirects its page when sign-up is closed', async () => {
+    availability.signUp = false;
+    try {
+      const value = await runtime();
+      renderPage(value, <LoginPage />);
+      expect(screen.queryByRole('link', { name: 'Sign up' })).toBeNull();
+      expect(
+        screen.getByRole('link', { name: 'Forgot password?' }),
+      ).toBeVisible();
+      render(
+        <MemoryRouter initialEntries={['/register']}>
+          <Routes>
+            <Route path='/register' element={<RegisterPage />} />
+            <Route path='/login' element={<p>Registration redirected</p>} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(screen.getByText('Registration redirected')).toBeVisible();
+    } finally {
+      availability.signUp = true;
+    }
+  });
   it('updates the login page, brand panel and visibility control on language change', async () => {
     const value = await runtime();
     renderPage(value, <LoginPage />);

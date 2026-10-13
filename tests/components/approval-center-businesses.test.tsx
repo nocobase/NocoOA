@@ -187,3 +187,153 @@ it('does not call a submitted recruitment without a source number a draft', asyn
   );
   expect(screen.queryByRole('link', { name: 'Draft', exact: true })).toBeNull();
 });
+
+it.each(['drafts', 'revisions', 'inProgress', 'submitted'] as const)(
+  'shows and preserves the %s metric scope through search and detail navigation',
+  async (category) => {
+    state.request.mockResolvedValue({
+      data: [
+        {
+          id: 'record',
+          kind: 'oa.leave',
+          number: 'LEAVE-1',
+          applicantId: 'owner',
+          applicant: { id: 'owner', name: 'Applicant' },
+          status: 'draft',
+          createdAt: null,
+        },
+      ],
+      meta: {
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        kinds: ['oa.leave'],
+        counts: { drafts: 1, revisions: 0, inProgress: 0 },
+      },
+    });
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/approvals/mine',
+          element: <ApprovalList />,
+          children: [
+            { path: 'leave/record', element: <span>Scoped detail</span> },
+          ],
+        },
+      ],
+      { initialEntries: [`/approvals/mine?category=${category}#source`] },
+    );
+    render(
+      <TestI18nProvider runtime={runtime}>
+        <RouterProvider router={router} />
+      </TestI18nProvider>,
+    );
+    await screen.findByRole('link', { name: 'LEAVE-1' });
+    expect(
+      screen.getByRole('combobox', { name: enUS.approvalCenter.category }),
+    ).toHaveTextContent(enUS.approvalCenter.categories[category]);
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'approvalCenter',
+        query: expect.objectContaining({ view: 'mine', category }),
+      }),
+    );
+    await userEvent.type(
+      screen.getByRole('textbox', { name: enUS.approvalCenter.search }),
+      'LEAVE',
+    );
+    await waitFor(() =>
+      expect(new URLSearchParams(router.state.location.search).get('q')).toBe(
+        'LEAVE',
+      ),
+    );
+    expect(
+      new URLSearchParams(router.state.location.search).get('category'),
+    ).toBe(category);
+    await waitFor(() =>
+      expect(api.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'approvalCenter',
+          query: expect.objectContaining({ category, search: 'LEAVE' }),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument(),
+    );
+    await userEvent.click(await screen.findByRole('link', { name: 'LEAVE-1' }));
+    expect(router.state.location.pathname).toBe('/approvals/mine/leave/record');
+    expect(await screen.findByText('Scoped detail')).toBeVisible();
+    expect(
+      new URLSearchParams(router.state.location.search).get('category'),
+    ).toBe(category);
+    await userEvent.click(
+      screen.getByRole('button', { name: enUS.approvals.clear }),
+    );
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(router.state.location.search).has('category'),
+      ).toBe(false),
+    );
+    expect(
+      screen.getByRole('combobox', { name: enUS.approvalCenter.category }),
+    ).toHaveTextContent(enUS.approvalCenter.categories.all);
+  },
+);
+
+it('does not carry a mine category into the pending tab', async () => {
+  state.request.mockResolvedValue({
+    data: [],
+    meta: {
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      kinds: [],
+      counts: { drafts: 0, revisions: 0, inProgress: 0 },
+    },
+  });
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/approvals',
+        children: ['mine', 'todo'].map((tab) => ({
+          path: tab,
+          element: <ApprovalList />,
+        })),
+      },
+    ],
+    { initialEntries: ['/approvals/mine?category=drafts#source'] },
+  );
+  render(
+    <TestI18nProvider runtime={runtime}>
+      <RouterProvider router={router} />
+    </TestI18nProvider>,
+  );
+  await screen.findByRole('table');
+  await userEvent.click(
+    screen.getByRole('tab', { name: enUS.approvals.tabs.todo, exact: true }),
+  );
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe('/approvals/todo'),
+  );
+  expect(router.state.location.search).toBe('');
+  expect(router.state.location.hash).toBe('#source');
+  expect(
+    screen.queryByRole('combobox', { name: enUS.approvalCenter.category }),
+  ).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'approvalCenter',
+        query: expect.objectContaining({ view: 'pending' }),
+      }),
+    ),
+  );
+  const pending = state.request.mock.calls.filter(
+    ([request]) =>
+      request.path === 'approvalCenter' && request.query.view === 'pending',
+  );
+  expect(pending.every(([request]) => !('category' in request.query))).toBe(
+    true,
+  );
+});

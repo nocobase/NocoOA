@@ -1,10 +1,12 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef, ColumnSort } from '@tanstack/react-table';
-import { AlertCircleIcon, PlusIcon, SearchIcon, UsersIcon } from 'lucide-react';
+import { AlertCircleIcon, PlusIcon, SearchIcon } from 'lucide-react';
 import {
   type ReactElement,
   useEffect,
@@ -28,14 +30,6 @@ import {
   AlertTitle,
 } from '#components/ui/alert';
 import { Button } from '#components/ui/button';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#components/ui/empty';
 import {
   InputGroup,
   InputGroupAddon,
@@ -271,12 +265,6 @@ export default function EmployeesPage(): ReactElement {
         cell: ({ row }) => muted(row.original.position?.title),
       },
       {
-        id: 'manager',
-        enableSorting: false,
-        header: t('employees.fields.manager'),
-        cell: ({ row }) => <UserName name={row.original.manager?.name} />,
-      },
-      {
         id: 'status',
         enableSorting: false,
         header: t('employees.fields.status'),
@@ -361,23 +349,6 @@ export default function EmployeesPage(): ReactElement {
     );
   } else if (rows === undefined) {
     content = <TableSkeleton label={t('status.loading')} />;
-  } else if (result?.total === 0 && !rowsFiltered) {
-    content = (
-      <Empty className='min-h-48 border border-dashed'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <UsersIcon />
-          </EmptyMedia>
-          <EmptyTitle>{t('employees.empty.title')}</EmptyTitle>
-          <EmptyDescription>
-            {canManage
-              ? t('employees.empty.description')
-              : t('employees.empty.descriptionReadOnly')}
-          </EmptyDescription>
-        </EmptyHeader>
-        {canManage ? <EmptyContent>{createButton}</EmptyContent> : null}
-      </Empty>
-    );
   } else {
     content = (
       <DataTableServer
@@ -403,14 +374,27 @@ export default function EmployeesPage(): ReactElement {
           });
         }}
         emptyMessage={
-          rowsFiltered ? (
-            <div className='flex flex-col items-center gap-2'>
-              <span>{t('employees.empty.noResults')}</span>
-              <Button variant='link' size='sm' onClick={clearFilters}>
-                {t('employees.filters.clear')}
-              </Button>
-            </div>
-          ) : null
+          <ApplicationTableEmpty
+            title={t(
+              rowsFiltered
+                ? 'employees.empty.noResults'
+                : 'employees.empty.title',
+            )}
+            description={
+              rowsFiltered
+                ? undefined
+                : t(
+                    canManage
+                      ? 'employees.empty.description'
+                      : 'employees.empty.descriptionReadOnly',
+                  )
+            }
+            clearFilters={
+              rowsFiltered
+                ? { label: t('employees.filters.clear'), onClick: clearFilters }
+                : undefined
+            }
+          />
         }
       />
     );
@@ -424,11 +408,14 @@ export default function EmployeesPage(): ReactElement {
       />
       <ApplicationToolbar
         actions={
-          canManage &&
-          rows !== undefined &&
-          ((result?.total ?? 0) > 0 || rowsFiltered)
-            ? createButton
-            : null
+          <>
+            <ApplicationRefreshButton
+              label={t('employees.refresh')}
+              loading={loading}
+              onClick={reload}
+            />
+            {canManage ? createButton : null}
+          </>
         }
       >
         <InputGroup

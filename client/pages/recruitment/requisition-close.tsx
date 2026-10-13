@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { useParams, useOutletContext } from 'react-router';
 import { useApiClient, ApiClientError, useToaster } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { Spinner } from '#components/ui/spinner';
@@ -31,9 +31,9 @@ function RequisitionCloseContent() {
       `requisitions/${encodeURIComponent(requisitionId)}`,
     );
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t('recruitment.actions.close')}
-      className='sm:max-w-md'
+      className='sm:max-w-2xl'
       beforeClose={guard.beforeClose}
       footer={
         <Footer
@@ -61,7 +61,7 @@ function RequisitionCloseContent() {
         />
       ) : null}
       <Discard guard={guard} />
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({ busy, ready }: { busy: boolean; ready: boolean }) {

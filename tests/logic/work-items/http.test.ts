@@ -44,6 +44,18 @@ test('main default employee personal task actions enforce creator/assignee and c
       )
     ).status,
   ).toBe(400);
+  const invalidDeadline = await cs.fetch(
+    '/workItems',
+    write('POST', {
+      ...body,
+      requestId: randomUUID(),
+      dueAt: '2000-01-01T00:00:00Z',
+    }),
+  );
+  expect(invalidDeadline.status).toBe(400);
+  expect((await invalidDeadline.json()).error.fieldViolations).toEqual([
+    { field: 'dueAt', description: 'INVALID_INPUT' },
+  ]);
   const created = await cs.fetch('/workItems', write('POST', body));
   expect(created.status).toBe(200);
   const draft = (await created.json()).data;

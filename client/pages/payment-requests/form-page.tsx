@@ -300,10 +300,36 @@ export function PaymentForm({
   });
   async function save(v: PaymentFormValues) {
     if (busyRef.current || locked) return;
+    const input = paymentInput(v);
+    if (submission.intent.current === 'submit') {
+      const required: (keyof PaymentFormValues)[] = [];
+      if (!v.reason.trim()) required.push('reason');
+      if (v.sourceMode === 'purchase' && !v.purchaseOrderId)
+        required.push('purchaseOrderId');
+      if (v.sourceMode === 'contract' && !v.contractId)
+        required.push('contractId');
+      if (v.sourceMode === 'none' && !v.noPriorApprovalReason.trim())
+        required.push('noPriorApprovalReason');
+      if (v.sourceMode !== 'contract' && !v.vendorId) required.push('vendorId');
+      if (input.amountCents <= 0) required.push('amount');
+      if (!v.invoiceNumber.trim()) required.push('invoiceNumber');
+      if (!v.attachments.length) required.push('attachments');
+      if (
+        !options.data?.paymentMethods.some(
+          (method) => method.code === v.paymentMethod && method.active,
+        )
+      )
+        required.push('paymentMethod');
+      for (const name of required)
+        form.setError(name, { message: f('required') });
+      if (required.length) {
+        document.getElementById(`payment-${required[0]}`)?.focus();
+        return;
+      }
+    }
     working(true);
     setError(undefined);
     setLatest(false);
-    const input = paymentInput(v);
     try {
       const base = submission.current.current ?? record;
       const attempt: NonNullable<typeof commandRef.current> = base
@@ -437,7 +463,7 @@ export function PaymentForm({
         name={name}
         render={({ field, fieldState }) => (
           <Field data-invalid={!!fieldState.error}>
-            <FieldLabel htmlFor={`payment-${name}`}>{f(name)}</FieldLabel>
+            <FieldLabel htmlFor={`payment-${name}`}>{f(name)} *</FieldLabel>
             <Select
               items={display}
               value={field.value || null}
@@ -630,7 +656,7 @@ export function PaymentForm({
             </p>
           )}
           <Field data-invalid={!!form.formState.errors.reason}>
-            <FieldLabel htmlFor='payment-reason'>{f('reason')}</FieldLabel>
+            <FieldLabel htmlFor='payment-reason'>{f('reason')} *</FieldLabel>
             <Textarea
               id='payment-reason'
               disabled={locked}
@@ -790,7 +816,7 @@ export function PaymentForm({
             <Field key={name} data-invalid={!!form.formState.errors[name]}>
               <FieldLabel htmlFor={`payment-${name}`}>
                 {f(name)}
-                {name === 'amount' ? ' *' : ''}
+                {' *'}
               </FieldLabel>
               <Input
                 id={`payment-${name}`}

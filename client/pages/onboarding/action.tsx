@@ -47,7 +47,7 @@ function Action() {
   if (r.error || !d || !allowed)
     return (
       <RouteDrawer title={t('onboarding.unavailable')}>
-        <Failure error={r.error} denied={!r.error} />
+        <Failure module='onboarding' error={r.error} denied={!r.error} />
       </RouteDrawer>
     );
   return (

@@ -1,3 +1,4 @@
+import { useUrlSearch } from '#hooks/use-url-search';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useAuthorizationRevision } from '@nocobase/app-plugin-authorization/client';
@@ -72,9 +73,32 @@ function EfficiencyReport() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'en-US';
   const id = useId();
-  const [year, setYear] = useState('');
-  const [month, setMonth] = useState('');
-  const [page, setPage] = useState(1);
+  const search = useUrlSearch({
+    param: 'efficiencyYear',
+    resetParams: ['efficiencyPage'],
+    delay: 300,
+  });
+  const year = search.search;
+  const month = search.searchParams.get('efficiencyMonth') ?? '';
+  const page = Math.max(
+    1,
+    Number(search.searchParams.get('efficiencyPage')) || 1,
+  );
+  function setMonth(value: string) {
+    search.updateParams((p) => {
+      if (value) p.set('efficiencyMonth', value);
+      else p.delete('efficiencyMonth');
+      p.delete('efficiencyPage');
+    });
+  }
+  function setPage(value: number | ((old: number) => number)) {
+    search.updateParams((p) =>
+      p.set(
+        'efficiencyPage',
+        String(typeof value === 'function' ? value(page) : value),
+      ),
+    );
+  }
   const [generation, reload] = useReducer((n: number) => n + 1, 0);
   const [state, setState] = useState<{
     data?: Result;
@@ -144,9 +168,10 @@ function EfficiencyReport() {
     state.error instanceof ApiClientError ? state.error.status : undefined;
   const denied = status === 401 || status === 403;
   function clear() {
-    setYear('');
-    setMonth('');
-    setPage(1);
+    search.clear((p) => {
+      p.delete('efficiencyMonth');
+      p.delete('efficiencyPage');
+    });
   }
   async function download() {
     if (exportingRef.current) return;
@@ -259,12 +284,8 @@ function EfficiencyReport() {
             <Input
               id={`${id}-year`}
               inputMode='numeric'
-              value={year}
+              {...search.inputProps}
               disabled={exporting}
-              onChange={(event) => {
-                setYear(event.target.value);
-                setPage(1);
-              }}
             />
           </div>
           <div

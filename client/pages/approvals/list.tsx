@@ -1,3 +1,4 @@
+import { approvalStatusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { useBatchApprove } from './batch-approve.js';
 import { UserName } from '#components/user-name';
@@ -75,6 +76,13 @@ import { Tabs, TabsList, TabsTrigger } from '#components/ui/tabs';
 
 const kindLabel = (kind: string) =>
   kind === 'all' ? 'all' : approvalBusiness(kind)?.label;
+const mineCategories = [
+  'all',
+  'drafts',
+  'revisions',
+  'inProgress',
+  'submitted',
+] as const;
 const detailPath = (kind: string) => approvalBusiness(kind)?.detail;
 export default function ApprovalList() {
   const { t, i18n } = useTranslation();
@@ -462,6 +470,13 @@ export default function ApprovalList() {
     ],
   );
   const kind = search.searchParams.get('kind') ?? 'all';
+  const rawCategory = search.searchParams.get('category');
+  const category =
+    view === 'mine' && mineCategories.some((value) => value === rawCategory)
+      ? rawCategory!
+      : 'all';
+  const invalidCategory =
+    rawCategory !== null && (view !== 'mine' || category === 'all');
   const sort = search.searchParams.get('orderBy') ?? 'createdAt';
   const desc = search.searchParams.get('direction') !== 'asc';
   const sorting: SortingState = [
@@ -486,9 +501,10 @@ export default function ApprovalList() {
     orderBy: sorting[0].id,
     direction: desc ? 'desc' : 'asc',
     ...(kind !== 'all' ? { kind } : {}),
+    ...(category !== 'all' ? { category } : {}),
     ...(search.search ? { search: search.search } : {}),
   });
-  const hasFilters = !!search.text || kind !== 'all';
+  const hasFilters = !!search.text || kind !== 'all' || category !== 'all';
   const updateSearch = search.updateParams;
   const obsoleteStatus = search.searchParams.has('status');
   const obsoletePeriodSort = sort === 'startDate';
@@ -496,12 +512,13 @@ export default function ApprovalList() {
   const cleanedSearchRef = useRef<string | null>(null);
   useEffect(() => {
     // Retired filters and columns must not silently affect bookmarked center views.
-    if (obsoleteStatus || obsoletePeriodSort) {
+    if (obsoleteStatus || obsoletePeriodSort || invalidCategory) {
       // Navigation may be deferred by the application guard; issue it once per URL.
       if (cleanedSearchRef.current === retiredSearch) return;
       cleanedSearchRef.current = retiredSearch;
       updateSearch((p) => {
         p.delete('status');
+        if (invalidCategory) p.delete('category');
         if (obsoletePeriodSort) p.delete('orderBy');
         p.delete('page');
       });
@@ -515,6 +532,7 @@ export default function ApprovalList() {
   }, [
     obsoleteStatus,
     obsoletePeriodSort,
+    invalidCategory,
     retiredSearch,
     resource.loading,
     resource.meta,
@@ -647,29 +665,7 @@ export default function ApprovalList() {
         enableSorting: false,
         cell: ({ row }) => (
           <StatusBadge
-            tone={
-              ['approved', 'issued'].includes(row.original.status)
-                ? 'success'
-                : [
-                      'revision',
-                      'rejected',
-                      'exception',
-                      'forcedClosed',
-                    ].includes(row.original.status)
-                  ? 'warning'
-                  : [
-                        'manager',
-                        'head',
-                        'hr',
-                        'extra',
-                        'issuing',
-                        'purchasing',
-                        'booking',
-                        'unbooking',
-                      ].includes(row.original.status)
-                    ? 'info'
-                    : 'neutral'
-            }
+            tone={approvalStatusTone(row.original.status, row.original.kind)}
           >
             {approvalStateLabel(row.original.status, t, row.original.kind)}
           </StatusBadge>
@@ -803,7 +799,19 @@ export default function ApprovalList() {
                 <Link
                   to={{
                     pathname: `../${value}`,
-                    search: location.search,
+                    search: (() => {
+                      const params = new URLSearchParams(location.search);
+                      if (
+                        value === tab ||
+                        (!params.has('category') && !params.has('page'))
+                      )
+                        return location.search;
+                      if (value !== tab) {
+                        params.delete('category');
+                        params.delete('page');
+                      }
+                      return params.toString() ? `?${params}` : '';
+                    })(),
                     hash: location.hash,
                   }}
                 />
@@ -846,6 +854,38 @@ export default function ApprovalList() {
           </>
         }
       >
+        {view === 'mine' ? (
+          <Select
+            value={category}
+            items={mineCategories.map((value) => ({
+              value,
+              label: t(`approvalCenter.categories.${value}`),
+            }))}
+            onValueChange={(value) =>
+              search.updateParams((p) => {
+                if (!value || value === 'all') p.delete('category');
+                else p.set('category', value);
+                p.delete('page');
+              })
+            }
+          >
+            <SelectTrigger
+              className='w-full sm:w-40'
+              aria-label={t('approvalCenter.category')}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {mineCategories.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`approvalCenter.categories.${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        ) : null}
         <Select
           value={kind}
           items={['all', ...Object.keys(approvalBusinesses)].map((value) => ({
@@ -889,6 +929,7 @@ export default function ApprovalList() {
               search.clear((p) => {
                 p.delete('status');
                 p.delete('kind');
+                p.delete('category');
                 p.delete('page');
               });
               searchRef.current?.focus();
@@ -959,6 +1000,7 @@ export default function ApprovalList() {
                     search.clear((p) => {
                       p.delete('status');
                       p.delete('kind');
+                      p.delete('category');
                       p.delete('page');
                     })
                   }

@@ -537,7 +537,7 @@ describe('app server', () => {
     expect(html).not.toContain('window.');
   });
 
-  it('publishes whether sign-up is open, and keeps the rest of auth off the page', async () => {
+  it('publishes closed sign-up by default, and keeps the rest of auth off the page', async () => {
     const appRoot = mkdtempSync(
       path.join(tmpdir(), 'nocobase-app-template-default-embedded-root-'),
     );
@@ -547,12 +547,7 @@ describe('app server', () => {
     createEmbeddedPluginFixture(appRoot);
     writeFileSync(
       path.join(appRoot, 'config.yml'),
-      [
-        'auth:',
-        '  secret: test-auth-secret-at-least-32-characters',
-        '  emailAndPassword:',
-        '    disableSignUp: true',
-      ].join('\n'),
+      ['auth:', '  secret: test-auth-secret-at-least-32-characters'].join('\n'),
     );
     writeFileSync(
       path.join(clientDir, 'index.html'),

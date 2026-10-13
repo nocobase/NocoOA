@@ -340,7 +340,7 @@ it('persists unknown creation across remount and retries the same actor/key/body
   cleanup();
   router = show(<Form />, '/source/new');
   await screen.findByRole('button', { name: 'Retry original creation' });
-  expect(screen.getByLabelText('Supplier name')).toBeDisabled();
+  expect(screen.getByLabelText('Supplier name *')).toBeDisabled();
   fireEvent.click(
     screen.getByRole('button', { name: 'Retry original creation' }),
   );
@@ -698,7 +698,22 @@ it.each([
   },
 );
 
-it('prepares private banking in the new form and submits without exposing bank fields in the draft', async () => {
+it('prepares private banking in a resumed new form and submits complete public facts separately', async () => {
+  const complete = {
+    ...record,
+    reason: 'Our supplier',
+    attachments: ['file-1'],
+    qualificationExpiry: '2099-12-31',
+  };
+  localStorage.setItem(
+    'oa:vendor-qualification:create:owner',
+    JSON.stringify({
+      actorId: 'owner',
+      requestId: 'create-key',
+      recordId: record.id,
+      input: complete,
+    }),
+  );
   let bankVersion = 4;
   api.request.mockImplementation(
     async ({
@@ -710,6 +725,8 @@ it('prepares private banking in the new form and submits without exposing bank f
       method?: string;
       json?: Record<string, unknown>;
     }) => {
+      if (path === 'vendorQualificationAttachments/findMany')
+        return { data: [] };
       if (path.endsWith('/options')) return { data: options };
       if (path.endsWith('/paymentAccount')) {
         if (method === 'PATCH') {
@@ -729,7 +746,8 @@ it('prepares private banking in the new form and submits without exposing bank f
         };
       }
       if (path.endsWith('/transition')) {
-        expect(json).toMatchObject({ name: 'submit', version: 1 });
+        expect(json).toMatchObject({ version: 1 });
+        if (json?.name === 'edit') return { data: { record: complete } };
         return {
           data: {
             record: { ...record, status: 'review', lifecycleVersion: 2 },
@@ -738,7 +756,7 @@ it('prepares private banking in the new form and submits without exposing bank f
       }
       if (method === 'POST')
         return { data: { record: { ...record, reason: 'Our supplier' } } };
-      return { data: detail };
+      return { data: { ...detail, record: complete } };
     },
   );
   const router = show(<Form />, '/source/new');
@@ -762,9 +780,13 @@ it('prepares private banking in the new form and submits without exposing bank f
   await waitFor(() => expect(router.state.location.pathname).toBe('/source'));
   const writes = api.request.mock.calls
     .map(([request]) => request)
-    .filter((request) => ['POST', 'PATCH'].includes(request.method));
+    .filter(
+      (request) =>
+        request.path.startsWith('vendorQualifications') &&
+        ['POST', 'PATCH'].includes(request.method),
+    );
   expect(writes.map((request) => request.path)).toEqual([
-    'vendorQualifications',
+    'vendorQualifications/request-1/transition',
     'vendorQualifications/request-1/paymentAccount',
     'vendorQualifications/request-1/transition',
   ]);
@@ -776,4 +798,151 @@ it('prepares private banking in the new form and submits without exposing bank f
     account: { bankAccount: 'Private123' },
   });
   expect(JSON.stringify(sessionStorage)).not.toContain('Private123');
+});
+
+it('blocks incomplete qualification submission with field errors but still allows saving a draft', async () => {
+  api.request.mockImplementation(
+    ({ path, method }: { path: string; method?: string }) =>
+      Promise.resolve({
+        data: path.endsWith('/options')
+          ? options
+          : method === 'POST'
+            ? { record }
+            : detail,
+      }),
+  );
+  show(<Form />, '/source/new');
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Supplier' }), {
+    target: { value: vendor },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+  expect(screen.getByText('Required')).toBeVisible();
+  expect(
+    screen.getByText(
+      'Upload or select at least one qualification evidence file.',
+    ),
+  ).toBeVisible();
+  expect(
+    screen.getAllByText(
+      'Select an expiry date later than today in the company time zone.',
+    ),
+  ).toHaveLength(2);
+  expect(screen.getByLabelText('Reason *')).toHaveFocus();
+  expect(api.request.mock.calls.some(([call]) => call.method === 'POST')).toBe(
+    false,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(() =>
+    expect(
+      api.request.mock.calls.some(([call]) => call.method === 'POST'),
+    ).toBe(true),
+  );
+});
+it('rejects expiry on the company-local today even while the UTC date is yesterday', async () => {
+  vi.spyOn(Date, 'now').mockReturnValue(
+    new Date('2026-10-13T17:00:00Z').getTime(),
+  );
+  // Intl receives the current Date, so mock only the constructor's no-argument case.
+  const RealDate = Date;
+  vi.stubGlobal(
+    'Date',
+    class extends RealDate {
+      constructor(value?: string | number) {
+        super(value ?? '2026-10-13T17:00:00Z');
+      }
+    },
+  );
+  const current = {
+    ...record,
+    reason: 'Qualification',
+    attachments: ['file-1'],
+    qualificationExpiry: '2026-10-14',
+  };
+  api.request.mockImplementation(({ path }: { path: string }) =>
+    Promise.resolve({
+      data:
+        path === 'vendorQualificationAttachments/findMany'
+          ? []
+          : path.endsWith('/options')
+            ? options
+            : path.endsWith('/paymentAccount')
+              ? { account: null, lifecycleVersion: 1 }
+              : { ...detail, record: current },
+    }),
+  );
+  try {
+    show(<Form />, '/source/request-1');
+    await screen.findByDisplayValue('Qualification');
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(
+      screen.getAllByText(
+        'Select an expiry date later than today in the company time zone.',
+      ),
+    ).toHaveLength(2);
+    fireEvent.change(screen.getByLabelText('Reason *'), {
+      target: { value: 'Qualification' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(screen.getByLabelText('Qualification expiry *')).toHaveFocus();
+    expect(
+      api.request.mock.calls.some(
+        ([call]) =>
+          call.method === 'POST' &&
+          call.path.startsWith('vendorQualifications'),
+      ),
+    ).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  }
+});
+
+it('lists remain readable when the viewer cannot create without an employee archive', async () => {
+  actor.id = 'administrator';
+  api.request.mockImplementation(({ path }: { path: string }) =>
+    Promise.resolve(
+      path.endsWith('/options')
+        ? {
+            data: {
+              ...options,
+              canCreateQualification: false,
+              canCreateRemoval: false,
+            },
+          }
+        : {
+            data: [record],
+            meta: {
+              total: 1,
+              page: 1,
+              pageSize: 20,
+              timeZone: 'Asia/Singapore',
+            },
+          },
+    ),
+  );
+  show(<List />, '/vendorQualifications');
+  expect(
+    await screen.findByRole('link', { name: record.number! }),
+  ).toBeVisible();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+it('list loading errors do not instruct the viewer to complete application fields', async () => {
+  api.request.mockImplementation(({ path }: { path: string }) =>
+    path.endsWith('/options')
+      ? Promise.resolve({ data: options })
+      : Promise.reject(
+          new ApiClientError('Invalid query', {
+            status: 400,
+            method: 'GET',
+            url: path,
+          }),
+        ),
+  );
+  show(<List />, '/vendorQualifications');
+  expect(await screen.findByRole('alert')).toBeVisible();
+  expect(
+    screen.queryByText(copy.vendorQualifications.errors.invalid),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
 });

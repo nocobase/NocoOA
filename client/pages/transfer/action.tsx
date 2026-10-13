@@ -24,7 +24,7 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from '#components/ui/alert-dialog';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { Button } from '#components/ui/button';
 import { Input } from '#components/ui/input';
 import { Textarea } from '#components/ui/textarea';
@@ -239,7 +239,7 @@ function TransferActionContent() {
     notify.show({ type: 'success', title: t('transfer.saved') });
   }
   return (
-    <RouteDialog
+    <RouteDrawer
       title={title}
       description={t(
         operation === 'requestCancellation'
@@ -464,6 +464,6 @@ function TransferActionContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }

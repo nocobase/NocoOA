@@ -6,7 +6,7 @@ import { useApiClient, useToaster } from '@nocobase/app-client';
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { Spinner } from '#components/ui/spinner';
@@ -50,8 +50,8 @@ export default function ActionDialog() {
     [ready, setReady] = useState(false),
     guard = useCloseGuard(busy);
   return (
-    <RouteDialog
-      className={PEOPLE.includes(actionName) ? 'sm:max-w-2xl' : 'sm:max-w-md'}
+    <RouteDrawer
+      className={PEOPLE.includes(actionName) ? 'sm:max-w-2xl' : 'sm:max-w-2xl'}
       title={t('contracts.confirmation', {
         action: t(`contracts.actions.${actionName}`),
         name: parent.detail.record.number ?? t('contracts.draftName'),
@@ -67,7 +67,7 @@ export default function ActionDialog() {
         onSaved={guard.saved}
       />
       <Discard guard={guard} />
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({

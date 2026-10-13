@@ -1,3 +1,5 @@
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
 import { UserName } from '#components/user-name';
 import {
   Link,
@@ -12,7 +14,6 @@ import { useAuthorizationRevision } from '@nocobase/app-plugin-authorization/cli
 import { RecordDetailDrawer } from '#components/record-detail-drawer';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { Button } from '#components/ui/button';
-import { Badge } from '#components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -142,12 +143,18 @@ function Body({ id }: { id: string }) {
         ) : d ? (
           <div className='flex flex-col gap-5'>
             <div className='flex flex-wrap gap-2'>
-              <Badge>{t(`workItems.states.${d.status}`)}</Badge>
+              <StatusBadge tone={statusTone(d.status)}>
+                {t(`workItems.states.${d.status}`)}
+              </StatusBadge>
               {d.forced ? (
-                <Badge variant='destructive'>{t('workItems.forced')}</Badge>
+                <StatusBadge tone='warning'>
+                  {t('workItems.forced')}
+                </StatusBadge>
               ) : null}
               {d.overdue ? (
-                <Badge variant='destructive'>{t('workItems.overdue')}</Badge>
+                <StatusBadge tone='warning'>
+                  {t('workItems.overdue')}
+                </StatusBadge>
               ) : null}
             </div>
             <dl className='grid gap-3 sm:grid-cols-2'>

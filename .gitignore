@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 vendor/
+docs/
 
 # Local configuration, including the generated secrets key.
 /config.yml

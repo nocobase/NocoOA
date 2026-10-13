@@ -154,6 +154,23 @@ export default function ProcessExecutionPage() {
             title={label}
             actions={
               <div className='flex flex-wrap items-center gap-2'>
+                {detail?.commentsReadable && approvalBusiness(kind)?.detail && (
+                  <Button
+                    variant='outline'
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to={{
+                          pathname: `${approvalBusiness(kind).detail}/${recordId}`,
+                          search: location.search,
+                          hash: location.hash,
+                        }}
+                      />
+                    }
+                  >
+                    {t('processManagement.business')}
+                  </Button>
+                )}
                 {detail?.actions.find((a) => a.action === 'terminate') && (
                   <TerminateProcess key={resource.identity} />
                 )}
@@ -218,272 +235,276 @@ export default function ProcessExecutionPage() {
                     </div>
                   ))}
                 </dl>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('processManagement.actualPath')}</CardTitle>
-                    <CardDescription>
-                      {t('processManagement.actualDescription')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {definition.loading && !definition.data && (
-                      <ApplicationTableSkeleton />
-                    )}
-                    {Boolean(definition.error) && (
-                      <Failure
-                        error={definition.error}
-                        retry={definition.reload}
-                      />
-                    )}
-                    {definition.data && (
-                      <ProcessGraph
-                        states={states}
-                        edges={edges}
-                        history={history}
-                        initial={definition.data.data.initial}
-                        current={detail.record.status}
-                      />
-                    )}
-
-                    <ol className='mt-4 flex flex-col gap-2'>
-                      {detail.transitions.map((e) => (
-                        <li key={e.id} className='text-sm'>
-                          {date(e.at)} · {e.actor?.name ?? '—'} ·{' '}
-                          {e.from ? text.state(e.from) : '—'} →{' '}
-                          {text.state(e.to)}
-                        </li>
-                      ))}
-                    </ol>
-                  </CardContent>
-                </Card>
-                {run && (
-                  <Select
-                    value={run.id}
-                    onValueChange={(value) =>
-                      setParams(
-                        (p) => {
-                          const next = new URLSearchParams(p);
-                          if (value) next.set('runId', value);
-                          return next;
-                        },
-                        { replace: true },
-                      )
-                    }
-                  >
-                    <SelectTrigger
-                      aria-label={t('processManagement.run')}
-                      className='w-full sm:w-80'
-                    >
-                      <SelectValue>
-                        {t('processManagement.run')}{' '}
-                        {detail.runs.indexOf(run) + 1} · {text.state(run.stage)}{' '}
-                        · {date(run.startedAt)}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className='w-auto max-w-[min(var(--container-sm),var(--available-width))] min-w-(--anchor-width) [&_[data-slot=select-item]>:first-child]:whitespace-normal'>
-                      <SelectGroup>
-                        {detail.runs.map((r, i) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {t('processManagement.run')} {i + 1} ·{' '}
-                            {text.state(r.stage)} · {date(r.startedAt)}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-                {run?.appoint && (
-                  <Button
-                    variant='outline'
-                    disabled={resource.loading}
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to={{
-                          pathname: `actions/appoint/${run.id}`,
-                          search: location.search,
-                          hash: location.hash,
-                        }}
-                      />
-                    }
-                  >
-                    {t('processManagement.appoint')}
-                  </Button>
-                )}
-                {run?.definitionMissing && (
-                  <Alert>
-                    <AlertDescription>
-                      {t('processManagement.definitionMissing')}
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {!detail.commentsReadable && (
-                  <Alert>
-                    <AlertDescription>
-                      {t('processManagement.commentsRestricted')}
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('processManagement.tasks')}</CardTitle>
-                    <CardDescription>
-                      {t('processManagement.historical')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveTable>
-                      <TableHeader>
-                        <TableRow>
-                          {[
-                            'stage',
-                            'assignee',
-                            'status',
-                            'answer',
-                            'actor',
-                            'comment',
-                            'manage',
-                          ].map((key) => (
-                            <TableHead key={key}>
-                              {t(`processManagement.${key}`)}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {run?.tasks.map((task) => (
-                          <TableRow key={task.id}>
-                            <TableCell>
-                              <State value={task.stage} />
-                            </TableCell>
-                            <TableCell>
-                              {task.assignee.name}
-                              {task.previousTaskId && (
-                                <p className='text-xs text-muted-foreground'>
-                                  {t('processManagement.previousTask')}:{' '}
-                                  {task.previousTaskId}
-                                </p>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <State value={task.status} />
-                            </TableCell>
-                            <TableCell>
-                              {task.answer ? text.state(task.answer) : '—'}
-                            </TableCell>
-                            <TableCell>{task.actor?.name ?? '—'}</TableCell>
-                            <TableCell className='max-w-64 whitespace-pre-wrap break-words'>
-                              {task.comment ?? '—'}
-                            </TableCell>
-                            <TableCell>
-                              <div className='flex gap-2'>
-                                {task.actions.map((action) => (
-                                  <Button
-                                    key={action}
-                                    variant='outline'
-                                    disabled={resource.loading}
-                                    nativeButton={false}
-                                    render={
-                                      <Link
-                                        to={{
-                                          pathname: `actions/${action}/${task.id}`,
-                                          search: location.search,
-                                          hash: location.hash,
-                                        }}
-                                      />
-                                    }
-                                  >
-                                    {t(`processManagement.${action}`)}
-                                  </Button>
-                                ))}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </ResponsiveTable>
-                    {!run && (
-                      <p className='text-sm text-muted-foreground'>
-                        {t('processManagement.empty')}
-                      </p>
-                    )}
-                    <div className='mt-3 flex flex-wrap gap-2'>
-                      {detail.actions
-                        .filter((a) => a.action !== 'terminate' && !a.allowed)
-                        .map((action) => (
-                          <Tooltip key={action.action}>
-                            <TooltipTrigger render={<span tabIndex={0} />}>
-                              <Button variant='outline' disabled>
-                                {t(`processManagement.${action.action}`)}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {t(
-                                action.reason === 'notConnected'
-                                  ? 'processManagement.notConnected'
-                                  : 'processManagement.unavailable',
-                              )}
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('processManagement.timeline')}</CardTitle>
-                    <CardDescription>
-                      {t('processManagement.historical')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ol className='flex flex-col gap-4'>
-                      {detail.events
-                        .filter((e) => !run || !e.runId || e.runId === run.id)
-                        .map((event) => (
-                          <li
-                            key={event.id}
-                            className='flex flex-col gap-1 border-l-2 pl-3'
-                          >
-                            <p className='text-sm'>
-                              {date(event.at)} · {event.actor?.name ?? '—'} ·{' '}
-                              {text.event(event.kind)}
-                            </p>
-                            {event.comment && (
-                              <p className='whitespace-pre-wrap break-words text-sm text-muted-foreground'>
-                                {event.comment}
-                              </p>
-                            )}
-                          </li>
-                        ))}
-                    </ol>
-                  </CardContent>
-                </Card>
-                {detail.commentsReadable && approvalBusiness(kind)?.detail ? (
-                  <Button
-                    variant='outline'
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to={{
-                          pathname: `${approvalBusiness(kind).detail}/${recordId}`,
-                          search: location.search,
-                          hash: location.hash,
-                        }}
-                      />
-                    }
-                  >
-                    {t('processManagement.business')}
-                  </Button>
-                ) : (
+                {!(
+                  detail.commentsReadable && approvalBusiness(kind)?.detail
+                ) && (
                   <p className='text-sm text-muted-foreground'>
                     {t('processManagement.businessRestricted')}
                   </p>
                 )}
+                <div className='grid items-stretch gap-6 lg:grid-cols-2'>
+                  <Card className='min-w-0'>
+                    <CardHeader>
+                      <CardTitle>{t('processManagement.actualPath')}</CardTitle>
+                      <CardDescription>
+                        {t('processManagement.actualDescription')}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {definition.loading && !definition.data && (
+                        <ApplicationTableSkeleton />
+                      )}
+                      {Boolean(definition.error) && (
+                        <Failure
+                          error={definition.error}
+                          retry={definition.reload}
+                        />
+                      )}
+                      {definition.data && (
+                        <ProcessGraph
+                          states={states}
+                          edges={edges}
+                          history={history}
+                          initial={definition.data.data.initial}
+                          current={detail.record.status}
+                        />
+                      )}
+                    </CardContent>
+                  </Card>
+                  <div className='flex min-w-0 flex-col gap-6'>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>
+                          {t('processManagement.executionHistory')}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ol className='flex flex-col gap-2'>
+                          {detail.transitions.map((e) => (
+                            <li key={e.id} className='text-sm'>
+                              {date(e.at)} · {e.actor?.name ?? '—'} ·{' '}
+                              {e.from ? text.state(e.from) : '—'} →{' '}
+                              {text.state(e.to)}
+                            </li>
+                          ))}
+                        </ol>
+                      </CardContent>
+                    </Card>
+                    {run && (
+                      <Select
+                        value={run.id}
+                        onValueChange={(value) =>
+                          setParams(
+                            (p) => {
+                              const next = new URLSearchParams(p);
+                              if (value) next.set('runId', value);
+                              return next;
+                            },
+                            { replace: true },
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          aria-label={t('processManagement.run')}
+                          className='w-full sm:w-80'
+                        >
+                          <SelectValue>
+                            {t('processManagement.run')}{' '}
+                            {detail.runs.indexOf(run) + 1} ·{' '}
+                            {text.state(run.stage)} · {date(run.startedAt)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className='w-auto max-w-[min(var(--container-sm),var(--available-width))] min-w-(--anchor-width) [&_[data-slot=select-item]>:first-child]:whitespace-normal'>
+                          <SelectGroup>
+                            {detail.runs.map((r, i) => (
+                              <SelectItem key={r.id} value={r.id}>
+                                {t('processManagement.run')} {i + 1} ·{' '}
+                                {text.state(r.stage)} · {date(r.startedAt)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {run?.appoint && (
+                      <Button
+                        variant='outline'
+                        disabled={resource.loading}
+                        nativeButton={false}
+                        render={
+                          <Link
+                            to={{
+                              pathname: `actions/appoint/${run.id}`,
+                              search: location.search,
+                              hash: location.hash,
+                            }}
+                          />
+                        }
+                      >
+                        {t('processManagement.appoint')}
+                      </Button>
+                    )}
+                    {run?.definitionMissing && (
+                      <Alert>
+                        <AlertDescription>
+                          {t('processManagement.definitionMissing')}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {!detail.commentsReadable && (
+                      <Alert>
+                        <AlertDescription>
+                          {t('processManagement.commentsRestricted')}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{t('processManagement.tasks')}</CardTitle>
+                        <CardDescription>
+                          {t('processManagement.historical')}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveTable>
+                          <TableHeader>
+                            <TableRow>
+                              {[
+                                'stage',
+                                'assignee',
+                                'status',
+                                'answer',
+                                'actor',
+                                'comment',
+                                'manage',
+                              ].map((key) => (
+                                <TableHead key={key}>
+                                  {t(`processManagement.${key}`)}
+                                </TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {run?.tasks.map((task) => (
+                              <TableRow key={task.id}>
+                                <TableCell>
+                                  <State value={task.stage} />
+                                </TableCell>
+                                <TableCell>
+                                  {task.assignee.name}
+                                  {task.previousTaskId && (
+                                    <p className='text-xs text-muted-foreground'>
+                                      {t('processManagement.previousTask')}:{' '}
+                                      {task.previousTaskId}
+                                    </p>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <State value={task.status} />
+                                </TableCell>
+                                <TableCell>
+                                  {task.answer ? text.state(task.answer) : '—'}
+                                </TableCell>
+                                <TableCell>{task.actor?.name ?? '—'}</TableCell>
+                                <TableCell className='max-w-64 whitespace-pre-wrap break-words'>
+                                  {task.comment ?? '—'}
+                                </TableCell>
+                                <TableCell>
+                                  <div className='flex gap-2'>
+                                    {task.actions.map((action) => (
+                                      <Button
+                                        key={action}
+                                        variant='outline'
+                                        disabled={resource.loading}
+                                        nativeButton={false}
+                                        render={
+                                          <Link
+                                            to={{
+                                              pathname: `actions/${action}/${task.id}`,
+                                              search: location.search,
+                                              hash: location.hash,
+                                            }}
+                                          />
+                                        }
+                                      >
+                                        {t(`processManagement.${action}`)}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </ResponsiveTable>
+                        {!run && (
+                          <p className='text-sm text-muted-foreground'>
+                            {t('processManagement.empty')}
+                          </p>
+                        )}
+                        <div className='mt-3 flex flex-wrap gap-2'>
+                          {detail.actions
+                            .filter(
+                              (a) => a.action !== 'terminate' && !a.allowed,
+                            )
+                            .map((action) => (
+                              <Tooltip key={action.action}>
+                                <TooltipTrigger render={<span tabIndex={0} />}>
+                                  <Button variant='outline' disabled>
+                                    {t(`processManagement.${action.action}`)}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {t(
+                                    action.reason === 'notConnected'
+                                      ? 'processManagement.notConnected'
+                                      : 'processManagement.unavailable',
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{t('processManagement.timeline')}</CardTitle>
+                        <CardDescription>
+                          {t('processManagement.historical')}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ol className='flex flex-col gap-4'>
+                          {detail.events
+                            .filter(
+                              (e) => !run || !e.runId || e.runId === run.id,
+                            )
+                            .map((event) => (
+                              <li
+                                key={event.id}
+                                className='flex flex-col gap-1 border-l-2 pl-3'
+                              >
+                                <p className='text-sm'>
+                                  {date(event.at)} · {event.actor?.name ?? '—'}{' '}
+                                  · {text.event(event.kind)}
+                                </p>
+                                {event.comment && (
+                                  <p className='whitespace-pre-wrap break-words text-sm text-muted-foreground'>
+                                    {event.comment}
+                                  </p>
+                                )}
+                              </li>
+                            ))}
+                        </ol>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
               </>
             )
           )}
-          <Outlet />
+          <Outlet
+            context={{ reload: reloadList, reloadDetail: resource.reload }}
+          />
         </PageContainer>
       </RouteChildPage>
     </ExecutionContext.Provider>

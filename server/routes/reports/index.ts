@@ -1,3 +1,5 @@
+import { orgServiceToken } from '../../providers/org/contract.js';
+import { dictionaryServiceToken } from '../../providers/platform/dictionaries.js';
 import ExcelJS from 'exceljs';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
@@ -17,6 +19,7 @@ import {
   defineApiRoutes,
   describeRoute,
   listResponse,
+  dataResponse,
   type AppRouteContribution,
 } from '@nocobase/app-server/router';
 import { databaseManagerToken, type RepositoryPolicy } from '@nocobase/db';
@@ -102,7 +105,7 @@ async function policy(
 }
 
 async function xlsx(
-  rows: readonly Record<string, string | number | boolean | null>[],
+  rows: readonly Record<string, unknown>[],
   columns: readonly { header: string; key: string }[],
   filename: string,
 ) {
@@ -111,7 +114,14 @@ async function xlsx(
   const sheet = workbook.addWorksheet('Report');
   sheet.columns = columns.map((column) => ({ ...column, width: 18 }));
   sheet.getRow(1).font = { bold: true };
-  for (const row of rows) sheet.addRow(row);
+  for (const row of rows)
+    sheet.addRow({
+      ...row,
+      subject:
+        (row.subjectLabel as Record<string, string> | null)?.['en-US'] ??
+        row.subject,
+      available: row.initialized === false ? null : row.available,
+    });
   const body = Buffer.from(await workbook.xlsx.writeBuffer());
   return new Response(body, {
     headers: {
@@ -131,11 +141,155 @@ const routes: readonly AppRouteContribution<Application>[] = [
     const contracts = c.resolve(contractHttpServiceToken);
     const leave = c.resolve(leaveServiceToken);
     const db = c.resolve(databaseManagerToken);
+    const org = c.resolve(orgServiceToken);
+    const dictionaries = c.resolve(dictionaryServiceToken);
+    const departmentName = async (id: string) =>
+      (await org.activeChain(id))?.[0]?.title ?? null;
+
     const router = new Hono<Env>();
     router.use(
       '*',
       c.resolve(authenticationToken).required(),
       c.resolve(authorizationToken).middleware(),
+    );
+
+    // Capability metadata contains no records or counts. Every dataset request still rechecks its source policy.
+    router.get(
+      '/datasets',
+      describeRoute({
+        tags: ['Reports'],
+        operationId: 'listAvailableReportDatasets',
+        summary:
+          'Report datasets permitted by current source actions and fields',
+        responses: {
+          200: dataResponse(z.array(z.string())),
+          ...apiErrorResponses,
+        },
+      }),
+      async (ctx) => {
+        const available: string[] = [];
+        const canRead = async (
+          resource: string,
+          action: string,
+          collection: string,
+          fields: readonly string[],
+        ) => {
+          const decision = await ctx.get('authz').authorize({
+            resource: { type: 'composite', id: resource },
+            action,
+          });
+          const p = (
+            decision.conditions?.database as
+              Record<string, RepositoryPolicy | false | undefined> | undefined
+          )?.[collection];
+          if (decision.effect === 'deny' || !p || !p.read) return false;
+          const permitted =
+            typeof p.read === 'object' ? p.read.fields : undefined;
+          return (
+            permitted !== false &&
+            (!Array.isArray(permitted) ||
+              permitted.includes('*') ||
+              fields.every((f) => permitted.includes(f)))
+          );
+        };
+        const budget = await ctx.get('authz').authorize({
+          resource: { type: 'settings', id: BUDGET_SETTINGS },
+          action: 'read',
+        });
+        if (budget.effect !== 'deny') available.push('budget-balances');
+        if (
+          (await canRead('oa.contract', 'ledger', 'contracts', [
+            'id',
+            'requestId',
+            'status',
+            'number',
+            'version',
+            'amountCents',
+            'facts',
+            'applicantId',
+            'departmentId',
+          ])) &&
+          (await canRead('oa.contract', 'ledger', 'contractVersions', [
+            'id',
+            'facts',
+            'amountCents',
+            'status',
+          ])) &&
+          (await canRead('oa.contract', 'view', 'contractRequests', [
+            'id',
+            'startsOn',
+            'endsOn',
+            'amountCents',
+            'departmentId',
+            'number',
+            'status',
+          ]))
+        )
+          available.push('contract-ledger');
+        if (
+          await canRead('oa.headcounts', 'view', 'headcountAccounts', [
+            'id',
+            'departmentId',
+            'positionId',
+            'year',
+            'limit',
+            'initialized',
+            'version',
+            'createdAt',
+            'updatedAt',
+          ])
+        )
+          available.push('headcount-balances');
+        if (
+          await canRead('oa.leave', 'view', 'leaveRequests', [
+            'id',
+            'status',
+            'startDate',
+            'leaveType',
+            'days',
+          ])
+        )
+          available.push('leave-monthly');
+        if (
+          await canRead('oa.leave', 'view', 'leaveRequests', [
+            'id',
+            'applicantId',
+            'createdById',
+            'number',
+            'leaveType',
+            'startDate',
+            'endDate',
+            'startHalf',
+            'endHalf',
+            'days',
+            'reason',
+            'attachments',
+            'handoverUserId',
+            'enableDelegation',
+            'ruleSnapshot',
+            'hrRecipients',
+            'requiresHr',
+            'managerApproverId',
+            'status',
+            'lifecycleVersion',
+            'createdAt',
+          ])
+        )
+          available.push('leave-approval-efficiency');
+        if (
+          await canRead('oa.reimbursement', 'view', 'reimbursementRequests', [
+            'id',
+            'status',
+            'lines',
+            'totalCents',
+            'offsetCents',
+            'paymentId',
+          ])
+        )
+          available.push('expense-summary');
+        ctx.header('Cache-Control', 'no-store');
+        return ctx.json({ data: available });
+      },
     );
 
     const budgetRows = async (
@@ -152,7 +306,17 @@ const routes: readonly AppRouteContribution<Application>[] = [
         direction: 'desc',
       });
       return {
-        data: result.items.map((row) => S.BudgetRow.parse(row)),
+        data: await Promise.all(
+          result.items.map(async (row) =>
+            S.BudgetRow.parse({
+              ...row,
+              departmentName: await departmentName(row.departmentId),
+              subjectLabel:
+                (await dictionaries.get('budgetSubject', row.subject))?.label ??
+                null,
+            }),
+          ),
+        ),
         meta: reportMeta(result.page, q.pageSize, result.total, q),
       };
     };
@@ -166,15 +330,21 @@ const routes: readonly AppRouteContribution<Application>[] = [
         await policy(ctx, 'oa.headcounts', 'view', 'headcountAccounts'),
       );
       return {
-        data: result.items.map((row) =>
-          S.HeadcountRow.parse({
-            ...row,
-            capacityState: !row.initialized
-              ? 'uninitialized'
-              : row.replacementBlocked > 0
-                ? 'blocked'
-                : 'ready',
-          }),
+        data: await Promise.all(
+          result.items.map(async (row) =>
+            S.HeadcountRow.parse({
+              departmentName: await departmentName(row.departmentId),
+              positionName:
+                (await org.listPositions()).find((p) => p.id === row.positionId)
+                  ?.title ?? null,
+              ...row,
+              capacityState: !row.initialized
+                ? 'uninitialized'
+                : row.replacementBlocked > 0
+                  ? 'blocked'
+                  : 'ready',
+            }),
+          ),
         ),
         meta: reportMeta(q.page, q.pageSize, result.total, q),
       };
@@ -205,7 +375,14 @@ const routes: readonly AppRouteContribution<Application>[] = [
           throw error;
         });
       return {
-        data: result.data.map((row) => S.ContractRow.parse(row)),
+        data: await Promise.all(
+          result.data.map(async (row) =>
+            S.ContractRow.parse({
+              ...row,
+              departmentName: await departmentName(row.departmentId),
+            }),
+          ),
+        ),
         meta: {
           ...reportMeta(
             result.meta.page,
@@ -338,7 +515,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
         return xlsx(
           rows,
           [
-            { header: 'Department ID', key: 'departmentId' },
+            { header: 'Department', key: 'departmentName' },
             { header: 'Year', key: 'year' },
             { header: 'Subject', key: 'subject' },
             { header: 'Allocated cents', key: 'allocatedCents' },
@@ -365,8 +542,8 @@ const routes: readonly AppRouteContribution<Application>[] = [
         return xlsx(
           rows,
           [
-            { header: 'Department ID', key: 'departmentId' },
-            { header: 'Position ID', key: 'positionId' },
+            { header: 'Department', key: 'departmentName' },
+            { header: 'Position', key: 'positionName' },
             { header: 'Year', key: 'year' },
             { header: 'Limit', key: 'limit' },
             { header: 'Initialized', key: 'initialized' },
@@ -399,7 +576,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
           rows,
           [
             { header: 'Number', key: 'number' },
-            { header: 'Department ID', key: 'departmentId' },
+            { header: 'Department', key: 'departmentName' },
             { header: 'Status', key: 'status' },
             { header: 'Amount cents', key: 'amountCents' },
             { header: 'Held cents', key: 'heldCents' },

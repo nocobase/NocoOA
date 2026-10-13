@@ -1,5 +1,13 @@
 export default {
   supplies: {
+    businessErrors: {
+      SUPPLY_REQUIRED_FIELDS: 'Add at least one item and enter its purpose.',
+      SUPPLY_ITEM_UNAVAILABLE:
+        'A selected item is unavailable. Select an enabled item again.',
+      SUPPLY_CONTENT_CHANGED:
+        'The approved items changed. Refresh the request before recording issuance.',
+    },
+
     rowActions: 'Record actions',
     number: 'Requisition number',
     unknownEdit:

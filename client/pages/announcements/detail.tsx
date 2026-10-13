@@ -11,7 +11,8 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { RefreshCw } from 'lucide-react';
 import { RecordDetailDrawer } from '#components/record-detail-drawer';
 import { Button } from '#components/ui/button';
-import { Badge } from '#components/ui/badge';
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
 import { useAnnouncementResource } from './resource.js';
 import { Failure, Loading } from './states.js';
 import { Attachments } from './files.js';
@@ -108,9 +109,9 @@ export default function AnnouncementDetail() {
         ) : null
       ) : (
         <div className='flex flex-col gap-4'>
-          <Badge variant='secondary'>
+          <StatusBadge tone={statusTone(row.status)}>
             {t(`announcements.status.${row.status}`)}
-          </Badge>
+          </StatusBadge>
           <dl className='grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3'>
             <dt className='text-muted-foreground'>
               {t('announcements.publisher')}

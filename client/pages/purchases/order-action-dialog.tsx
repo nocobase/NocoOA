@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { DatePicker } from '#components/date-picker';
@@ -59,13 +59,13 @@ export default function PurchaseOrderActionDialog() {
     valid = ['accept', 'cancel'].includes(orderAction);
   return (
     <>
-      <RouteDialog
+      <RouteDrawer
         title={t(
           mode === 'accept'
             ? 'purchases.confirmReceipt'
             : 'purchases.cancelOrder',
         )}
-        className='sm:max-w-md'
+        className='sm:max-w-2xl'
         beforeClose={() => {
           if (busyRef.current) return false;
           if (!dirtyRef.current) return true;
@@ -123,7 +123,7 @@ export default function PurchaseOrderActionDialog() {
         ) : (
           <FieldsSkeleton fields={2} />
         )}
-      </RouteDialog>
+      </RouteDrawer>
       <AlertDialog
         open={discard && dirty}
         onOpenChange={(value) => {
@@ -284,7 +284,7 @@ function OrderActionForm({
             document.getElementById('purchase-receipt-date')?.focus();
         })(event);
       }}
-      className='space-y-4'
+      className='flex flex-col gap-4'
     >
       <AlertDialog
         open={!!confirmation}

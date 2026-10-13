@@ -1,3 +1,4 @@
+import { matchesCategory, readableSummary } from './summary.js';
 import { approvalDirectoryServiceToken } from '../../providers/approval-directory/index.js';
 import { mapConcurrent } from '../../providers/map-concurrent.js';
 import { batchRoutes } from './batch.js';
@@ -224,6 +225,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id!,
                 kind: 'oa.recruitment',
+                ...readableSummary(r, 'reason'),
                 number: r.number ?? null,
                 applicant: r.applicant,
                 applicantId: r.applicantId!,
@@ -248,6 +250,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.sealRequest',
+                ...readableSummary(r, 'purpose'),
                 number: r.number ?? null,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -272,6 +275,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id!,
                 kind: 'oa.vehicleRequest',
+                ...readableSummary(r, 'purpose'),
                 number: r.number ?? null,
                 applicant: r.applicant,
                 applicantId: r.applicantId!,
@@ -321,6 +325,7 @@ const routes = [
                 .map((r) => ({
                   id: r.id,
                   kind: 'oa.contract',
+                  ...readableSummary(r, 'reason'),
                   number: r.number,
                   applicant: r.applicant,
                   applicantId: r.applicantId,
@@ -352,6 +357,7 @@ const routes = [
                 .map((r) => ({
                   id: r.id!,
                   kind: 'oa.assetRequest',
+                  ...readableSummary(r, 'purpose'),
                   number: r.number ?? null,
                   applicant: r.applicant ?? null,
                   applicantId: r.applicantId!,
@@ -382,6 +388,7 @@ const routes = [
                 .map((r) => ({
                   id: r.id,
                   kind: 'oa.vendorQualification',
+                  ...readableSummary(r, 'name'),
                   number: r.number,
                   applicant: r.applicant,
                   applicantId: r.applicantId,
@@ -404,6 +411,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.departure',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -426,6 +434,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.probation',
+                ...readableSummary(r, 'selfEvaluation'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -449,6 +458,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.payment',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -473,6 +483,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.loan',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -497,6 +508,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.purchase',
+                ...readableSummary(r, 'purpose'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -521,6 +533,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.reimbursement',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -543,6 +556,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.travel',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -569,6 +583,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.travelCancellation',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -592,6 +607,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.expensePlan',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -614,6 +630,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.training',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -640,6 +657,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.budgetAdjustment',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -662,6 +680,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.supplies',
+                ...readableSummary(r, 'purpose'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -685,6 +704,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.attendanceChange',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -707,6 +727,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.outing',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -729,6 +750,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.general',
+                ...readableSummary(r, 'title'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -751,6 +773,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.leave',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -773,6 +796,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.overtime',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -795,6 +819,7 @@ const routes = [
               ).map((r) => ({
                 id: r.id,
                 kind: 'oa.leaveCancellation',
+                ...readableSummary(r, 'reason'),
                 number: r.number,
                 applicant: r.applicant,
                 applicantId: r.applicantId,
@@ -885,6 +910,8 @@ const routes = [
           .filter(
             (r) =>
               (query.own !== 'true' || r.applicantId === actorId) &&
+              (!query.category ||
+                matchesCategory(r, query.category, actorId)) &&
               (!query.status || query.status.split(',').includes(r.status)) &&
               (!needle ||
                 `${r.title ?? ''} ${r.number ?? ''} ${r.applicant?.name ?? ''}`
@@ -921,6 +948,9 @@ const routes = [
                           r.applicantId === actorId && r.status === 'draft',
                       )
                       .slice(0, 6),
+                    submitted: filtered
+                      .filter((r) => matchesCategory(r, 'submitted', actorId))
+                      .slice(0, 5),
                     revisions: filtered
                       .filter(
                         (r) =>
@@ -932,44 +962,14 @@ const routes = [
                 }
               : {}),
             counts: {
-              drafts: filtered.filter(
-                (r) => r.applicantId === actorId && r.status === 'draft',
+              drafts: filtered.filter((r) =>
+                matchesCategory(r, 'drafts', actorId),
               ).length,
-              revisions: filtered.filter(
-                (r) =>
-                  r.applicantId === actorId &&
-                  ['revision', 'exception'].includes(r.status),
+              revisions: filtered.filter((r) =>
+                matchesCategory(r, 'revisions', actorId),
               ).length,
-              inProgress: filtered.filter(
-                (r) =>
-                  r.applicantId === actorId &&
-                  [
-                    'hrbp',
-                    'hrDirector',
-                    'legal',
-                    'financeManager',
-                    'stamping',
-                    'returning',
-                    'returnException',
-                    'dispatch',
-                    'usage',
-                    'manager',
-                    'sourceHead',
-                    'targetHead',
-                    'pendingEffective',
-                    'cancellationReview',
-                    'head',
-                    'hr',
-                    'extra',
-                    'issuing',
-                    'booking',
-                    'unbooking',
-                    'cashier',
-                    'finance',
-                    'executive',
-                    'cfo',
-                    'gm',
-                  ].includes(r.status),
+              inProgress: filtered.filter((r) =>
+                matchesCategory(r, 'inProgress', actorId),
               ).length,
             },
           },

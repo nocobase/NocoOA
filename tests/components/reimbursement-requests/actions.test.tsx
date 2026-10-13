@@ -55,6 +55,7 @@ const detail = {
   record: {
     id: 'r1',
     number: 'R-1',
+    reason: 'Business expense',
     totalCents: 10000,
     offsetCents: 2500,
     lifecycleVersion: 3,
@@ -65,6 +66,7 @@ const detail = {
         category: 'office',
         invoiceNumber: 'INV',
         amountCents: 10000,
+        attachmentIds: ['evidence-1'],
       },
     ],
   },
@@ -92,18 +94,26 @@ function offered(
     onBehalfOf: null,
   } as unknown as OfferedAction;
 }
-function show(name: string, action?: OfferedAction, current = detail) {
+function show(
+  name: string,
+  action?: OfferedAction,
+  current = detail,
+  path = '/action',
+  parentContext = { reload: vi.fn(), reloadDetail: vi.fn() } as {
+    reload?: () => void;
+    reloadDetail?: () => void;
+  },
+) {
+  const parentPath = path.split('/action')[0] || '/';
   render(
     <TestI18nProvider runtime={runtime}>
-      <MemoryRouter initialEntries={['/action']}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route
-            element={
-              <Outlet context={{ reload: vi.fn(), reloadDetail: vi.fn() }} />
-            }
-          >
+          <Route path={parentPath} element={<Outlet context={parentContext} />}>
             <Route
-              path='/action'
+              path={
+                parentPath === '/' ? 'action' : 'action/:actionName/:targetId'
+              }
               element={
                 <>
                   <ActionForm
@@ -166,7 +176,7 @@ it('submits from the action form without a second confirmation and prevents dupl
     }),
   );
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-  expect(screen.getByLabelText('Opinion or reason')).toBeDisabled();
+  expect(screen.queryByLabelText('Opinion or reason')).toBeNull();
   finish({ data: {} });
   await waitFor(() => expect(close).toHaveBeenCalledOnce());
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -366,4 +376,125 @@ it('freezes uncertain writes and replays exactly the original body and idempoten
     api.request.mock.calls[0][0].json,
   );
   await waitFor(() => expect(close).toHaveBeenCalledOnce());
+});
+
+it.each(['reason', 'lines', 'evidence', 'duplicate'])(
+  'blocks submit and explains missing draft facts: %s',
+  async (missing) => {
+    const record = {
+      ...detail.record,
+      reason: missing === 'reason' ? '' : detail.record.reason,
+      lines:
+        missing === 'lines'
+          ? []
+          : missing === 'evidence'
+            ? detail.record.lines.map((row) => ({ ...row, attachmentIds: [] }))
+            : missing === 'duplicate'
+              ? [...detail.record.lines, ...detail.record.lines]
+              : detail.record.lines,
+    };
+    show('submit', undefined, {
+      ...detail,
+      record,
+      view: {
+        available: [
+          { name: 'submit', allowed: true },
+          { name: 'edit', allowed: true },
+        ],
+      },
+    } as unknown as ReimbursementDetail);
+    expect(screen.getByText(copy.actionForm.submitRequirements)).toBeVisible();
+    expect(
+      screen.getByText(
+        missing === 'reason'
+          ? copy.actionForm.reasonRequired
+          : missing === 'lines'
+            ? copy.actionForm.linesRequired
+            : missing === 'duplicate'
+              ? copy.actionForm.duplicateLines
+              : copy.actionForm.lineIncomplete.replace('{{number}}', '1'),
+      ),
+    ).toBeVisible();
+    expect(screen.queryByLabelText('Opinion or reason')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Edit reimbursement' }),
+    ).toHaveAttribute('href', '/edit');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(api.request).not.toHaveBeenCalled());
+  },
+);
+
+it.each([
+  '/reimbursementRequests/r1',
+  '/approvals/mine/reimbursement/r1',
+  '/reimbursement/r1',
+])(
+  'opens the saved draft from its current detail route and keeps filters: %s',
+  async (parentPath) => {
+    show(
+      'submit',
+      undefined,
+      {
+        ...detail,
+        record: { ...detail.record, lines: [] },
+        view: {
+          available: [
+            { name: 'submit', allowed: true },
+            { name: 'edit', allowed: true },
+          ],
+        },
+      } as unknown as ReimbursementDetail,
+      `${parentPath}/action/submit/r1?status=draft`,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Edit reimbursement' }),
+    ).toHaveAttribute('href', `${parentPath}/edit?status=draft`);
+  },
+);
+
+it('process-management reimbursement reassignment requires a reason and exposes recipient field validation', async () => {
+  api.request.mockResolvedValue({ data: detail });
+  show(
+    'reassign',
+    offered('reassign'),
+    detail,
+    '/processManagement/executions/oa.reimbursement/r1/action/reassign/t1',
+  );
+  expect(
+    screen.getByRole('textbox', { name: /Opinion or reason/ }),
+  ).toHaveAccessibleName(/\*/);
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  await waitFor(() => expect(api.request).not.toHaveBeenCalled());
+  expect(picker.mock.lastCall?.[0]).toMatchObject({ invalid: true });
+});
+
+it('a close failure after a confirmed write cannot become an uncertain operation or permit replay', async () => {
+  api.request.mockResolvedValue({ data: {} });
+  close.mockRejectedValueOnce(new Error('Navigation failed'));
+  show('comment', offered('comment'));
+  fireEvent.change(screen.getByLabelText('Opinion or reason'), {
+    target: { value: 'Confirmed operation' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  await waitFor(() => expect(close).toHaveBeenCalled());
+  expect(
+    screen.queryByRole('button', { name: 'Retry identical operation' }),
+  ).not.toBeInTheDocument();
+  expect(api.request).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(api.request).toHaveBeenCalledOnce();
+});
+
+it('confirmed writes close successfully when the hosting outlet has no business refresh callbacks', async () => {
+  api.request.mockResolvedValue({ data: {} });
+  show('comment', offered('comment'), detail, '/action', {});
+  fireEvent.change(screen.getByLabelText('Opinion or reason'), {
+    target: { value: 'Confirmed operation' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  await waitFor(() => expect(close).toHaveBeenCalled());
+  expect(
+    screen.queryByRole('button', { name: 'Retry identical operation' }),
+  ).not.toBeInTheDocument();
+  expect(api.request).toHaveBeenCalledOnce();
 });

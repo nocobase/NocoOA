@@ -1,5 +1,13 @@
 export default {
   onboarding: {
+    businessErrors: {
+      ONBOARDING_SOURCE_INVALID:
+        '入职来源或员工资料已不符合条件，请刷新并核对来源、人员身份及必填资料。',
+      ONBOARDING_IDEMPOTENCY_CONFLICT:
+        '该操作已用于不同内容，请刷新核对结果后再继续。',
+    },
+
+    clear: '清除筛选',
     timeline: {
       unknownActor: '历史经办人不可用',
       parentCompleted: '入职办理已完成',

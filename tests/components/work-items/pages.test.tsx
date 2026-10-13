@@ -166,7 +166,7 @@ it('dirty top return is guarded and successful edit navigates to exact source', 
   const title = await screen.findByLabelText('Title');
   await u.clear(title);
   await u.type(title, 'Changed');
-  await u.click(screen.getByRole('link', { name: 'Back to work items' }));
+  await u.click(screen.getByRole('button', { name: 'Close' }));
   await screen.findByText('Discard unsaved changes?');
   expect(observed.pathname).toBe('/work-items/t1/edit');
   await u.click(screen.getByRole('button', { name: 'Continue editing' }));
@@ -273,8 +273,8 @@ it('authorization revision during a pending edit clears input and releases navig
   state.revision++;
   view.rerender(tree('/work-items/t1/edit?mode=created'));
   await waitFor(() => expect(screen.queryByLabelText('Title')).toBeNull());
-  await u.click(screen.getByRole('link', { name: 'Back to work items' }));
-  await waitFor(() => expect(observed.pathname).toBe('/work-items'));
+  await u.click(screen.getByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(observed.pathname).toBe('/work-items/t1'));
   resolve({ data: task });
   expect(observed.search).toBe('?mode=created');
 });
@@ -440,4 +440,47 @@ it('labels both filters and shows clear only while a filter is applied', async (
   expect(
     screen.queryByRole('button', { name: 'Clear filters' }),
   ).not.toBeInTheDocument();
+});
+
+it('keeps work-item fields in a drawer and actions in its fixed footer; rejects an expired deadline before sending', async () => {
+  const u = userEvent.setup();
+  show('/work-items/t1/edit?mode=created#filters');
+  await screen.findByLabelText('Title');
+  const save = screen.getByRole('button', { name: 'Save draft' });
+  expect(save.closest('[data-slot="route-overlay-footer"]')).not.toBeNull();
+  expect(screen.getByRole('dialog').getAttribute('data-presentation')).toBe(
+    'drawer',
+  );
+  const now = vi
+    .spyOn(Date, 'now')
+    .mockReturnValue(Date.parse('2036-01-01T00:00:00Z'));
+  try {
+    await u.click(save);
+    await screen.findByText('Choose a due date and time later than now');
+    expect(
+      state.request.mock.calls.some(([request]) => request.method === 'PATCH'),
+    ).toBe(false);
+    expect(screen.getByLabelText('Title')).toHaveValue('Follow up');
+  } finally {
+    now.mockRestore();
+  }
+});
+
+it('shows a server deadline violation inline while retaining unsaved input', async () => {
+  const u = userEvent.setup();
+  show('/work-items/t1/edit');
+  const title = await screen.findByLabelText('Title');
+  await u.clear(title);
+  await u.type(title, 'Keep the revised title');
+  state.request.mockRejectedValueOnce(
+    new ApiClientError('INVALID_INPUT', {
+      status: 400,
+      method: 'PATCH',
+      url: '/api/workItems/t1',
+      payload: { error: { fieldViolations: [{ field: 'dueAt' }] } },
+    }),
+  );
+  await u.click(screen.getByRole('button', { name: 'Save draft' }));
+  await screen.findByText('Choose a due date and time later than now');
+  expect(title).toHaveValue('Keep the revised title');
 });

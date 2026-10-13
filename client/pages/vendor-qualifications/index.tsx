@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
@@ -172,15 +173,7 @@ export default function QualificationList() {
         header: t('vendorQualifications.fields.status'),
         enableSorting: false,
         cell: ({ row }) => (
-          <StatusBadge
-            tone={
-              ['qualified', 'removed'].includes(row.original.status)
-                ? 'success'
-                : ['revision', 'rejected'].includes(row.original.status)
-                  ? 'warning'
-                  : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(row.original.status)}>
             {stageLabel(row.original.status, t)}
           </StatusBadge>
         ),
@@ -363,10 +356,18 @@ export default function QualificationList() {
         )}
       </ApplicationToolbar>
       {!!resource.error && (
-        <ErrorState error={resource.error} retry={resource.reload} />
+        <ErrorState
+          context='load'
+          error={resource.error}
+          retry={resource.reload}
+        />
       )}{' '}
       {!!options.error && (
-        <ErrorState error={options.error} retry={options.reload} />
+        <ErrorState
+          context='load'
+          error={options.error}
+          retry={options.reload}
+        />
       )}
       {!viewGrant.isPending && (viewGrant.error || !viewGrant.can) ? (
         <p className='text-sm text-muted-foreground'>

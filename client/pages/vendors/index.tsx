@@ -7,12 +7,11 @@ import { Plus, RefreshCw, MoreHorizontal, Eye, Pencil } from 'lucide-react';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { ApplicationToolbar } from '#components/application-toolbar';
+import { ApplicationSearch } from '#components/application-search';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
 import { DataTableServer, DataTableColumnHeader } from '#components/data-table';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
-import { Input } from '#components/ui/input';
-import { Label } from '#components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -178,13 +177,12 @@ export default function Vendors() {
           </>
         }
       >
-        <div
-          data-slot='application-filter'
-          className='flex w-full flex-col gap-2 sm:w-72'
-        >
-          <Label htmlFor='vendor-search'>{t('vendors.search')}</Label>
-          <Input id='vendor-search' {...inputProps} />
-        </div>
+        <ApplicationSearch
+          id='vendor-search'
+          aria-label={t('vendors.search')}
+          placeholder={t('vendors.search')}
+          {...inputProps}
+        />
         {text ? (
           <Button variant='outline' onClick={() => clear()}>
             {t('vendors.clear')}

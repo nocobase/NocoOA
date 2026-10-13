@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationSearch } from '#components/application-search';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
@@ -29,7 +30,7 @@ import {
 import { Spinner } from '#components/ui/spinner';
 import { useUrlSearch } from '#hooks/use-url-search';
 import { useResource } from './resource.js';
-import { Failure, Loading, NoRows } from './states.js';
+import { Failure, Loading } from './states.js';
 import {
   resource,
   date,
@@ -231,11 +232,7 @@ export default function SalaryGradeHistory() {
       <ApplicationToolbar
         actions={
           <>
-            {history.data &&
-            !history.error &&
-            (history.data.meta.total > 0 || search)
-              ? publish
-              : null}
+            {publish}
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -299,23 +296,7 @@ export default function SalaryGradeHistory() {
           {history.loading ? (
             <Spinner aria-label={t('jobGrades.loading')} />
           ) : null}
-          {history.data.meta.total === 0 ? (
-            <NoRows
-              filtered={!!search}
-              action={
-                search ? (
-                  <Button
-                    variant='outline'
-                    onClick={() => clear((p) => p.delete('page'))}
-                  >
-                    {t('jobGrades.clear')}
-                  </Button>
-                ) : (
-                  publish
-                )
-              }
-            />
-          ) : (
+          {
             <DataTableServer
               columns={columns}
               rows={history.data.data}
@@ -337,9 +318,28 @@ export default function SalaryGradeHistory() {
                 })
               }
               pageSizeOptions={[10, 20, 50, 100]}
-              emptyMessage={t('jobGrades.noMatches')}
+              emptyMessage={
+                <ApplicationTableEmpty
+                  title={t(search ? 'jobGrades.noMatches' : 'jobGrades.empty')}
+                  description={t(
+                    search
+                      ? 'jobGrades.noMatchesDescription'
+                      : publish
+                        ? 'jobGrades.emptyDescription'
+                        : 'jobGrades.emptyReadonly',
+                  )}
+                  clearFilters={
+                    search
+                      ? {
+                          label: t('jobGrades.clear'),
+                          onClick: () => clear((p) => p.delete('page')),
+                        }
+                      : undefined
+                  }
+                />
+              }
             />
-          )}
+          }
         </>
       ) : null}
       <Outlet context={context} />

@@ -11,7 +11,12 @@ import { Button } from '#components/ui/button';
 import { Spinner } from '#components/ui/spinner';
 import { Input } from '#components/ui/input';
 import { Textarea } from '#components/ui/textarea';
-import { Field, FieldGroup, FieldLabel } from '#components/ui/field';
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldError,
+} from '#components/ui/field';
 import { Checkbox } from '#components/ui/checkbox';
 import { Alert, AlertDescription } from '#components/ui/alert';
 import {
@@ -208,6 +213,7 @@ function FormBody({
     ),
     [reason, setReason] = useState(''),
     [error, setError] = useState<unknown>(),
+    [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}),
     [busy, setBusy] = useState(false),
     [uncertain, setUncertain] = useState(false),
     [blocked, setBlocked] = useState(false),
@@ -257,6 +263,7 @@ function FormBody({
     editable = (key: string) => fields.includes(key);
   function change(key: keyof Proposal, value: Proposal[keyof Proposal]) {
     guard.changed();
+    setFieldErrors((old) => ({ ...old, [key]: '' }));
     setValues((old) => ({
       ...old,
       [key]: value,
@@ -274,39 +281,75 @@ function FormBody({
     if (!retry) {
       const low = cents(minimum),
         high = cents(maximum);
+      const invalid: Record<string, string> = {};
+      const required = t('approvals.required');
+      if (mode !== 'reviewEdit') {
+        for (const key of [
+          'departmentId',
+          'positionId',
+          'gradeId',
+          'expectedStartDate',
+          'jobDescription',
+          'reason',
+        ] as const)
+          if (!values[key].trim()) invalid[key] = required;
+      }
       if (
-        (mode !== 'reviewEdit' &&
-          (!values.departmentId ||
-            !values.positionId ||
-            !values.gradeId ||
-            !values.expectedStartDate ||
-            !values.jobDescription.trim() ||
-            !values.reason.trim())) ||
         !Number.isInteger(values.quantity) ||
         values.quantity < 1 ||
+        values.quantity > 100000
+      )
+        invalid.quantity = t(
+          'recruitment.businessErrors.RECRUITMENT_INVALID_QUANTITY',
+        );
+      if (
         !Number.isInteger(values.year) ||
         values.year < 1900 ||
-        values.year > 9999 ||
+        values.year > 9999
+      )
+        invalid.year = t('recruitment.yearInvalid');
+      if (
         (editable('minimumCents') && low === null) ||
+        (low !== null && high !== null && low > high)
+      )
+        invalid.minimumCents = t(
+          'recruitment.businessErrors.RECRUITMENT_INVALID_SALARY',
+        );
+      if (
         (editable('maximumCents') && high === null) ||
-        (low !== null && high !== null && low > high) ||
-        !reason.trim() ||
-        (editable('accountId') &&
-          (!capacity.data?.data.some(
-            (a) => a.id === values.accountId && a.initialized,
-          ) ||
-            capacity.loading ||
-            capacity.error)) ||
-        (editable('replacementEmployeeIds') &&
-          values.kind === 'replacement' &&
-          (values.replacementEmployeeIds.length !== values.quantity ||
-            !values.replacementEmployeeIds.every((id) =>
-              replacements.data?.data.some(
-                (p) => p.id === id && ['leaving', 'left'].includes(p.status),
-              ),
-            )))
-      ) {
-        setError(new Error(t('recruitment.invalid')));
+        (low !== null && high !== null && low > high)
+      )
+        invalid.maximumCents = t(
+          'recruitment.businessErrors.RECRUITMENT_INVALID_SALARY',
+        );
+      if (!reason.trim()) invalid['command-reason'] = required;
+      if (
+        editable('accountId') &&
+        (!capacity.data?.data.some(
+          (a) => a.id === values.accountId && a.initialized,
+        ) ||
+          capacity.loading ||
+          capacity.error)
+      )
+        invalid.accountId = t('recruitment.capacityEmpty');
+      if (
+        editable('replacementEmployeeIds') &&
+        values.kind === 'replacement' &&
+        (values.replacementEmployeeIds.length !== values.quantity ||
+          !values.replacementEmployeeIds.every((id) =>
+            replacements.data?.data.some(
+              (p) => p.id === id && ['leaving', 'left'].includes(p.status),
+            ),
+          ))
+      )
+        invalid.replacementEmployeeIds = t(
+          'recruitment.businessErrors.RECRUITMENT_INVALID_REPLACEMENTS',
+        );
+      setFieldErrors(invalid);
+      if (Object.keys(invalid).length) {
+        document
+          .getElementById(`recruitment-${Object.keys(invalid)[0]}`)
+          ?.focus();
         return;
       }
       const proposal = {
@@ -406,6 +449,7 @@ function FormBody({
     <>
       <form
         id='recruitment-form'
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           if (!frozen) void save();
@@ -416,7 +460,12 @@ function FormBody({
           {fields.map((key) => {
             if (key === 'replacementEmployeeIds')
               return values.kind === 'replacement' ? (
-                <Field key={key}>
+                <Field
+                  key={key}
+                  data-invalid={!!fieldErrors[key]}
+                  id={`recruitment-${key}`}
+                  tabIndex={-1}
+                >
                   <FieldLabel>{t(`recruitment.fields.${key}`)} *</FieldLabel>
                   {replacements.error ? (
                     <ErrorState
@@ -453,6 +502,9 @@ function FormBody({
                   <p className='text-sm text-muted-foreground'>
                     {t('recruitment.replacementNote')}
                   </p>
+                  {fieldErrors[key] && (
+                    <FieldError>{fieldErrors[key]}</FieldError>
+                  )}
                 </Field>
               ) : null;
             const id = `recruitment-${key}`,
@@ -497,7 +549,7 @@ function FormBody({
                 label: t(`recruitment.kinds.${value}`),
               }));
             return (
-              <Field key={key}>
+              <Field key={key} data-invalid={!!fieldErrors[key]}>
                 <FieldLabel htmlFor={id}>{label} *</FieldLabel>
                 {choices.includes(key as keyof Proposal) ? (
                   <>
@@ -557,6 +609,7 @@ function FormBody({
                     value={key === 'minimumCents' ? minimum : maximum}
                     onChange={(e) => {
                       guard.changed();
+                      setFieldErrors((old) => ({ ...old, [key]: '' }));
                       if (key === 'minimumCents') setMinimum(e.target.value);
                       else setMaximum(e.target.value);
                     }}
@@ -606,6 +659,9 @@ function FormBody({
                     }
                   />
                 )}
+                {fieldErrors[key] && (
+                  <FieldError>{fieldErrors[key]}</FieldError>
+                )}
               </Field>
             );
           })}
@@ -622,8 +678,12 @@ function FormBody({
               onChange={(e) => {
                 guard.changed();
                 setReason(e.target.value);
+                setFieldErrors((old) => ({ ...old, 'command-reason': '' }));
               }}
             />
+            {fieldErrors['command-reason'] && (
+              <FieldError>{fieldErrors['command-reason']}</FieldError>
+            )}
           </Field>
         </FieldGroup>
       </form>

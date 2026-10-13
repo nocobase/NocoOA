@@ -138,6 +138,35 @@ test('secure photos enforce actual owner, bytes, edit linkage, audit rollback an
     new Uint8Array(await png().arrayBuffer()),
   );
   expect(content.headers.get('cache-control')).toBe('private, no-store');
+  // Simulate a submitted request that left a draft upload unselected.
+  const unselectedUpload = await upload(otherRecord.id);
+  expect(unselectedUpload.status).toBe(201);
+  const unselected = (await unselectedUpload.json()).data.record;
+  await db.repository('assetRequests').updateMany({
+    filter: { id: otherRecord.id },
+    values: { status: 'head' },
+  });
+  const photoListRequest = {
+    ...write('POST', { limit: 10 }),
+    headers: {
+      ...write('POST', {}).headers,
+      'x-asset-request-id': otherRecord.id,
+    },
+  };
+  const emptyPhotos = await own.fetch(
+    '/assetRequestPhotos/findMany',
+    photoListRequest,
+  );
+  expect(emptyPhotos.status).toBe(200);
+  expect((await emptyPhotos.json()).data).toEqual([]);
+  expect(
+    (await stranger.fetch('/assetRequestPhotos/findMany', photoListRequest))
+      .status,
+  ).toBe(403);
+  expect(
+    (await own.fetch(new URL(unselected.contentUrl, OA_TEST_ORIGIN).href))
+      .status,
+  ).toBe(403);
   const nativeFor = authz.for.bind(authz);
   const narrow = vi.spyOn(authz, 'for').mockImplementation((identity) => {
     const context = nativeFor(identity);

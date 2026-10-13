@@ -20,6 +20,8 @@ import { titleText } from '../administration/authorization/i18n.js';
 import type { AuthorizationInspection } from '../administration/authorization/authorization-client.js';
 import { useCatalog, useLoad } from './hooks.js';
 import { resources } from './model.js';
+import { AccessModulePermissions } from './module-permissions.js';
+import { resourceKey } from '../administration/authorization/pages/permission-sets/drafts.js';
 import { Blank, ErrorState, Loading, Refresh } from './ui.js';
 
 export default function PersonDetail() {
@@ -277,113 +279,193 @@ export default function PersonDetail() {
                   <CardTitle>{t('access.permissions')}</CardTitle>
                 </CardHeader>
                 <CardContent className='flex flex-col gap-3'>
-                  {decisions.data.items.map((entry) => {
-                    const resource = resources(catalog.options!).find(
-                      (row) =>
-                        row.type === entry.resource.type &&
-                        row.value === entry.resource.id,
-                    );
-                    const action = resource?.actions?.find(
-                      (row) => row.value === entry.action,
-                    );
-                    const scopes = data.data!.definitions.flatMap((set) =>
-                      set.grants
-                        .filter(
-                          (grant) =>
-                            grant.resource.type === entry.resource.type &&
-                            grant.resource.id === entry.resource.id,
-                        )
-                        .flatMap((grant) =>
-                          grant.actions
-                            .filter((action) => action.action === entry.action)
-                            .flatMap((action) => {
-                              if (
-                                action.policy &&
-                                action.policy.type !== 'composite'
-                              )
-                                return [t('access.special')];
-                              const values = (action.policy?.scopes ??
-                                {}) as Record<string, unknown>;
-                              return Object.entries(values).map(
-                                ([key, value]) =>
-                                  resource?.dataScopes?.[entry.action]
-                                    ?.find((scope) => scope.key === key)
-                                    ?.options.find(
-                                      (option) => option.value === value,
-                                    )?.label ?? t('access.special'),
-                              );
-                            }),
-                        ),
-                    );
-                    const sourceTitles = data
-                      .data!.definitions.filter((set) =>
-                        set.grants.some(
-                          (grant) =>
-                            grant.resource.type === entry.resource.type &&
-                            grant.resource.id === entry.resource.id &&
-                            grant.actions.some(
-                              (action) => action.action === entry.action,
+                  <AccessModulePermissions
+                    options={catalog.options}
+                    enabled={
+                      new Set(
+                        data.data.definitions.flatMap((set) =>
+                          set.grants
+                            .filter((grant) => grant.actions.length > 0)
+                            .map((grant) =>
+                              resourceKey(
+                                grant.resource.type,
+                                grant.resource.id,
+                              ),
                             ),
                         ),
                       )
-                      .map((set) =>
-                        titleText(set.title, t, t('access.permissions')),
-                      );
-                    return (
-                      <div
-                        key={JSON.stringify([entry.resource, entry.action])}
-                        className='grid gap-2 border-b pb-3 sm:grid-cols-3'
-                      >
-                        <span>{resource?.label ?? t('access.special')}</span>
-                        <span>{action?.label ?? t('access.special')}</span>
-                        <Badge variant='outline'>
-                          {entry.decision.effect === 'conditional'
-                            ? t('access.conditional')
-                            : entry.decision.effect === 'deny'
-                              ? t('access.deniedAction')
-                              : t('access.permitted')}
-                        </Badge>
-                        {entry.decision.effect === 'conditional' ? (
-                          <p className='text-sm text-muted-foreground sm:col-span-3'>
-                            {t('access.conditionalSpecial')} ·{' '}
-                            {t('access.conditionalHelp')}
+                    }
+                  >
+                    {(keys) => (
+                      <div className='flex flex-col gap-3'>
+                        {!decisions.data!.items.some((entry) =>
+                          keys.has(
+                            resourceKey(entry.resource.type, entry.resource.id),
+                          ),
+                        ) &&
+                        !decisions.data!.failedChecks.some((entry) =>
+                          keys.has(
+                            resourceKey(entry.resource.type, entry.resource.id),
+                          ),
+                        ) ? (
+                          <p className='text-sm text-muted-foreground'>
+                            {t('access.noModuleMatches')}
                           </p>
                         ) : null}
-                        {sourceTitles.length ? (
-                          <p className='text-sm text-muted-foreground sm:col-span-3'>
-                            {t('access.source')}: {sourceTitles.join('、')}
-                          </p>
-                        ) : null}
-                        {scopes.length ? (
-                          <p className='text-sm text-muted-foreground sm:col-span-3'>
-                            {t('access.configuredScopes')}:{' '}
-                            {[...new Set(scopes)].join('、')}
-                          </p>
-                        ) : null}
+                        {decisions
+                          .data!.items.filter((entry) =>
+                            keys.has(
+                              resourceKey(
+                                entry.resource.type,
+                                entry.resource.id,
+                              ),
+                            ),
+                          )
+                          .map((entry) => {
+                            const resource = resources(catalog.options!).find(
+                              (row) =>
+                                row.type === entry.resource.type &&
+                                row.value === entry.resource.id,
+                            );
+                            const action = resource?.actions?.find(
+                              (row) => row.value === entry.action,
+                            );
+                            const scopes = data.data!.definitions.flatMap(
+                              (set) =>
+                                set.grants
+                                  .filter(
+                                    (grant) =>
+                                      grant.resource.type ===
+                                        entry.resource.type &&
+                                      grant.resource.id === entry.resource.id,
+                                  )
+                                  .flatMap((grant) =>
+                                    grant.actions
+                                      .filter(
+                                        (action) =>
+                                          action.action === entry.action,
+                                      )
+                                      .flatMap((action) => {
+                                        if (
+                                          action.policy &&
+                                          action.policy.type !== 'composite'
+                                        )
+                                          return [t('access.special')];
+                                        const values = (action.policy?.scopes ??
+                                          {}) as Record<string, unknown>;
+                                        return Object.entries(values).map(
+                                          ([key, value]) =>
+                                            resource?.dataScopes?.[entry.action]
+                                              ?.find(
+                                                (scope) => scope.key === key,
+                                              )
+                                              ?.options.find(
+                                                (option) =>
+                                                  option.value === value,
+                                              )?.label ?? t('access.special'),
+                                        );
+                                      }),
+                                  ),
+                            );
+                            const sourceTitles = data
+                              .data!.definitions.filter((set) =>
+                                set.grants.some(
+                                  (grant) =>
+                                    grant.resource.type ===
+                                      entry.resource.type &&
+                                    grant.resource.id === entry.resource.id &&
+                                    grant.actions.some(
+                                      (action) =>
+                                        action.action === entry.action,
+                                    ),
+                                ),
+                              )
+                              .map((set) =>
+                                titleText(
+                                  set.title,
+                                  t,
+                                  t('access.permissions'),
+                                ),
+                              );
+                            return (
+                              <div
+                                key={JSON.stringify([
+                                  entry.resource,
+                                  entry.action,
+                                ])}
+                                className='grid gap-2 border-b pb-3 sm:grid-cols-3'
+                              >
+                                <span>
+                                  {resource?.label ?? t('access.special')}
+                                </span>
+                                <span>
+                                  {action?.label ?? t('access.special')}
+                                </span>
+                                <Badge variant='outline'>
+                                  {entry.decision.effect === 'conditional'
+                                    ? t('access.conditional')
+                                    : entry.decision.effect === 'deny'
+                                      ? t('access.deniedAction')
+                                      : t('access.permitted')}
+                                </Badge>
+                                {entry.decision.effect === 'conditional' ? (
+                                  <p className='text-sm text-muted-foreground sm:col-span-3'>
+                                    {t('access.conditionalSpecial')} ·{' '}
+                                    {t('access.conditionalHelp')}
+                                  </p>
+                                ) : null}
+                                {sourceTitles.length ? (
+                                  <p className='text-sm text-muted-foreground sm:col-span-3'>
+                                    {t('access.source')}:{' '}
+                                    {sourceTitles.join('、')}
+                                  </p>
+                                ) : null}
+                                {scopes.length ? (
+                                  <p className='text-sm text-muted-foreground sm:col-span-3'>
+                                    {t('access.configuredScopes')}:{' '}
+                                    {[...new Set(scopes)].join('、')}
+                                  </p>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        {decisions
+                          .data!.failedChecks.filter((entry) =>
+                            keys.has(
+                              resourceKey(
+                                entry.resource.type,
+                                entry.resource.id,
+                              ),
+                            ),
+                          )
+                          .map((entry) => {
+                            const resource = resources(catalog.options!).find(
+                              (row) =>
+                                row.type === entry.resource.type &&
+                                row.value === entry.resource.id,
+                            );
+                            return (
+                              <div
+                                key={JSON.stringify(entry)}
+                                className='grid gap-2 sm:grid-cols-3'
+                              >
+                                <span>
+                                  {resource?.label ?? t('access.special')}
+                                </span>
+                                <span>
+                                  {resource?.actions?.find(
+                                    (action) => action.value === entry.action,
+                                  )?.label ?? t('access.special')}
+                                </span>
+                                <Badge variant='outline'>
+                                  {t('access.unchecked')}
+                                </Badge>
+                              </div>
+                            );
+                          })}
                       </div>
-                    );
-                  })}
-                  {decisions.data.failedChecks.map((entry) => {
-                    const resource = resources(catalog.options!).find(
-                      (row) =>
-                        row.type === entry.resource.type &&
-                        row.value === entry.resource.id,
-                    );
-                    return (
-                      <div
-                        key={JSON.stringify(entry)}
-                        className='grid gap-2 sm:grid-cols-3'
-                      >
-                        <span>{resource?.label ?? t('access.special')}</span>
-                        <span>
-                          {resource?.actions?.find(
-                            (action) => action.value === entry.action,
-                          )?.label ?? t('access.special')}
-                        </span>
-                        <Badge variant='outline'>{t('access.unchecked')}</Badge>
-                      </div>
-                    );
-                  })}
+                    )}
+                  </AccessModulePermissions>
                   {!decisions.data.failed &&
                   !decisions.data.items.some(
                     (entry) => entry.decision.effect !== 'deny',

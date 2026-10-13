@@ -57,7 +57,7 @@ export default function VendorDetail() {
           <VendorSkeleton />
         ) : null
       ) : (
-        <div className='space-y-4'>
+        <div className='flex flex-col gap-4'>
           <StatusBadge tone={row.active ? 'success' : 'neutral'}>
             {t(`vendors.statuses.${row.status}`)}
           </StatusBadge>
@@ -77,14 +77,14 @@ export default function VendorDetail() {
             )
               .filter((k) => typeof row[k] === 'string')
               .map((k) => (
-                <div key={k} className='space-y-1'>
+                <div key={k} className='flex flex-col gap-1'>
                   <dt className='text-sm text-muted-foreground'>
                     {t(`vendors.fields.${k}`)}
                   </dt>
                   <dd className='break-words'>{row[k] || '—'}</dd>
                 </div>
               ))}
-            <div className='space-y-1'>
+            <div className='flex flex-col gap-1'>
               <dt className='text-sm text-muted-foreground'>
                 {t('vendors.updatedAt')}
               </dt>

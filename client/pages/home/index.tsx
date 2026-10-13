@@ -1,3 +1,4 @@
+import { approvalStatusTone } from '../approvals/status-tone.js';
 import { PersonalCards } from './personal-cards.js';
 import { UserName } from '#components/user-name';
 import type { Options as ContractOptions } from '../contracts/types.js';
@@ -14,9 +15,9 @@ import {
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { ClipboardCheck, RefreshCw } from 'lucide-react';
-import { RequestActions } from '#components/request-actions';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { ClipboardCheck, RefreshCw, Plus, Info } from 'lucide-react';
+import { GroupedRequestActions as RequestActions } from './request-groups.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useResolvedPath } from 'react-router';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -49,33 +50,6 @@ import {
   useCenterResource,
   type CenterRecord,
 } from '../approvals/use-center-resource.js';
-
-const IN_PROGRESS = [
-  'hrbp',
-  'hrDirector',
-  'legal',
-  'financeManager',
-  'stamping',
-  'returning',
-  'returnException',
-  'dispatch',
-  'usage',
-  'manager',
-  'head',
-  'hr',
-  'extra',
-  'issuing',
-  'sourceHead',
-  'targetHead',
-  'pendingEffective',
-  'cancellationReview',
-  'booking',
-  'unbooking',
-  'finance',
-  'executive',
-  'cfo',
-  'gm',
-];
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -248,7 +222,7 @@ export default function HomePage() {
   )
     return <Workbench />;
   return (
-    <PageContainer>
+    <PageContainer className='space-y-4'>
       <PageHeader
         title={t('workbench.title')}
         description={t('workbench.description')}
@@ -269,6 +243,7 @@ function Workbench() {
     pageSize: '5',
     homeSummary: 'true',
   });
+  const requestSectionRef = useRef<HTMLElement>(null);
   const optionsReady = pending.settled && mine.settled;
   // Give the two primary summaries the first read wave. Once enabled, metadata
   // stays enabled on refresh; another identity/revision must settle its own reads.
@@ -467,11 +442,12 @@ function Workbench() {
   });
   // The server derives attention from the complete authorized mine set, not this page.
   const revisionRows = { ...mine, data: mine.meta?.attention?.revisions };
-  const draftRows = { ...mine, data: mine.meta?.attention?.drafts };
+  const [personalRevision, setPersonalRevision] = useState(0);
   const refreshRef = useRef<HTMLButtonElement>(null);
   const { reload: reloadPending } = pending;
   const { reload: reloadMine } = mine;
   const reload = useCallback(() => {
+    setPersonalRevision((revision) => revision + 1);
     reloadPending();
     reloadMine();
   }, [reloadPending, reloadMine]);
@@ -479,15 +455,8 @@ function Workbench() {
     () => ({ reload, basePath: base.pathname, search: location.search }),
     [reload, base.pathname, location.search],
   );
-  const loading =
-    pending.loading ||
-    mine.loading ||
-    revisionRows.loading ||
-    draftRows.loading;
+  const loading = pending.loading || mine.loading;
   const revisions = (revisionRows.data ?? []).filter(
-    (r) => r.applicantId === session?.user.id,
-  );
-  const drafts = (draftRows.data ?? []).filter(
     (r) => r.applicantId === session?.user.id,
   );
   const attention = [
@@ -507,12 +476,13 @@ function Workbench() {
               ? 'nextWorkItem'
               : r.kind === 'oa.announcementReceipt'
                 ? 'nextAnnouncement'
-                : 'nextApproval',
+                : r.status === 'dispatch'
+                  ? 'nextDispatch'
+                  : r.status === 'issuing'
+                    ? 'nextIssue'
+                    : 'nextHandling',
           priority: 1,
         }))),
-    ...(draftRows.error
-      ? []
-      : drafts.map((r) => ({ record: r, next: 'nextDraft', priority: 2 }))),
   ].sort(
     (a, b) =>
       a.priority - b.priority ||
@@ -528,9 +498,15 @@ function Workbench() {
         ) === index,
     )
     .slice(0, 6);
-  const recent = [...(mine.data ?? [])]
-    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-    .slice(0, 5);
+  const recent =
+    mine.meta?.attention?.submitted ??
+    (mine.data ?? []).filter((r) => r.status !== 'draft').slice(0, 5);
+  const metricLinks: Record<string, string> = {
+    pending: '/approvals/todo',
+    revision: '/approvals/mine?category=revisions',
+    drafts: '/approvals/mine?category=drafts',
+    inProgress: '/approvals/mine?category=inProgress',
+  };
   const metrics = [
     { key: 'pending', value: pending.meta?.total, error: pending.error },
     {
@@ -659,7 +635,7 @@ function Workbench() {
     refreshRef.current?.focus();
   };
   return (
-    <PageContainer>
+    <PageContainer className='space-y-4'>
       <PageHeader
         title={
           <span ref={titleRef} tabIndex={-1}>
@@ -668,100 +644,113 @@ function Workbench() {
         }
         description={t('workbench.description')}
         actions={
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  ref={refreshRef}
-                  variant='outline'
-                  size='icon'
-                  aria-label={t('approvals.refresh')}
-                  disabled={loading}
-                  onClick={reload}
-                />
-              }
-            >
-              <RefreshCw className={loading ? 'animate-spin' : undefined} />
-            </TooltipTrigger>
-            <TooltipContent>{t('approvals.refresh')}</TooltipContent>
-          </Tooltip>
+          <>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    ref={refreshRef}
+                    variant='outline'
+                    size='icon'
+                    aria-label={t('approvals.refresh')}
+                    disabled={loading}
+                    onClick={reload}
+                  />
+                }
+              >
+                <RefreshCw className={loading ? 'animate-spin' : undefined} />
+              </TooltipTrigger>
+              <TooltipContent>{t('approvals.refresh')}</TooltipContent>
+            </Tooltip>
+            {canSubmit ? (
+              <Button
+                onClick={() => {
+                  requestSectionRef.current?.scrollIntoView({
+                    block: 'start',
+                    behavior: 'smooth',
+                  });
+                  requestSectionRef.current?.focus({ preventScroll: true });
+                }}
+              >
+                <Plus data-icon='inline-start' />
+                {t('workbench.newRequest')}
+              </Button>
+            ) : null}
+          </>
         }
       />
-      <PersonalCards />
+      <PersonalCards key={personalRevision} />
       <div className='grid grid-cols-2 gap-4 xl:grid-cols-4'>
-        {metrics.map((metric) => (
-          <Card key={metric.key}>
-            <CardHeader>
-              <CardDescription>{t(`workbench.${metric.key}`)}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {metric.error ? (
-                <span className='text-sm text-muted-foreground'>
-                  {t('workbench.unavailable')}
-                </span>
-              ) : metric.value === undefined ? (
-                <Skeleton
-                  className='h-8 w-16'
-                  aria-label={t('workbench.loading')}
-                />
-              ) : (
-                <span className='text-3xl font-semibold tabular-nums'>
-                  {new Intl.NumberFormat(i18n.language).format(metric.value)}
-                </span>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+        {metrics.map((metric) => {
+          const content = (
+            <Card className='h-full transition-colors group-hover:bg-muted/50'>
+              <CardHeader>
+                <CardDescription>
+                  {t(`workbench.${metric.key}`)}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {metric.error ? (
+                  <span className='text-sm text-muted-foreground'>
+                    {t('workbench.unavailable')}
+                  </span>
+                ) : metric.value === undefined ? (
+                  <Skeleton
+                    className='h-8 w-16'
+                    aria-label={t('workbench.loading')}
+                  />
+                ) : (
+                  <span className='text-3xl font-semibold tabular-nums'>
+                    {new Intl.NumberFormat(i18n.language).format(metric.value)}
+                  </span>
+                )}
+              </CardContent>
+            </Card>
+          );
+          return metric.error || metric.value === undefined ? (
+            <div key={metric.key}>{content}</div>
+          ) : (
+            <Link
+              key={metric.key}
+              to={metricLinks[metric.key]}
+              className='group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring'
+              aria-label={`${t(`workbench.${metric.key}`)} ${metric.value}`}
+            >
+              {content}
+            </Link>
+          );
+        })}
       </div>
-      {canSubmit ? (
-        <NewRequestCard
-          vehicle={vehicleCreate}
-          recruitment={recruitmentCreate}
-          seal={sealCreate}
-          transfer={transferCreate}
-          certificate={certificateCreate}
-          leave={submit.can}
-          attendance={attendanceSubmit.can}
-          outing={outingSubmit.can}
-          expensePlan={expensePlanSubmit.can}
-          training={trainingSubmit.can}
-          reimbursement={reimbursementSubmit.can}
-          probation={probationCreate}
-          departure={departureCreate}
-          contract={contractCreate}
-          asset={assetCreate}
-          vendor={vendorCreate}
-          payment={paymentSubmit.can}
-          loan={loanSubmit.can}
-          purchase={purchaseSubmit.can}
-          travel={travelSubmit.can}
-          travelCancellation={travelCancellationSubmit.can}
-          budget={budgetSubmit.can}
-          supplies={supplySubmit.can}
-          general={generalSubmit.can}
-          overtime={overtimeSubmit.can}
-          cancellation={cancellationSubmit.can}
-        />
-      ) : null}
       {loading && (pending.data || mine.data) ? (
         <p role='status' className='text-sm text-muted-foreground'>
           {t('workbench.refreshing')}
         </p>
       ) : null}
-      <p className='text-sm text-muted-foreground'>
-        {t('approvalCenter.scope')}
-      </p>
+
       {revisionRows.error ? (
         <ErrorState context='query' error={revisionRows.error} retry={retry} />
       ) : null}
-      {draftRows.error ? (
-        <ErrorState context='query' error={draftRows.error} retry={retry} />
-      ) : null}
-      <div className='grid items-start gap-6 md:grid-cols-2'>
-        <Card className='min-w-0'>
+      <div className='flex flex-col items-stretch gap-4 md:flex-row'>
+        <Card className='min-w-0 flex-1'>
           <CardHeader>
             <CardTitle>
-              <h2>{t('workbench.attention')}</h2>
+              <div className='flex items-center gap-2'>
+                <h2>{t('workbench.attention')}</h2>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant='ghost'
+                        size='icon-sm'
+                        aria-label={t('approvalCenter.scope')}
+                      />
+                    }
+                  >
+                    <Info aria-hidden='true' />
+                  </TooltipTrigger>
+                  <TooltipContent>{t('approvalCenter.scope')}</TooltipContent>
+                </Tooltip>
+              </div>
             </CardTitle>
             <CardDescription>
               {t('workbench.attentionDescription')}
@@ -775,12 +764,13 @@ function Workbench() {
               <ErrorState context='query' error={mine.error} retry={retry} />
             ) : null}
             {unique.length ? (
-              <ul className='flex flex-col gap-4'>
-                {unique.map(({ record, next }) => (
+              <ul className='flex flex-col'>
+                {unique.map(({ record, priority }) => (
                   <WorkRow
                     key={`${record.kind}:${record.id}`}
                     record={record}
-                    next={next}
+                    showInitiator
+                    showApplicant={priority === 1}
                     disabled={loading}
                   />
                 ))}
@@ -791,36 +781,32 @@ function Workbench() {
               <EmptyCard kind='Attention' canSubmit={canSubmit} />
             ) : null}
           </CardContent>
-          <CardFooter className='flex flex-wrap gap-2'>
+          <CardFooter className='mt-auto flex flex-wrap gap-2'>
             <ListLink to='/approvals/todo' label={t('workbench.viewPending')} />
+            {(mine.meta?.counts.revisions ?? 0) > 0 ? (
+              <ListLink
+                to='/approvals/mine?category=revisions'
+                label={t('workbench.viewRevisions')}
+              />
+            ) : null}
           </CardFooter>
         </Card>
-        <Card className='min-w-0'>
+        <Card className='min-w-0 flex-1'>
           <CardHeader>
             <CardTitle>
               <h2>{t('workbench.mine')}</h2>
             </CardTitle>
-            <CardDescription>{t('workbench.mineDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             {mine.error ? (
               <ErrorState context='query' error={mine.error} retry={retry} />
             ) : recent.length ? (
-              <ul className='flex flex-col gap-4'>
+              <ul className='flex flex-col'>
                 {recent.map((record) => (
                   <WorkRow
                     key={`${record.kind}:${record.id}`}
                     record={record}
                     disabled={loading}
-                    next={
-                      record.status === 'draft'
-                        ? 'nextDraft'
-                        : ['revision', 'exception'].includes(record.status)
-                          ? 'nextRevision'
-                          : IN_PROGRESS.includes(record.status)
-                            ? 'nextWaiting'
-                            : undefined
-                    }
                   />
                 ))}
               </ul>
@@ -830,11 +816,49 @@ function Workbench() {
               <EmptyCard kind='Mine' canSubmit={canSubmit} />
             )}
           </CardContent>
-          <CardFooter>
+          <CardFooter className='mt-auto'>
             <ListLink to='/approvals/mine' label={t('workbench.viewMine')} />
           </CardFooter>
         </Card>
       </div>
+      {canSubmit ? (
+        <section
+          id='request-actions'
+          ref={requestSectionRef}
+          tabIndex={-1}
+          aria-label={t('workbench.newRequest')}
+          className='scroll-mt-6 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring'
+        >
+          <NewRequestCard
+            vehicle={vehicleCreate}
+            recruitment={recruitmentCreate}
+            seal={sealCreate}
+            transfer={transferCreate}
+            certificate={certificateCreate}
+            leave={submit.can}
+            attendance={attendanceSubmit.can}
+            outing={outingSubmit.can}
+            expensePlan={expensePlanSubmit.can}
+            training={trainingSubmit.can}
+            reimbursement={reimbursementSubmit.can}
+            probation={probationCreate}
+            departure={departureCreate}
+            contract={contractCreate}
+            asset={assetCreate}
+            vendor={vendorCreate}
+            payment={paymentSubmit.can}
+            loan={loanSubmit.can}
+            purchase={purchaseSubmit.can}
+            travel={travelSubmit.can}
+            travelCancellation={travelCancellationSubmit.can}
+            budget={budgetSubmit.can}
+            supplies={supplySubmit.can}
+            general={generalSubmit.can}
+            overtime={overtimeSubmit.can}
+            cancellation={cancellationSubmit.can}
+          />
+        </section>
+      ) : null}
       <Outlet context={context} />
     </PageContainer>
   );
@@ -842,83 +866,107 @@ function Workbench() {
 
 function WorkRow({
   record,
-  next,
+  showInitiator = false,
+  showApplicant = false,
   disabled,
 }: {
   record: CenterRecord;
-  next?: string;
+  showInitiator?: boolean;
+  showApplicant?: boolean;
   disabled: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const date = (value: string) =>
     formatApprovalPeriodValue(value, i18n.language);
-  const tone = ['approved', 'issued'].includes(record.status)
-    ? 'success'
-    : ['revision', 'rejected', 'exception', 'forcedClosed'].includes(
-          record.status,
-        )
-      ? 'warning'
-      : IN_PROGRESS.includes(record.status)
-        ? 'info'
-        : 'neutral';
+  const tone = approvalStatusTone(record.status, record.kind);
+  const business = t(
+    `approvalCenter.kinds.${approvalBusiness(record.kind).label}`,
+  );
+  const title =
+    record.title?.trim() ||
+    t(
+      record.status === 'draft'
+        ? 'workbench.draftWithoutSummary'
+        : 'workbench.requestWithoutSummary',
+      { type: business },
+    );
+  const to = {
+    pathname: `${approvalBusiness(record.kind).detail}/${record.id}`,
+    search: location.search,
+    hash: location.hash,
+  };
+  const { session } = useAuthentication();
+  const isApproval = !['oa.workItem', 'oa.announcementReceipt'].includes(
+    record.kind,
+  );
+  const showPerson =
+    showInitiator &&
+    ((showApplicant && isApproval) || record.applicantId !== session?.user?.id);
+  const relevantDate = record.dueAt || record.updatedAt || record.createdAt;
+  const dateLabel = record.dueAt
+    ? 'workbench.dueAt'
+    : record.updatedAt
+      ? 'workbench.updatedAt'
+      : 'workbench.createdAt';
+  const linkClass =
+    'rounded-sm text-sm font-medium text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-ring focus-visible:outline-2';
   return (
-    <li className='flex min-w-0 flex-col gap-2 border-b border-border pb-4 last:border-0 last:pb-0'>
-      <div className='flex flex-wrap items-center justify-between gap-2'>
+    <li className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 border-b border-border py-3 first:pt-0 last:border-0 last:pb-0'>
+      <div className='min-w-0 break-words'>
         {disabled ? (
-          <span className='text-sm font-medium'>
-            {record.title ??
-              record.number ??
-              t(
-                record.status === 'draft'
-                  ? 'approvals.draft'
-                  : 'approvals.detail',
-              )}
-          </span>
+          <span className='text-sm font-medium'>{title}</span>
         ) : (
-          <Link
-            className='rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-ring focus-visible:outline-2'
-            to={{
-              pathname: `${approvalBusiness(record.kind).detail}/${record.id}`,
-              search: location.search,
-              hash: location.hash,
-            }}
-          >
-            {record.title ??
-              record.number ??
-              t(
-                record.status === 'draft'
-                  ? 'approvals.draft'
-                  : 'approvals.detail',
-              )}
+          <Link className={linkClass} to={to}>
+            {title}
           </Link>
         )}
-        <StatusBadge tone={tone}>
-          {approvalStateLabel(record.status, t, record.kind)}
-        </StatusBadge>
       </div>
-      <p className='text-sm text-muted-foreground break-words'>
-        {
-          <>
-            <span>{t('approvals.applicant')}: </span>
-            <UserName
-              name={record.applicant?.name ?? t('approvals.unknownPerson')}
-            />
-          </>
-        }{' '}
-        · {t(`approvalCenter.kinds.${approvalBusiness(record.kind).label}`)} ·{' '}
-        {record.startDate && record.endDate
-          ? `${date(record.startDate)}–${date(record.endDate)}`
-          : '—'}
-      </p>
-      {next ? (
-        <p className='text-sm text-muted-foreground'>
-          {t(`workbench.${next}`)}
-        </p>
+      <StatusBadge tone={tone} className='justify-self-end'>
+        {approvalStateLabel(record.status, t, record.kind)}
+      </StatusBadge>
+      {showPerson ||
+      title !== business ||
+      (record.startDate && record.endDate) ||
+      relevantDate ? (
+        <div className='col-span-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground'>
+          {showPerson ? (
+            <span className='inline-flex min-w-0 items-center gap-1'>
+              <span>
+                {t(isApproval ? 'approvals.applicant' : 'workbench.initiator')}:
+              </span>
+              <UserName
+                name={record.applicant?.name ?? t('approvals.unknownPerson')}
+              />
+            </span>
+          ) : null}
+          <span>{business}</span>
+          {record.unit === 'cents' && record.amount !== null ? (
+            <span>
+              {new Intl.NumberFormat(i18n.language, {
+                style: 'currency',
+                currency: 'CNY',
+              }).format(record.amount / 100)}
+            </span>
+          ) : null}
+          {relevantDate ? (
+            <time dateTime={relevantDate}>
+              {t(dateLabel, { date: date(relevantDate) })}
+            </time>
+          ) : null}
+          {!(record.unit === 'cents' && record.amount !== null) &&
+          record.startDate &&
+          record.endDate ? (
+            <span>
+              {date(record.startDate)}–{date(record.endDate)}
+            </span>
+          ) : null}
+        </div>
       ) : null}
     </li>
   );
 }
+
 function ListLink({ to, label }: { to: string; label: string }) {
   return (
     <Button
@@ -1039,7 +1087,7 @@ function EmptyCard({
   kind,
   canSubmit,
 }: {
-  kind: 'Attention' | 'Mine';
+  kind: 'Attention' | 'Mine' | 'Drafts';
   canSubmit: boolean;
 }) {
   const { t } = useTranslation();
@@ -1076,7 +1124,7 @@ function RowsSkeleton() {
 }
 function LoadingCards() {
   return (
-    <div className='flex flex-col gap-6'>
+    <div className='flex flex-col gap-4'>
       <div className='grid grid-cols-2 gap-4 xl:grid-cols-4'>
         {[0, 1, 2, 3].map((key) => (
           <Card key={key}>

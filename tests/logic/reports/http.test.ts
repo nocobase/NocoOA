@@ -162,6 +162,9 @@ test('A5 reports recheck source grants, retain policy scope and export only whit
   ])
     expect((await request(path)).status).toBe(401);
   expect((await outsider.fetch('/reports/budget-balances')).status).toBe(403);
+  expect(
+    (await (await outsider.fetch('/reports/datasets')).json()).data,
+  ).not.toContain('budget-balances');
   expect((await outsider.fetch('/reports/headcount-balances')).status).toBe(
     403,
   );
@@ -208,6 +211,15 @@ test('A5 reports recheck source grants, retain policy scope and export only whit
   ];
   await grantToUser(testApp, key, grants, reader.user.id);
 
+  const capabilities = await reader.fetch('/reports/datasets');
+  expect(capabilities.headers.get('cache-control')).toBe('no-store');
+  expect((await capabilities.json()).data).toEqual(
+    expect.arrayContaining([
+      'budget-balances',
+      'headcount-balances',
+      'contract-ledger',
+    ]),
+  );
   expect((await reader.fetch('/reports/budget-balances')).status).toBe(200);
   expect((await reader.fetch('/reports/budget-balances.xlsx')).status).toBe(
     200,
@@ -224,6 +236,11 @@ test('A5 reports recheck source grants, retain policy scope and export only whit
       departmentId: department.id,
       year: 2026,
       subject: 'travel',
+      departmentName: 'A5 Finance',
+      subjectLabel: expect.objectContaining({
+        'en-US': expect.any(String),
+        'zh-CN': expect.any(String),
+      }),
       allocatedCents: 12345,
       heldCents: 0,
       usedCents: 0,
@@ -287,7 +304,7 @@ test('A5 reports recheck source grants, retain policy scope and export only whit
       ),
     ),
   ).toEqual([
-    'Department ID',
+    'Department',
     'Year',
     'Subject',
     'Allocated cents',
@@ -300,8 +317,8 @@ test('A5 reports recheck source grants, retain policy scope and export only whit
       await workbook(await reader.fetch('/reports/headcount-balances.xlsx')),
     ),
   ).toEqual([
-    'Department ID',
-    'Position ID',
+    'Department',
+    'Position',
     'Year',
     'Limit',
     'Initialized',
@@ -320,7 +337,7 @@ test('A5 reports recheck source grants, retain policy scope and export only whit
     ),
   ).toEqual([
     'Number',
-    'Department ID',
+    'Department',
     'Status',
     'Amount cents',
     'Held cents',
@@ -534,6 +551,9 @@ test('A5 reports recheck source grants, retain policy scope and export only whit
   const set = await authz.permissionSets.get(key);
   if (!set) throw new Error('A5 report permission fixture was not created.');
   await authz.permissionSets.update(key, { ...set, grants: [] });
+  expect(
+    (await (await reader.fetch('/reports/datasets')).json()).data,
+  ).not.toContain('budget-balances');
   for (const path of [
     '/reports/budget-balances',
     '/reports/headcount-balances',

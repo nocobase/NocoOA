@@ -33,11 +33,12 @@ export interface Booking {
   version: number;
 }
 export type Action = 'edit' | 'cancel' | 'confirm' | 'reject' | 'checkIn';
-export type Tab = 'rooms' | 'mine' | 'participating' | 'administration';
+export type Tab =
+  'availability' | 'rooms' | 'mine' | 'participating' | 'administration';
 export interface Options {
   companyTimeZone: string;
   actor: Person;
-  modes: Exclude<Tab, 'rooms'>[];
+  modes: Exclude<Tab, 'rooms' | 'availability'>[];
   canCreate: boolean;
   canManage: boolean;
 }

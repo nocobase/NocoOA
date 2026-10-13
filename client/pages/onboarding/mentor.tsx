@@ -50,7 +50,9 @@ export function Mentor({
           .filter((v) => v.id !== exclude)
           .map((v) => ({ value: v.id, label: `${v.name} (${v.code})` }))}
       />
-      {r.error ? <Failure error={r.error} retry={r.reload} /> : null}
+      {r.error ? (
+        <Failure module='onboarding' error={r.error} retry={r.reload} />
+      ) : null}
     </div>
   ) : (
     <p>{t('onboarding.mentorDenied')}</p>

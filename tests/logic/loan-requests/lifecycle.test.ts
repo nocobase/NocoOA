@@ -328,6 +328,9 @@ describe('loan request lifecycle and money', () => {
     await service.cashRepayment(String(draft.id), repayment, ids.cashier);
     await service.cashRepayment(String(draft.id), repayment, ids.cashier);
     const waiting = await service.repayments(String(draft.id), ids.applicant);
+    expect(waiting.reservations).toEqual([
+      expect.objectContaining({ cents: 4000 }),
+    ]);
     expect(waiting.loan).toMatchObject({
       outstandingCents: 10000,
       heldCents: 4000,

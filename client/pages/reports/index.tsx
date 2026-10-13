@@ -1,3 +1,10 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { StatusBadge } from '#components/status-badge';
+import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
+import { useAuthorizationRevision } from '@nocobase/app-plugin-authorization/client';
+import { reportMoney } from './presentation';
+import { useSearchParams } from 'react-router';
+import { useUrlSearch } from '#hooks/use-url-search';
 import { ApplicationSearch } from '#components/application-search';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { ExpenseSummaryReport } from './expense-summary.js';
@@ -22,7 +29,7 @@ import { DepartmentPicker } from '#components/department-picker';
 import { PositionFilter } from './position-filter';
 import { Label } from '#components/ui/label';
 import { Download, RefreshCw, ChartNoAxesCombined } from 'lucide-react';
-import { useEffect, useId, useReducer, useState } from 'react';
+import { useEffect, useId, useMemo, useReducer, useState } from 'react';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -71,9 +78,65 @@ function Report({ dataset }: { dataset: Dataset }) {
   const yearFilterId = useId();
   const departmentFilterId = useId();
   const [generation, reload] = useReducer((n: number) => n + 1, 0);
-  const [page, setPage] = useState(1);
-  const [sort, setSort] = useState({ field: 'month', direction: 'desc' });
-  const [filters, setFilters] = useState({ first: '', second: '', third: '' });
+  const search = useUrlSearch({
+    param: `${dataset}-first`,
+    resetParams: [`${dataset}-page`],
+  });
+  const secondSearch = useUrlSearch({
+    param: `${dataset}-second`,
+    resetParams: [`${dataset}-page`],
+    writeParams: search.updateParams,
+  });
+  const thirdSearch = useUrlSearch({
+    param: `${dataset}-third`,
+    resetParams: [`${dataset}-page`],
+    writeParams: search.updateParams,
+  });
+  const params = search.searchParams;
+  const page = Math.max(1, Number(params.get(`${dataset}-page`)) || 1);
+  const sort = useMemo(
+    () => ({
+      field: params.get(`${dataset}-sort`) || 'month',
+      direction: params.get(`${dataset}-direction`) === 'asc' ? 'asc' : 'desc',
+    }),
+    [params, dataset],
+  );
+  const filters = useMemo(
+    () => ({
+      first: search.search,
+      second: params.get(`${dataset}-second`) || '',
+      third: params.get(`${dataset}-third`) || '',
+    }),
+    [params, dataset, search.search],
+  );
+  function setPage(value: number | ((old: number) => number)) {
+    search.updateParams((p) =>
+      p.set(
+        `${dataset}-page`,
+        String(typeof value === 'function' ? value(page) : value),
+      ),
+    );
+  }
+  function setFilters(
+    value: typeof filters | ((old: typeof filters) => typeof filters),
+  ) {
+    const next = typeof value === 'function' ? value(filters) : value;
+    search.updateParams((p) => {
+      for (const key of ['first', 'second', 'third'] as const) {
+        if (next[key]) p.set(`${dataset}-${key}`, next[key]);
+        else p.delete(`${dataset}-${key}`);
+      }
+      p.delete(`${dataset}-page`);
+    });
+  }
+  function setSort(updater: (old: typeof sort) => typeof sort) {
+    const next = updater(sort);
+    search.updateParams((p) => {
+      p.set(`${dataset}-sort`, next.field);
+      p.set(`${dataset}-direction`, next.direction);
+      p.delete(`${dataset}-page`);
+    });
+  }
   const [result, setResult] = useState<{
     data?: Result;
     error?: unknown;
@@ -82,7 +145,8 @@ function Report({ dataset }: { dataset: Dataset }) {
   useEffect(() => {
     const abort = new AbortController();
     void Promise.resolve().then(() => {
-      if (!abort.signal.aborted) setResult({ loading: true });
+      if (!abort.signal.aborted)
+        setResult((old) => ({ data: old.data, loading: true }));
     });
     if (
       dataset === 'leave-monthly' &&
@@ -138,18 +202,53 @@ function Report({ dataset }: { dataset: Dataset }) {
     return () => abort.abort();
   }, [api, dataset, filters, generation, page, sort, dateLocale.code]);
   const rows = result.data?.data ?? [];
-  const columns =
-    dataset === 'leave-monthly'
-      ? [
-          'leaveType',
-          'year',
-          'month',
-          'approvedRequestCount',
-          'approvedRequestedDays',
-        ]
-      : rows.length
-        ? Object.keys(rows[0]).filter((key) => key !== 'id')
-        : [];
+  const columns: readonly string[] = {
+    'budget-balances': [
+      'departmentName',
+      'year',
+      'subjectName',
+      'allocatedCents',
+      'heldCents',
+      'usedCents',
+      'availableCents',
+    ],
+    'headcount-balances': [
+      'departmentName',
+      'positionName',
+      'year',
+      'limit',
+      'used',
+      'pending',
+      'allocated',
+      'replacementPending',
+      'replacementAllocated',
+      'replacementBlocked',
+      'available',
+      'capacityState',
+    ],
+    'contract-ledger': [
+      'number',
+      'departmentName',
+      'status',
+      'amountCents',
+      'heldCents',
+      'paidCents',
+      'availableCents',
+      'startsOn',
+      'endsOn',
+      'asOf',
+      'expiryState',
+      'paymentState',
+      'paidBasisPoints',
+    ],
+    'leave-monthly': [
+      'leaveType',
+      'year',
+      'month',
+      'approvedRequestCount',
+      'approvedRequestedDays',
+    ],
+  }[dataset];
   const forbidden =
     result.error instanceof ApiClientError && result.error.status === 403;
   const expired =
@@ -161,15 +260,30 @@ function Report({ dataset }: { dataset: Dataset }) {
     dataset === 'leave-monthly' &&
     result.error instanceof ApiClientError &&
     result.error.status === 412;
-  const hasFilters = !!(filters.first || filters.second || filters.third);
+  const hasFilters = !!(
+    search.text ||
+    filters.second ||
+    filters.third ||
+    secondSearch.text ||
+    thirdSearch.text
+  );
+  const pendingFilters =
+    secondSearch.text.trim() !== filters.second ||
+    (dataset === 'leave-monthly' && thirdSearch.text.trim() !== filters.third);
   function clearFilters() {
-    setPage(1);
-    setFilters({ first: '', second: '', third: '' });
+    // Cancel each pending input write before removing the complete filter set.
+    secondSearch.clear();
+    thirdSearch.clear();
+    search.clear((params) => {
+      params.delete(`${dataset}-second`);
+      params.delete(`${dataset}-third`);
+      params.delete(`${dataset}-page`);
+    });
   }
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   async function download() {
-    if (exporting) return;
+    if (exporting || pendingFilters) return;
     setExporting(true);
     setExportError(null);
     const query: Record<string, string> = {};
@@ -253,7 +367,7 @@ function Report({ dataset }: { dataset: Dataset }) {
         <ApplicationToolbar
           actions={
             <>
-              {dataset === 'leave-monthly' && hasFilters ? (
+              {hasFilters ? (
                 <Button variant='outline' onClick={clearFilters}>
                   {t('reports.clearFilters')}
                 </Button>
@@ -262,7 +376,11 @@ function Report({ dataset }: { dataset: Dataset }) {
                 <Button
                   variant='outline'
                   disabled={
-                    forbidden || result.loading || !!result.error || exporting
+                    forbidden ||
+                    result.loading ||
+                    !!result.error ||
+                    exporting ||
+                    pendingFilters
                   }
                   onClick={() => void download()}
                 >
@@ -289,14 +407,7 @@ function Report({ dataset }: { dataset: Dataset }) {
               className='sm:w-56'
               aria-label={t('reports.filters.search')}
               placeholder={t('reports.filters.search')}
-              value={filters.first}
-              onChange={(event) => {
-                setPage(1);
-                setFilters((value) => ({
-                  ...value,
-                  first: event.target.value,
-                }));
-              }}
+              {...search.inputProps}
             />
           ) : dataset !== 'leave-monthly' ? (
             <div
@@ -340,14 +451,7 @@ function Report({ dataset }: { dataset: Dataset }) {
                   ? 'reports.filters.statusHint'
                   : 'reports.filters.year',
               )}
-              value={filters.second}
-              onChange={(event) => {
-                setPage(1);
-                setFilters((value) => ({
-                  ...value,
-                  second: event.target.value,
-                }));
-              }}
+              {...secondSearch.inputProps}
             />
           </div>
           {dataset !== 'budget-balances' ? (
@@ -385,14 +489,7 @@ function Report({ dataset }: { dataset: Dataset }) {
                   type='number'
                   min={1}
                   max={12}
-                  value={filters.third}
-                  onChange={(event) => {
-                    setPage(1);
-                    setFilters((value) => ({
-                      ...value,
-                      third: event.target.value,
-                    }));
-                  }}
+                  {...thirdSearch.inputProps}
                 />
               ) : (
                 <PositionFilter
@@ -416,6 +513,11 @@ function Report({ dataset }: { dataset: Dataset }) {
           <Alert variant='destructive'>
             <AlertDescription>{t(exportError)}</AlertDescription>
           </Alert>
+        ) : null}
+        {result.loading && result.data ? (
+          <p role='status' className='text-sm text-muted-foreground'>
+            {t('reportsExpense.reloading')}
+          </p>
         ) : null}
         {result.loading && !result.data ? (
           <ApplicationTableSkeleton columns={5} />
@@ -454,7 +556,8 @@ function Report({ dataset }: { dataset: Dataset }) {
                     <TableHead
                       key={column}
                       className={
-                        dataset === 'leave-monthly' && column !== 'leaveType'
+                        column.endsWith('Cents') ||
+                        (dataset === 'leave-monthly' && column !== 'leaveType')
                           ? 'text-right'
                           : undefined
                       }
@@ -496,13 +599,43 @@ function Report({ dataset }: { dataset: Dataset }) {
                       <TableCell
                         key={column}
                         className={
-                          dataset === 'leave-monthly' && column !== 'leaveType'
+                          column.endsWith('Cents') ||
+                          (dataset === 'leave-monthly' &&
+                            column !== 'leaveType')
                             ? 'text-right tabular-nums'
                             : undefined
                         }
                       >
-                        {dataset === 'leave-monthly' &&
+                        {column.endsWith('Cents') &&
                         typeof row[column] === 'number' ? (
+                          reportMoney(row[column], dateLocale.code ?? 'en-US')
+                        ) : column === 'subjectName' ? (
+                          String(
+                            (
+                              row.subjectLabel as
+                                Record<string, string> | undefined
+                            )?.[
+                              dateLocale.code === 'zh-CN' ? 'zh-CN' : 'en-US'
+                            ] ??
+                              (typeof row.subject === 'string'
+                                ? row.subject
+                                : '—'),
+                          )
+                        ) : column === 'status' &&
+                          typeof row[column] === 'string' ? (
+                          <StatusBadge
+                            tone={
+                              row[column] === 'terminated'
+                                ? 'neutral'
+                                : row[column] === 'activePendingSeal'
+                                  ? 'warning'
+                                  : 'info'
+                            }
+                          >
+                            {t(`reports.states.${row[column]}`)}
+                          </StatusBadge>
+                        ) : dataset === 'leave-monthly' &&
+                          typeof row[column] === 'number' ? (
                           row[column].toLocaleString(dateLocale.code, {
                             useGrouping: !['year', 'month'].includes(column),
                           })
@@ -515,18 +648,33 @@ function Report({ dataset }: { dataset: Dataset }) {
                           </TruncatedText>
                         ) : column === 'available' &&
                           row.initialized === false ? (
-                          <Badge variant='outline'>
+                          <StatusBadge tone='warning'>
                             {t('reports.states.uninitialized')}
-                          </Badge>
+                          </StatusBadge>
                         ) : [
                             'capacityState',
                             'expiryState',
                             'paymentState',
                           ].includes(column) &&
                           typeof row[column] === 'string' ? (
-                          <Badge variant='outline'>
+                          <StatusBadge
+                            tone={
+                              [
+                                'blocked',
+                                'uninitialized',
+                                'overpaid',
+                                'expired',
+                              ].includes(row[column])
+                                ? 'warning'
+                                : ['paid', 'ready'].includes(row[column])
+                                  ? 'success'
+                                  : row[column] === 'terminated'
+                                    ? 'neutral'
+                                    : 'info'
+                            }
+                          >
                             {t(`reports.states.${row[column]}`)}
-                          </Badge>
+                          </StatusBadge>
                         ) : ['startsOn', 'endsOn', 'asOf'].includes(column) &&
                           typeof row[column] === 'string' ? (
                           format(parseISO(row[column]), 'PPP', {
@@ -534,9 +682,10 @@ function Report({ dataset }: { dataset: Dataset }) {
                           })
                         ) : column === 'paidBasisPoints' &&
                           typeof row[column] === 'number' ? (
-                          t('reports.basisPoints', {
-                            value: row[column].toLocaleString(dateLocale.code),
-                          })
+                          (row[column] / 10000).toLocaleString(
+                            dateLocale.code,
+                            { style: 'percent', maximumFractionDigits: 2 },
+                          )
                         ) : typeof row[column] === 'string' ||
                           typeof row[column] === 'number' ||
                           typeof row[column] === 'boolean' ? (
@@ -572,9 +721,34 @@ function Report({ dataset }: { dataset: Dataset }) {
               ) : null}
             </Empty>
           ) : (
-            <p className='text-sm text-muted-foreground'>
-              {t('reports.empty')}
-            </p>
+            <ResponsiveTable>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((column) => (
+                    <TableHead key={column}>
+                      {t(`reports.fields.${column}`)}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={columns.length}>
+                    <ApplicationTableEmpty
+                      title={t(hasFilters ? 'reports.empty' : 'reports.noData')}
+                      clearFilters={
+                        hasFilters
+                          ? {
+                              label: t('reports.clearFilters'),
+                              onClick: clearFilters,
+                            }
+                          : undefined
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </ResponsiveTable>
           ))}
         {result.data ? (
           <div
@@ -584,13 +758,15 @@ function Report({ dataset }: { dataset: Dataset }) {
             <span>
               {t('reports.total', { count: result.data.meta.total })} ·{' '}
               {t('reports.generatedAt', {
-                value: new Date(result.data.meta.generatedAt).toLocaleString(),
+                value: new Date(result.data.meta.generatedAt).toLocaleString(
+                  dateLocale.code,
+                ),
               })}
             </span>
             <div className='flex gap-2'>
               <Button
                 variant='outline'
-                disabled={result.data.meta.page <= 1}
+                disabled={result.loading || result.data.meta.page <= 1}
                 onClick={() => setPage((value) => Math.max(1, value - 1))}
               >
                 {t('reports.previous')}
@@ -598,8 +774,9 @@ function Report({ dataset }: { dataset: Dataset }) {
               <Button
                 variant='outline'
                 disabled={
+                  result.loading ||
                   result.data.meta.page * result.data.meta.pageSize >=
-                  result.data.meta.total
+                    result.data.meta.total
                 }
                 onClick={() => setPage((value) => value + 1)}
               >
@@ -614,49 +791,139 @@ function Report({ dataset }: { dataset: Dataset }) {
 }
 
 export default function ReportsPage() {
+  const { session } = useAuthentication();
+  const revision = useAuthorizationRevision();
+  return <AuthorizedReportsPage key={`${session?.user.id}:${revision}`} />;
+}
+function AuthorizedReportsPage() {
   const { t } = useTranslation();
+  const [params, setParams] = useSearchParams();
+  const api = useApiClient();
+  const [visible, setVisible] = useState<string[]>();
+  const [error, setError] = useState<unknown>();
+  const [generation, reload] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const controller = new AbortController();
+    api
+      .request<{ data: string[] }>({
+        path: 'reports/datasets',
+        signal: controller.signal,
+      })
+      .then(
+        (result) => {
+          if (!controller.signal.aborted) {
+            setVisible(result.data);
+            setError(undefined);
+          }
+        },
+        (failure) => {
+          if (!controller.signal.aborted) {
+            setVisible(undefined);
+            setError(failure);
+          }
+        },
+      );
+    return () => controller.abort();
+  }, [api, generation]);
+  const requested = params.get('dataset');
+  const selected =
+    requested && visible?.includes(requested)
+      ? requested
+      : (visible?.[0] ?? '');
+
   return (
     <PageContainer>
       <PageHeader
         title={t('reports.title')}
         description={t('reports.description')}
       />
-      <Tabs defaultValue={datasets[0]}>
-        <TabsList
-          variant='line'
-          className='h-auto max-w-full flex-wrap gap-y-2 group-data-horizontal/tabs:h-auto'
+      {error instanceof ApiClientError && error.status === 401 ? (
+        <SessionExpiredAlert />
+      ) : error ? (
+        <Alert variant='destructive'>
+          <AlertDescription>
+            {t(
+              error instanceof ApiClientError &&
+                [403, 404].includes(error.status)
+                ? 'reports.forbidden'
+                : 'reports.failed',
+            )}
+          </AlertDescription>
+          {!(
+            error instanceof ApiClientError && [403, 404].includes(error.status)
+          ) ? (
+            <AlertAction>
+              <Button variant='outline' onClick={reload}>
+                {t('reports.retry')}
+              </Button>
+            </AlertAction>
+          ) : null}
+        </Alert>
+      ) : !visible ? (
+        <ApplicationTableSkeleton columns={5} />
+      ) : !visible.length ? (
+        <Alert>
+          <AlertDescription>{t('reports.forbidden')}</AlertDescription>
+        </Alert>
+      ) : null}
+      {visible?.length ? (
+        <Tabs
+          value={selected}
+          onValueChange={(value: string) =>
+            setParams(
+              (old) => {
+                const next = new URLSearchParams(old);
+                next.set('dataset', value);
+                return next;
+              },
+              { replace: true },
+            )
+          }
         >
-          {datasets.map((dataset) => (
-            <TabsTrigger
-              key={dataset}
-              value={dataset}
-              className='h-auto min-h-8'
-            >
-              {t(`reports.datasets.${dataset}.title`)}
-            </TabsTrigger>
-          ))}
-          <TabsTrigger
-            value='leave-approval-efficiency'
-            className='h-auto min-h-8'
+          <TabsList
+            variant='line'
+            className='h-auto max-w-full flex-wrap gap-y-2 group-data-horizontal/tabs:h-auto'
           >
-            {t('reportsEfficiency.title')}
-          </TabsTrigger>
-          <TabsTrigger value='expense-summary' className='h-auto min-h-8'>
-            {t('reportsExpense.title')}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value='expense-summary'>
-          <ExpenseSummaryReport />
-        </TabsContent>
-        <TabsContent value='leave-approval-efficiency'>
-          <LeaveApprovalEfficiencyReport />
-        </TabsContent>
-        {datasets.map((dataset) => (
-          <TabsContent key={dataset} value={dataset}>
-            <Report dataset={dataset} />
+            {datasets
+              .filter((dataset) => visible?.includes(dataset))
+              .map((dataset) => (
+                <TabsTrigger
+                  key={dataset}
+                  value={dataset}
+                  className='h-auto min-h-8'
+                >
+                  {t(`reports.datasets.${dataset}.title`)}
+                </TabsTrigger>
+              ))}
+            {visible.includes('leave-approval-efficiency') ? (
+              <TabsTrigger
+                value='leave-approval-efficiency'
+                className='h-auto min-h-8'
+              >
+                {t('reportsEfficiency.title')}
+              </TabsTrigger>
+            ) : null}
+            {visible.includes('expense-summary') ? (
+              <TabsTrigger value='expense-summary' className='h-auto min-h-8'>
+                {t('reportsExpense.title')}
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+          <TabsContent value='expense-summary'>
+            <ExpenseSummaryReport />
           </TabsContent>
-        ))}
-      </Tabs>
+          <TabsContent value='leave-approval-efficiency'>
+            <LeaveApprovalEfficiencyReport />
+          </TabsContent>
+          {datasets
+            .filter((dataset) => visible?.includes(dataset))
+            .map((dataset) => (
+              <TabsContent key={dataset} value={dataset}>
+                <Report dataset={dataset} />
+              </TabsContent>
+            ))}
+        </Tabs>
+      ) : null}
     </PageContainer>
   );
 }

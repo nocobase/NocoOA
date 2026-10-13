@@ -183,3 +183,44 @@ export const requestActionDefinitions = [
 export type RequestActionAvailability = Partial<
   Record<(typeof requestActionDefinitions)[number]['key'], boolean>
 >;
+
+export type RequestActionKey = (typeof requestActionDefinitions)[number]['key'];
+export const requestActionGroups: Record<
+  RequestActionKey,
+  'office' | 'people' | 'finance' | 'procurement' | 'administration'
+> = {
+  leave: 'office',
+  attendance: 'office',
+  outing: 'office',
+  general: 'office',
+  overtime: 'office',
+  cancellation: 'office',
+  travel: 'office',
+  travelCancellation: 'office',
+  training: 'office',
+  recruitment: 'people',
+  transfer: 'people',
+  certificate: 'people',
+  departure: 'people',
+  probation: 'people',
+  expensePlan: 'finance',
+  payment: 'finance',
+  loan: 'finance',
+  reimbursement: 'finance',
+  budget: 'finance',
+  contract: 'procurement',
+  vendor: 'procurement',
+  purchase: 'procurement',
+  vehicle: 'administration',
+  seal: 'administration',
+  asset: 'administration',
+  supplies: 'administration',
+};
+export const defaultRequestActions: RequestActionKey[] = [
+  'leave',
+  'outing',
+  'reimbursement',
+  'travel',
+  'attendance',
+  'general',
+];

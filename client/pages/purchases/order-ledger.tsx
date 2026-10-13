@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { UserName } from '#components/user-name';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
@@ -82,6 +83,7 @@ export default function PurchaseOrderLedger() {
       {
         id: 'actualCents',
         accessorKey: 'actualCents',
+        meta: { className: 'text-right tabular-nums' },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -215,7 +217,9 @@ export default function PurchaseOrderLedger() {
               params.delete('page');
             })
           }
-          emptyMessage={t('purchases.emptyOrders')}
+          emptyMessage={
+            <ApplicationTableEmpty title={t('purchases.emptyOrders')} />
+          }
           pageSizeOptions={[10, 20, 50, 100]}
         />
       ) : null}

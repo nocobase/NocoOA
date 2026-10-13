@@ -1,3 +1,6 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { useReducer } from 'react';
@@ -99,7 +102,7 @@ function List() {
         <div className='flex min-w-0 items-center gap-2'>
           <Link
             to={link(row.original.id)}
-            className='min-w-0 font-medium text-primary hover:underline'
+            className='min-w-0 font-medium text-foreground underline-offset-4 hover:underline'
           >
             <TruncatedText text={row.original.title} />
           </Link>
@@ -125,9 +128,9 @@ function List() {
       enableSorting: false,
       header: t('announcements.fields.status'),
       cell: ({ row }) => (
-        <Badge variant='secondary'>
+        <StatusBadge tone={statusTone(row.original.status)}>
           {t(`announcements.status.${row.original.status}`)}
-        </Badge>
+        </StatusBadge>
       ),
     },
     ...(['publishedAt', 'validUntil'] as const).map((key) => ({
@@ -283,11 +286,27 @@ function List() {
             })
           }
           pageSizeOptions={[10, 20, 50, 100]}
-          emptyMessage={t(
-            s.search || status
-              ? 'announcements.noMatches'
-              : 'announcements.empty',
-          )}
+          emptyMessage={
+            <ApplicationTableEmpty
+              title={t(
+                s.search || status
+                  ? 'announcements.noMatches'
+                  : 'announcements.empty',
+              )}
+              clearFilters={
+                s.search || status
+                  ? {
+                      label: t('announcements.clear'),
+                      onClick: () =>
+                        s.clear((p) => {
+                          p.delete('status');
+                          p.delete('page');
+                        }),
+                    }
+                  : undefined
+              }
+            />
+          }
         />
       )}
       <Outlet context={{ reload: refresh }} />

@@ -659,7 +659,11 @@ it('shows the translated URL status before opening the filter and clears it with
   );
   const status = await screen.findByRole('combobox', { name: 'Status' });
   expect(status).toHaveTextContent('Executive review');
-  await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+  await userEvent.click(
+    within(screen.getByRole('table')).getByRole('button', {
+      name: 'Clear filters',
+    }),
+  );
   await waitFor(() => expect(status).toHaveTextContent('All statuses'));
   expect(router.state.location.search).toBe('?orderBy=effectiveDate%3Aasc');
 });

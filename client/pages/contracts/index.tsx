@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
 import { ApplicationToolbar } from '#components/application-toolbar';
@@ -197,15 +198,7 @@ export function ContractList({ ledger }: { ledger: boolean }) {
         enableSorting: false,
         header: t('contracts.status'),
         cell: ({ row }) => (
-          <StatusBadge
-            tone={
-              ['approved', 'active'].includes(row.original.status ?? '')
-                ? 'success'
-                : row.original.status === 'revision'
-                  ? 'warning'
-                  : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(row.original.status)}>
             {row.original.status
               ? t(`contracts.statuses.${row.original.status}`)
               : '—'}

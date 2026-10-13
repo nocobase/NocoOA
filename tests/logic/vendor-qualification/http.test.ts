@@ -65,6 +65,7 @@ test('HTTP private banks and real File Repository evidence enforce owner, bank p
     randomUUID(),
     [
       composite('oa.vendorQualification', {
+        submit: { vendorQualifications: 'allRecords' },
         view: { vendorQualifications: 'allRecords' },
         paymentAccount: { vendorQualifications: 'allRecords' },
       }),
@@ -212,6 +213,27 @@ test('HTTP private banks and real File Repository evidence enforce owner, bank p
   expect(detailBody.data.timeline.runs).toEqual(expect.any(Array));
   expect(detailBody.data.upcoming).toEqual(expect.any(Array));
   expect(detailBody.data.timeZone).toEqual(expect.any(String));
+  // A user with broad view/submit grants but no employee archive can open the list.
+  const viewerOptions = await outsider.fetch('/vendorQualifications/options');
+  expect(viewerOptions.status).toBe(200);
+  expect((await viewerOptions.json()).data).toMatchObject({
+    applicant: { id: outsider.user.id },
+    canCreateQualification: false,
+    canCreateRemoval: false,
+  });
+  const viewerCreate = await outsider.fetch(
+    '/vendorQualifications',
+    write('POST', {
+      requestId: randomUUID(),
+      input,
+    }),
+  );
+  expect(viewerCreate.status).toBe(400);
+  expect(JSON.stringify(await viewerCreate.json())).toContain(
+    'EMPLOYEE_REQUIRED',
+  );
+  const viewerList = await outsider.fetch('/vendorQualifications?view=mine');
+  expect(viewerList.status).toBe(200);
   const optionResponse = await owner.fetch('/vendorQualifications/options');
   expect(optionResponse.status).toBe(200);
   const optionBody = (await optionResponse.json()) as {

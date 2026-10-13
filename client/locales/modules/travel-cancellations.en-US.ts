@@ -1,5 +1,16 @@
 export default {
   travelCancellation: {
+    businessErrors: {
+      TRAVEL_CANCELLATION_REASON_REQUIRED:
+        'Enter the trip cancellation reason.',
+      TRAVEL_CANCELLATION_ALREADY_PENDING:
+        'A cancellation is already pending for this trip. Open the existing request.',
+      TRAVEL_CANCELLATION_BASELINE_CHANGED:
+        'The approved trip changed. Refresh it and revise the cancellation before resubmitting.',
+      TRAVEL_CANCELLATION_INVALID_SOURCE:
+        'The original trip is no longer eligible for cancellation. Select an effective approved trip.',
+    },
+
     retryUnbooking: 'Retry administrative cancellation',
     bookingInformation: 'Cancellation order and refund arrangements',
     unbookingHint:

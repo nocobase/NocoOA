@@ -366,11 +366,11 @@ it('retains the empty request table and one initiation action in the toolbar', a
   show('/list');
   await screen.findByText('No records yet');
   expect(screen.getByRole('table')).toBeInTheDocument();
-  const action = screen.getByRole('button', { name: 'New request' });
+  const action = screen.getByRole('button', { name: 'New vehicle request' });
   expect(action.closest('[data-slot=application-toolbar]')).not.toBeNull();
-  expect(screen.getAllByRole('button', { name: 'New request' })).toHaveLength(
-    1,
-  );
+  expect(
+    screen.getAllByRole('button', { name: 'New vehicle request' }),
+  ).toHaveLength(1);
 });
 
 it('claim sends the actual run hash even when the SDK offer does not require a content hash', async () => {

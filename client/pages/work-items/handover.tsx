@@ -20,7 +20,7 @@ import {
   useAuthorizationRevision,
   useCan,
 } from '@nocobase/app-plugin-authorization/client';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { UserPicker } from '#components/user-picker';
 import { Button } from '#components/ui/button';
 import { Textarea } from '#components/ui/textarea';
@@ -185,7 +185,7 @@ function Body({ id }: { id: string }) {
   }
   return (
     <>
-      <RouteDialog
+      <RouteDrawer
         title={t('workItems.handoverTitle')}
         closeTo={back}
         className='sm:max-w-2xl'
@@ -303,7 +303,7 @@ function Body({ id }: { id: string }) {
             </form>
           </>
         ) : null}
-      </RouteDialog>
+      </RouteDrawer>
       <AlertDialog open={discard} onOpenChange={setDiscard}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Alert, AlertDescription } from '#components/ui/alert';
@@ -9,6 +10,7 @@ export function ErrorState({
   error: unknown;
   retry: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'supplies');
   const { t } = useTranslation();
   const reasons: Record<string, string> = {
     SUPPLY_REQUIRED_FIELDS: 'invalid',
@@ -25,10 +27,12 @@ export function ErrorState({
       ? (reasons[error.reason ?? ''] ??
         ([400, 422].includes(error.status) ? 'invalid' : undefined))
       : undefined;
-  if (key)
+  if (key || businessMessage)
     return (
       <Alert variant='destructive'>
-        <AlertDescription>{t(`supplies.${key}`)}</AlertDescription>
+        <AlertDescription>
+          {businessMessage ?? t(`supplies.${key}`)}
+        </AlertDescription>
       </Alert>
     );
   return <SharedError error={error} retry={retry} />;

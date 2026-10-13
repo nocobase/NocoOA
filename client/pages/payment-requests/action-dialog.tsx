@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useOutletContext, useParams } from 'react-router';
 import { z } from 'zod';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { ApprovalRecipientPicker } from '#components/approval-recipient-picker';
 import { Button } from '#components/ui/button';
@@ -150,7 +150,7 @@ export default function PaymentActionDialog() {
   const name = resource.data?.record.number ?? t('approvals.draft'),
     label = t(`paymentRequests.actionForm.labels.${actionName}`);
   return (
-    <RouteDialog
+    <RouteDrawer
       className={
         [
           'transfer',
@@ -163,7 +163,7 @@ export default function PaymentActionDialog() {
           'forcePayException',
         ].includes(actionName)
           ? undefined
-          : 'sm:max-w-md'
+          : 'sm:max-w-2xl'
       }
       title={t('paymentRequests.actionForm.title', {
         action: label,
@@ -239,7 +239,7 @@ export default function PaymentActionDialog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function ActionFooter({
@@ -713,7 +713,7 @@ export function ActionForm({
       ) : error && !uncertain ? (
         <ErrorState error={error} retry={latest} />
       ) : null}
-      <dl className='grid grid-cols-[8rem_1fr] gap-2'>
+      <dl className='grid grid-cols-2 gap-2 sm:grid-cols-[8rem_1fr]'>
         <dt>{f('amount')}</dt>
         <dd className='text-right'>
           {validMoney ? moneyLabel(amount, i18n.language) : '—'}

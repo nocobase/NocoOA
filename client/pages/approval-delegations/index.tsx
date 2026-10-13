@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationSearch } from '#components/application-search';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
@@ -10,7 +11,6 @@ import {
   MoreHorizontalIcon,
   PlusIcon,
   RefreshCwIcon,
-  UsersIcon,
 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
@@ -34,14 +34,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from '#components/ui/dropdown-menu';
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-} from '#components/ui/empty';
 import {
   Select,
   SelectTrigger,
@@ -346,9 +338,7 @@ export default function DelegationsPage() {
       <ApplicationToolbar
         actions={
           <>
-            {canUpdate && !firstLoading && !resource.error && !empty
-              ? createButton
-              : null}
+            {canUpdate ? createButton : null}
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -435,19 +425,6 @@ export default function DelegationsPage() {
         <ErrorState error={resource.error} retry={resource.reload} />
       ) : firstLoading ? (
         <TableSkeleton />
-      ) : empty ? (
-        <Empty className='min-h-48 border border-dashed'>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <UsersIcon />
-            </EmptyMedia>
-            <EmptyTitle>{t('approvals.delegations.empty')}</EmptyTitle>
-            <EmptyDescription>
-              {t('approvals.delegations.emptyDescription')}
-            </EmptyDescription>
-          </EmptyHeader>
-          {canUpdate ? <EmptyContent>{createButton}</EmptyContent> : null}
-        </Empty>
       ) : (
         <DataTableServer
           columns={columns}
@@ -474,21 +451,27 @@ export default function DelegationsPage() {
             })
           }
           emptyMessage={
-            <div className='flex flex-col items-center gap-2'>
-              {t('approvals.noResults')}
-              <Button
-                variant='outline'
-                onClick={() =>
-                  clear((params) => {
-                    params.delete('status');
-                    params.delete('source');
-                    params.delete('page');
-                  })
-                }
-              >
-                {t('approvals.clear')}
-              </Button>
-            </div>
+            <ApplicationTableEmpty
+              title={t(
+                empty ? 'approvals.delegations.empty' : 'approvals.noResults',
+              )}
+              description={
+                empty ? t('approvals.delegations.emptyDescription') : undefined
+              }
+              clearFilters={
+                !empty
+                  ? {
+                      label: t('approvals.clear'),
+                      onClick: () =>
+                        clear((params) => {
+                          params.delete('status');
+                          params.delete('source');
+                          params.delete('page');
+                        }),
+                    }
+                  : undefined
+              }
+            />
           }
         />
       )}

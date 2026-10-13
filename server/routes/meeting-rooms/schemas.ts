@@ -154,3 +154,14 @@ export const Options = z.object({
 });
 
 export const RoomActions = z.object({ actions: z.array(z.literal('edit')) });
+
+export const AvailabilitySearchQuery = Range.safeExtend({
+  capacity: z.coerce.number().int().min(1).max(10000),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+export const AvailabilityRoom = Room.extend({
+  busy: z.array(
+    z.object({ startAt: z.iso.datetime(), endAt: z.iso.datetime() }),
+  ),
+});

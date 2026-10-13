@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { PrintEntry } from '../template-print/entry.js';
 import type { LedgerDetail } from './types.js';
 import { UserName } from '#components/user-name';
@@ -85,9 +86,7 @@ export default function SealDetail() {
     <RecordDetailDrawer
       headerStatus={
         d ? (
-          <StatusBadge
-            tone={d.record.status === 'completed' ? 'success' : 'neutral'}
-          >
+          <StatusBadge tone={statusTone(d.record.status)}>
             {t(`seals.states.${d.record.status}`)}
           </StatusBadge>
         ) : null

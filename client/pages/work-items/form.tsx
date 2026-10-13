@@ -20,11 +20,10 @@ import {
   useOutletContext,
   useParams,
 } from 'react-router';
-import { RouteChildPage } from '#components/route-child-page';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteFormPage } from '#components/route-form-page';
+import { RouteDrawer } from '#components/route-drawer';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
-import { BackButton } from '#components/back-button';
 import { DateTimePicker } from '#components/date-time-picker';
 import { UserPicker } from '#components/user-picker';
 import { Button } from '#components/ui/button';
@@ -93,7 +92,7 @@ function Body() {
     { workItemId, action: rawAction } = useParams();
   const action = actions.find((v) => v === rawAction),
     draft = !rawAction,
-    covering = draft || action === 'complete';
+    drawer = draft || action === 'complete';
   const grant = useCan({
       resource,
       action: action ?? (workItemId ? 'edit' : 'create'),
@@ -252,6 +251,11 @@ function Body() {
       if (values.description.length > 100000) required.push('description');
       if (!values.dueAt || !Number.isFinite(Date.parse(values.dueAt)))
         required.push('dueAt');
+      else if (Date.parse(values.dueAt) <= Date.now()) {
+        form.setError('dueAt', { message: t('workItems.dueAtFuture') });
+        focusField('dueAt');
+        return;
+      }
     }
     if (
       needsTarget &&
@@ -334,7 +338,9 @@ function Body() {
       for (const key of fieldViolationsOf(e))
         if (key in values)
           form.setError(key as Path<Values>, {
-            message: t('workItems.invalid'),
+            message: t(
+              key === 'dueAt' ? 'workItems.dueAtFuture' : 'workItems.invalid',
+            ),
           });
       const key = fieldViolationsOf(e).find((k) => k in values);
       if (key) focusField(key as Path<Values>);
@@ -696,7 +702,6 @@ function Body() {
               <p>{t('workItems.reassignNotice')}</p>
             ) : null}
           </FieldGroup>
-          {covering ? footer : null}
         </form>
       )}
       <AlertDialog open={discard} onOpenChange={setDiscard}>
@@ -761,18 +766,27 @@ function Body() {
       </AlertDialog>
     </>
   );
-  return covering ? (
-    <RouteChildPage>
+  return drawer ? (
+    <RouteFormPage
+      title={title}
+      beforeClose={() => {
+        if (busyRef.current) return false;
+        if (dirty) {
+          setDiscard(true);
+          return false;
+        }
+        return true;
+      }}
+    >
       <PageContainer>
-        <BackButton to={back}>{t('workItems.back')}</BackButton>
-        <PageHeader title={title} />
+        <PageHeader title={title} actions={footer} />
         {body}
       </PageContainer>
-    </RouteChildPage>
+    </RouteFormPage>
   ) : (
-    <RouteDialog
+    <RouteDrawer
       title={title}
-      className={action === 'reassign' ? 'sm:max-w-2xl' : 'sm:max-w-md'}
+      className='sm:max-w-2xl'
       beforeClose={() => {
         if (busyRef.current) return false;
         if (dirty) {
@@ -784,6 +798,6 @@ function Body() {
       footer={footer}
     >
       {body}
-    </RouteDialog>
+    </RouteDrawer>
   );
 }

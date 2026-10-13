@@ -70,3 +70,5 @@ minimumReleaseAgeExclude:
   - '@nocobase/drive@0.1.0-beta.4'
   - '@nocobase/logging@0.1.0-beta.6'
   - '@nocobase/session@0.1.0-beta.2'
+  - '@nocobase/app-server@2.0.0-beta.6'
+  - '@nocobase/mailer@0.1.0-beta.0'

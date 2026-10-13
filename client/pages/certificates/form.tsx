@@ -15,7 +15,7 @@ import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { fieldViolationsOf } from '../platform/shared/errors.js';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
@@ -73,7 +73,7 @@ function Overlay() {
     [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false);
   return (
-    <RouteDialog
+    <RouteDrawer
       printable
       className='text-sm sm:max-w-2xl'
       title={t(`certificates.${certificateId ? 'edit' : 'new'}`)}
@@ -128,7 +128,7 @@ function Overlay() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({ busy }: { busy: boolean }) {

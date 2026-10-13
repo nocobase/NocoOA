@@ -117,6 +117,9 @@ export function LoanFinancialSections({
       setBusy(false);
     }
   }
+  const invalidRepayments = repayments.data?.reservations.some(
+    (row) => !Number.isSafeInteger(row.cents) || row.cents <= 0,
+  );
   const columns: ColumnDef<Repayment>[] = [
     { accessorKey: 'reference', header: t('loanRequests.receipt') },
     {
@@ -161,7 +164,7 @@ export function LoanFinancialSections({
               >
                 <MoreHorizontal />
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
+              <DropdownMenuContent align='end' className='w-auto min-w-40'>
                 <DropdownMenuGroup>
                   {session?.user.id === record.applicantId &&
                   confirmation.can ? (
@@ -249,7 +252,7 @@ export function LoanFinancialSections({
         <section className='flex flex-col gap-3'>
           <div className='flex items-center justify-between gap-3'>
             <h2 className='font-medium'>{t('loanRequests.repayment')}</h2>
-            {cash.can ? (
+            {cash.can && !invalidRepayments && !repayments.error ? (
               <Button variant='outline' render={<Link to='repayment' />}>
                 {t('loanRequests.recordCash')}
               </Button>
@@ -257,6 +260,12 @@ export function LoanFinancialSections({
           </div>
           {repayments.error ? (
             <ErrorState error={repayments.error} retry={repayments.reload} />
+          ) : invalidRepayments ? (
+            <Alert variant='destructive'>
+              <AlertDescription>
+                {t('loanRequests.invalidRepaymentAmount')}
+              </AlertDescription>
+            </Alert>
           ) : repayments.data ? (
             <DataTable
               columns={columns}

@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -235,7 +236,9 @@ export default function SupplyLedgerPage() {
               params.delete('page');
             })
           }
-          emptyMessage={t('supplies.emptyLedger')}
+          emptyMessage={
+            <ApplicationTableEmpty title={t('supplies.emptyLedger')} />
+          }
           pageSizeOptions={[10, 20, 50, 100]}
         />
       ) : null}

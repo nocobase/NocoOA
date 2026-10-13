@@ -1,5 +1,14 @@
 export default {
   training: {
+    businessErrors: {
+      TRAINING_INVALID_INPUT:
+        '请补齐培训名称、培训机构和申请原因，并输入有效的非负费用。',
+      TRAINING_INVALID_DATE:
+        '培训结束时间须晚于开始时间，请检查起止日期和时间。',
+      TRAINING_DEPARTMENT_REQUIRED:
+        '申请人没有有效主部门，请联系人力资源完善员工档案。',
+    },
+
     cc: '追加抄送',
     authz: {
       resource: '培训与外出学习',

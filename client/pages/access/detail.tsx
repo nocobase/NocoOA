@@ -35,6 +35,8 @@ import { ConfirmDialog } from '../administration/authorization/components/confir
 import type { DutyRoleMember } from '../org/duty-roles/types.js';
 import type { DefinitionSnapshot, AccessSnapshot } from './types.js';
 import { actionRows } from './model.js';
+import { AccessModulePermissions } from './module-permissions.js';
+import { resourceKey } from '../administration/authorization/pages/permission-sets/drafts.js';
 import { useCatalog, useLoad, useSnapshot } from './hooks.js';
 import { Blank, ErrorState, Loading, Refresh } from './ui.js';
 
@@ -312,30 +314,68 @@ export default function SubjectDetail() {
                       {set.unrestricted ? (
                         <Badge>{t('access.unrestricted')}</Badge>
                       ) : rows.length ? (
-                        <div className='flex flex-col gap-3'>
-                          {rows.map((row) => (
-                            <div
-                              key={row.id}
-                              className='grid gap-2 border-b pb-3 sm:grid-cols-3'
-                            >
-                              <span>{row.resource.label}</span>
-                              <span>{row.label}</span>
-                              <span className='text-sm text-muted-foreground'>
-                                {row.custom
-                                  ? t('access.special')
-                                  : (
-                                      row.resource.dataScopes?.[row.action] ??
-                                      []
-                                    )
-                                      .map(
-                                        (scope) =>
-                                          `${scope.label}：${scope.options.find((option) => option.value === row.scopes[scope.key])?.label ?? t('access.special')}`,
-                                      )
-                                      .join('；') || t('access.noScope')}
-                              </span>
+                        <AccessModulePermissions
+                          options={catalog.options!}
+                          enabled={
+                            new Set(
+                              rows.map((row) =>
+                                resourceKey(
+                                  row.resource.type,
+                                  row.resource.value,
+                                ),
+                              ),
+                            )
+                          }
+                        >
+                          {(keys) => (
+                            <div className='flex flex-col gap-3'>
+                              {!rows.some((row) =>
+                                keys.has(
+                                  resourceKey(
+                                    row.resource.type,
+                                    row.resource.value,
+                                  ),
+                                ),
+                              ) ? (
+                                <p className='text-sm text-muted-foreground'>
+                                  {t('access.noModulePermissions')}
+                                </p>
+                              ) : null}
+                              {rows
+                                .filter((row) =>
+                                  keys.has(
+                                    resourceKey(
+                                      row.resource.type,
+                                      row.resource.value,
+                                    ),
+                                  ),
+                                )
+                                .map((row) => (
+                                  <div
+                                    key={row.id}
+                                    className='grid gap-2 border-b pb-3 sm:grid-cols-3'
+                                  >
+                                    <span>{row.resource.label}</span>
+                                    <span>{row.label}</span>
+                                    <span className='text-sm text-muted-foreground'>
+                                      {row.custom
+                                        ? t('access.special')
+                                        : (
+                                            row.resource.dataScopes?.[
+                                              row.action
+                                            ] ?? []
+                                          )
+                                            .map(
+                                              (scope) =>
+                                                `${scope.label}：${scope.options.find((option) => option.value === row.scopes[scope.key])?.label ?? t('access.special')}`,
+                                            )
+                                            .join('；') || t('access.noScope')}
+                                    </span>
+                                  </div>
+                                ))}
                             </div>
-                          ))}
-                        </div>
+                          )}
+                        </AccessModulePermissions>
                       ) : (
                         <p>{t('access.special')}</p>
                       )}

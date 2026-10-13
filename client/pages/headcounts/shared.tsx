@@ -1,12 +1,8 @@
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import type { ReactNode } from 'react';
-import { RefreshCw, UsersRound } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from '#components/ui/tooltip';
+import { UsersRound } from 'lucide-react';
 import { Button } from '#components/ui/button';
 import { Alert, AlertDescription, AlertAction } from '#components/ui/alert';
 import { SessionExpiredAlert } from '#components/session-expired-alert';
@@ -139,23 +135,11 @@ export function Refresh({
 }) {
   const { t } = useTranslation();
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
-            aria-label={t('headcounts.refresh')}
-            disabled={busy}
-            onClick={onClick}
-          />
-        }
-      >
-        <RefreshCw className={busy ? 'animate-spin' : undefined} />
-      </TooltipTrigger>
-      <TooltipContent>{t('headcounts.refresh')}</TooltipContent>
-    </Tooltip>
+    <ApplicationRefreshButton
+      label={t('headcounts.refresh')}
+      loading={busy}
+      onClick={onClick}
+    />
   );
 }
 export function EmptyState({

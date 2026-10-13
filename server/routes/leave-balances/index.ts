@@ -146,12 +146,13 @@ export const leaveBalanceApiRoutes: AppApiRouteContribution<Application> =
         'List the current employee leave balances',
         z.array(BalanceSchema),
       ),
-      async (ctx) =>
-        ctx.json({
-          data: await balances.list(
-            (await ownEmployee(ctx.get('auth')!.user.id)).id,
-          ),
-        }),
+      async (ctx) => {
+        // Account administrators need not have a personal employee archive.
+        const employee = await employees.getByUserId(ctx.get('auth')!.user.id);
+        return ctx.json({
+          data: employee ? await balances.list(employee.id) : [],
+        });
+      },
     );
     router.get(
       '/leaveBalances/me/ledger',

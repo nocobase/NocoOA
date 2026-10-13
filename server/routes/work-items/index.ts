@@ -57,6 +57,9 @@ export default [
         new ApiError({
           domain: 'workItems',
           reason: e.code,
+          ...(e.field
+            ? { fieldViolations: [{ field: e.field, description: e.code }] }
+            : {}),
           message: e.code,
           status:
             e.code === 'ACCESS_DENIED'

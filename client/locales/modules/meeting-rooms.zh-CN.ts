@@ -1,5 +1,20 @@
 export default {
   meetingRooms: {
+    finder: {
+      title: '查找时段',
+      description:
+        '按公司时区 {{zone}} 选择时段和含发起人的人数；房间按容量筛选后分页。',
+      date: '会议日期',
+      start: '开始时间',
+      end: '结束时间',
+      capacity: '人数（含本人）',
+      select: '请选择日期和有效时段后查询房间。',
+      snapshot:
+        '可用性为当前查询结果，不代表已预订；提交时服务器再次检查冲突。总数包含空闲和占用房间。',
+      busy: '时间冲突',
+      confirmation: '可用 · 需行政确认',
+      free: '可用',
+    },
     discardTitle: '放弃未保存的修改？',
     discardDescription: '修改尚未保存，是否放弃并返回上一页？',
     keepEditing: '继续编辑',

@@ -1,3 +1,4 @@
+import { useRouteFormCloseGuard } from '#hooks/use-route-form-close-guard';
 import {
   useRequestFormSubmission,
   preventComposingSubmit,
@@ -232,6 +233,12 @@ function LeaveForm({
       JSON.stringify(attachments) !==
         JSON.stringify(record?.attachments ?? [])) &&
     !saved;
+  useRouteFormCloseGuard(() => {
+    if (busy) return false;
+    if (!dirty || saved) return true;
+    setDiscard(true);
+    return false;
+  });
   // AppClientProviders hosts a declarative router. Its public navigation guard preserves the mounted form
   // when a sidebar link or browser history traversal is declined; React Router useBlocker requires a data router.
   useNavigationGuard(() => {

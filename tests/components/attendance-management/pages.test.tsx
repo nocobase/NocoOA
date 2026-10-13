@@ -1,5 +1,5 @@
 import { Failure } from '../../../client/pages/attendance-management/states.js';
-import { NavigationGuardProvider } from '@nocobase/app-client';
+import { ApiClientError, NavigationGuardProvider } from '@nocobase/app-client';
 import userEvent from '@testing-library/user-event';
 import ShiftForm from '../../../client/pages/attendance-management/shift-form.js';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
@@ -274,6 +274,25 @@ describe('attendance configuration page', () => {
         <Failure error={undefined} denied retry={vi.fn()} />
       </TestI18nProvider>,
     );
+    expect(
+      screen.queryByRole('button', { name: 'Retry' }),
+    ).not.toBeInTheDocument();
+  });
+  it('shows one terminal context refusal and hides creation even when coarse manage permission is granted', async () => {
+    state.view = true;
+    state.manage = true;
+    state.request.mockRejectedValue(
+      new ApiClientError('Denied', {
+        status: 403,
+        method: 'GET',
+        url: 'attendanceManagement/context',
+      }),
+    );
+    show();
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(1));
+    expect(
+      screen.queryByRole('button', { name: 'Add shift' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Retry' }),
     ).not.toBeInTheDocument();

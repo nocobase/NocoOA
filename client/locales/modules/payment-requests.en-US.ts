@@ -1,5 +1,40 @@
 export default {
   paymentRequests: {
+    businessErrors: {
+      PAYMENT_REQUEST_INVALID_INPUT:
+        'Complete the reason, payee, positive amount, invoice number and invoice evidence.',
+      PAYMENT_REQUEST_ACCOUNT_REQUIRED:
+        "Complete the payee's protected bank account before submitting.",
+      PAYMENT_REQUEST_ACCOUNT_STALE:
+        'The payee account changed. Load the latest account before correcting it.',
+      PAYMENT_REQUEST_DEPARTMENT_REQUIRED:
+        'The applicant needs an active primary department. Ask HR to update the employee record.',
+      PAYMENT_REQUEST_METHOD_INVALID: 'Select an enabled payment method.',
+      PAYMENT_REQUEST_SOURCE_REQUIRED:
+        'Explain why there is no prior approval, and clear the linked purchase order.',
+      PAYMENT_REQUEST_SOURCE_INVALID:
+        'Select an effective purchase order or contract and its original payee.',
+      PAYMENT_REQUEST_SOURCE_STALE:
+        'The source document changed. Refresh the payment and source before acting again.',
+      PAYMENT_REQUEST_CONTRACT_STALE:
+        'The contract changed. Refresh its version and revise the payment before resubmitting.',
+      PAYMENT_REQUEST_VOUCHER_REQUIRED:
+        'Enter the payment voucher number and upload or select payment evidence.',
+      PAYMENT_REQUEST_FORCE_CONFIRMATION_REQUIRED:
+        'Confirm the exact approved amount before forcing payment completion.',
+      PAYMENT_REQUEST_HANDLING_REASON_REQUIRED:
+        'Enter the reason payment could not be completed.',
+      PAYMENT_REQUEST_ALREADY_PAID:
+        'This payment is already settled. Refresh it to see the recorded result.',
+      PAYMENT_REQUEST_CONTRACT_ACTUAL_PAYMENT_REQUIRED:
+        'Record actual contract payment before completing this operation.',
+      PAYMENT_FILE_SIZE: 'Select a nonempty attachment no larger than 5 MiB.',
+      PAYMENT_FILE_TYPE:
+        'Upload a PDF, JPEG, PNG or WebP file with a matching file type.',
+      PAYMENT_ATTACHMENT_INVALID:
+        'Select evidence uploaded for this payment request.',
+    },
+
     title: 'Payment requests',
     description:
       'Review payment applications, frozen source facts and cashier handling.',

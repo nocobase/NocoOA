@@ -97,13 +97,13 @@ it.each(['en-US', 'zh-CN'])(
     await show(locale);
     await screen.findByText('other');
     expect(screen.getAllByRole('columnheader')).toHaveLength(5);
-    expect(screen.getByText('1,234')).toBeInTheDocument();
+    expect(screen.getByText('12.34')).toBeInTheDocument();
     expect(screen.queryByText('private bank')).not.toBeInTheDocument();
     expect(
       screen.getByText(
         locale === 'zh-CN'
-          ? '已结算费用毛额（分，非现金实付）'
-          : 'Settled gross expense (cents, not cash)',
+          ? '已结算费用毛额（元，非现金实付）'
+          : 'Settled gross expense (CNY, not cash)',
       ),
     ).toBeInTheDocument();
   },

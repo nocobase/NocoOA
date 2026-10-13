@@ -1,5 +1,15 @@
 export default {
   expensePlans: {
+    businessErrors: {
+      EXPENSE_PLAN_DEPARTMENT_REQUIRED:
+        'The applicant needs an active primary department. Ask HR to update the employee record.',
+      EXPENSE_PLAN_INVALID_DATE: 'Select a valid expected expense date.',
+      EXPENSE_PLAN_INVALID_DICTIONARY:
+        'Select an enabled matter type and budget subject.',
+      EXPENSE_PLAN_INVALID_INPUT:
+        'Enter a positive amount, participants and the expense reason.',
+    },
+
     new: 'New expense preapproval',
     edit: 'Edit expense preapproval',
     formDescription:

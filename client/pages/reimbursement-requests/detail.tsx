@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApprovalProgress } from '#components/approval-progress';
 import { PrintEntry } from '../template-print/entry.js';
 import { useMemo, useReducer } from 'react';
@@ -224,21 +225,7 @@ export default function ReimbursementDetailPage() {
     <RecordDetailDrawer
       headerStatus={
         data ? (
-          <StatusBadge
-            tone={
-              ['paid', 'forcedPaid'].includes(data.record.status)
-                ? 'success'
-                : ['exception', 'rejected', 'terminated'].includes(
-                      data.record.status,
-                    )
-                  ? 'warning'
-                  : ['draft', 'revision', 'withdrawn'].includes(
-                        data.record.status,
-                      )
-                    ? 'neutral'
-                    : 'info'
-            }
-          >
+          <StatusBadge tone={statusTone(data.record.status)}>
             {t(`reimbursementRequests.statuses.${data.record.status}`)}
           </StatusBadge>
         ) : null
@@ -257,7 +244,7 @@ export default function ReimbursementDetailPage() {
         </>
       }
     >
-      <div className='space-y-6'>
+      <div className='flex flex-col gap-6'>
         {resource.error ? (
           <ErrorState error={resource.error} retry={resource.reload} />
         ) : null}

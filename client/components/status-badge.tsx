@@ -3,6 +3,7 @@ import { cn } from 'cn';
 import { Badge } from '#components/ui/badge';
 
 const tones = {
+  destructive: 'border-destructive/20 bg-destructive/10 text-destructive',
   neutral: 'border-border bg-muted text-muted-foreground',
   info: 'border-primary/15 bg-primary/8 text-primary',
   warning:

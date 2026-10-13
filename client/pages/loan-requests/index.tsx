@@ -1,3 +1,5 @@
+import { approvalStatusTone } from '../approvals/status-tone.js';
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
@@ -7,7 +9,7 @@ import { Link, Outlet, useLocation } from 'react-router';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, MoreHorizontal, RefreshCw, FileText } from 'lucide-react';
+import { Plus, MoreHorizontal, FileText } from 'lucide-react';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { Button } from '#components/ui/button';
@@ -36,11 +38,6 @@ import {
   SelectGroup,
   SelectItem,
 } from '#components/ui/select';
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from '#components/ui/tooltip';
 import { useUrlSearch } from '#hooks/use-url-search';
 
 import { ErrorState } from './states.js';
@@ -184,15 +181,7 @@ export default function LoansPage() {
       header: t('loanRequests.status'),
       enableSorting: false,
       cell: ({ row }) => (
-        <StatusBadge
-          tone={
-            row.original.status === 'paid'
-              ? 'success'
-              : row.original.status === 'exception'
-                ? 'warning'
-                : 'neutral'
-          }
-        >
+        <StatusBadge tone={approvalStatusTone(row.original.status, 'oa.loan')}>
           {t(`loanRequests.states.${row.original.status}`)}
         </StatusBadge>
       ),
@@ -242,24 +231,11 @@ export default function LoansPage() {
         actions={
           <>
             <>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant='outline'
-                      size='icon'
-                      aria-label={t('loanRequests.refresh')}
-                      disabled={r.loading}
-                      onClick={r.reload}
-                    />
-                  }
-                >
-                  <RefreshCw
-                    className={r.loading ? 'animate-spin' : undefined}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>{t('loanRequests.refresh')}</TooltipContent>
-              </Tooltip>
+              <ApplicationRefreshButton
+                label={t('loanRequests.refresh')}
+                loading={r.loading}
+                onClick={r.reload}
+              />
             </>
             {create}
           </>

@@ -1,5 +1,17 @@
 export default {
   probationRequests: {
+    businessErrors: {
+      PROBATION_SELF_EVALUATION_REQUIRED: '请填写员工自评后再提交。',
+      PROBATION_CONCLUSION_REQUIRED: '请填写主管结论后再同意。',
+      PROBATION_COMPENSATION_REQUIRED:
+        '请在人力资源审批表单中补齐受控职级和薪资信息。',
+      PROBATION_INVALID_GRADE: '请选择已启用的职级。',
+      PROBATION_ALREADY_ACTIVE: '该员工已有进行中的转正申请，请查看现有申请。',
+      PROBATION_STALE_EMPLOYEE: '员工试用期信息已变化，请刷新后再操作。',
+      PROBATION_DEPARTMENT_REQUIRED:
+        '员工没有有效主部门，请联系人力资源完善档案。',
+    },
+
     title: '转正申请',
     description: '查看试用期评估与转正结论审批进度。',
     new: '新建转正申请',

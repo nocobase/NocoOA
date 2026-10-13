@@ -1,3 +1,4 @@
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { Link, Outlet, useLocation, useSearchParams } from 'react-router';
 import { UserName } from '#components/user-name';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -7,7 +8,6 @@ import { PageHeader } from '#components/page-header';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
 import { DataTableServer } from '#components/data-table';
-import { Button } from '#components/ui/button';
 import { useSealResource } from './resource.js';
 import { SealError } from './states.js';
 import type { Ledger } from './types.js';
@@ -98,9 +98,11 @@ export default function SealLedger() {
       />
       <ApplicationToolbar
         actions={
-          <Button variant='outline' onClick={r.reload} disabled={r.loading}>
-            {t('seals.refresh')}
-          </Button>
+          <ApplicationRefreshButton
+            label={t('seals.refresh')}
+            loading={r.loading}
+            onClick={r.reload}
+          />
         }
       />
       {r.error ? <SealError error={r.error} retry={r.reload} /> : null}

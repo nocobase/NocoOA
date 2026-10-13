@@ -1,4 +1,35 @@
 export default {
+  businessErrors: {
+    DEPARTURE_CHECKLIST_REQUIRED:
+      'Complete the departure checklist before proceeding.',
+    DEPARTURE_LAST_WORKING_DAY_REQUIRED:
+      "Confirm the employee's last working day.",
+    DEPARTURE_DATE_PAST:
+      'The last working day cannot be earlier than today in the company time zone.',
+    DEPARTURE_HANDOVER_INVALID:
+      'Select an eligible handover recipient other than the departing employee.',
+    DEPARTURE_HANDOVER_INCOMPLETE:
+      'Complete the handover items before proceeding.',
+    DEPARTURE_ORDINARY_WORK_INCOMPLETE:
+      'Complete the ordinary handover work before settling departure.',
+    DEPARTURE_LOAN_UNCLEARED:
+      "Clear the employee's outstanding loans before settling departure.",
+    DEPARTURE_RECEIPT_REQUIRED:
+      'Enter the receipt or clearance evidence for this handover item.',
+    DEPARTURE_SETTLEMENT_NOTE_REQUIRED: 'Enter the departure settlement note.',
+    DEPARTURE_REASSIGNMENT_INCOMPLETE:
+      'Complete outstanding task reassignment before proceeding.',
+    DEPARTURE_APPLICATION_INCOMPLETE:
+      'Complete the departure type, reason and required employee details.',
+    DEPARTURE_TYPE_INVALID: 'Select an enabled departure type.',
+    DEPARTURE_ALREADY_ACTIVE:
+      'This employee already has an active departure request. Open the existing request.',
+    DEPARTURE_CANCELLATION_PENDING:
+      'Departure cancellation is pending. Resolve it before proceeding.',
+    DEPARTURE_EXECUTION_BASELINE_CHANGED:
+      'The employee or departure facts changed. Refresh and verify them before execution.',
+  },
+
   authz: {
     cancel: 'Cancel departure',
     resource: 'Departure and handover',

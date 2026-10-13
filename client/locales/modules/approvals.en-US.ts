@@ -22,6 +22,44 @@ const existing = {
 };
 
 const copy = {
+  actionErrors: {
+    REASON_REQUIRED: 'Enter the reason for this operation.',
+    CLAIM_FIRST: 'Claim this handling task before recording its result.',
+    TASK_CLOSED:
+      'This task has ended. Refresh the request and use its currently available actions.',
+    ALREADY_ANSWERED:
+      'This task already has your response. Refresh to see the recorded result.',
+    NOT_YOUR_TURN: 'An earlier approval is still pending. Wait for your turn.',
+    STALE: 'The approval changed. Load the latest request before continuing.',
+    CONTENT_CHANGED:
+      'The reviewed content changed. Refresh and review it again before acting.',
+    STALE_CONTENT:
+      'The reviewed content changed. Refresh and review it again before acting.',
+    INVALID_ANSWER:
+      'This decision is not available at the current stage. Refresh and choose an available action.',
+    NOT_ALLOWED:
+      'This action is no longer available. Refresh and choose a current action.',
+    NO_ASSIGNEE:
+      'No eligible handler is assigned. Ask an approval administrator to assign one.',
+    NO_STAGE:
+      'No active approval stage is available. Refresh and ask an approval administrator to check the request.',
+    ASSIGNMENT_LOOP:
+      'This reassignment would return the task to an earlier handler. Select another eligible recipient.',
+  },
+  businessErrorFields: '{{message}} Check these fields: {{fields}}.',
+  invalidFields: 'Check these fields: {{fields}}.',
+  fieldSeparator: ', ',
+  businessErrors: {
+    LEAVE_MAX_DAYS:
+      "The requested leave exceeds this leave type's maximum. Shorten the period.",
+    LEAVE_NO_WORKDAYS:
+      'The selected period contains no working half-days. Adjust the dates.',
+    LEAVE_TYPE_UNAVAILABLE:
+      'This leave type is unavailable. Select an enabled leave type.',
+    LEAVE_DELEGATE_REQUIRED:
+      'Select a different active employee for the delegated request.',
+  },
+
   creationUnknown:
     'The save result is unknown. Retry the same save or check existing drafts.',
   resubmit: 'Resubmit',

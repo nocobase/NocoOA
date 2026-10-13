@@ -1,3 +1,6 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { statusTone } from './status-tone.js';
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { ApplicationSearch } from '#components/application-search';
 import { UserNameText } from '#components/user-name';
 import { UserName } from '#components/user-name';
@@ -5,7 +8,7 @@ import { useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -100,9 +103,7 @@ export default function Certificates() {
       id: 'status',
       header: t('certificates.status'),
       cell: ({ row }) => (
-        <StatusBadge
-          tone={row.original.status === 'issued' ? 'success' : 'neutral'}
-        >
+        <StatusBadge tone={statusTone(row.original.status)}>
           {t(`certificates.states.${row.original.status}`)}
         </StatusBadge>
       ),
@@ -117,10 +118,11 @@ export default function Certificates() {
       <ApplicationToolbar
         actions={
           <>
-            <Button variant='outline' disabled={r.loading} onClick={r.reload}>
-              <RefreshCw />
-              {t('certificates.refresh')}
-            </Button>
+            <ApplicationRefreshButton
+              label={t('certificates.refresh')}
+              loading={r.loading}
+              onClick={r.reload}
+            />
             {grant.can && !grant.isPending && !grant.error ? (
               <Button nativeButton={false} render={<Link to={link('new')} />}>
                 <Plus />
@@ -205,9 +207,25 @@ export default function Certificates() {
               p.set('pageSize', String(next.pageSize));
             })
           }
-          emptyMessage={t(
-            `certificates.${search.search || status ? 'noMatch' : 'empty'}`,
-          )}
+          emptyMessage={
+            <ApplicationTableEmpty
+              title={t(
+                `certificates.${search.search || status ? 'noMatch' : 'empty'}`,
+              )}
+              clearFilters={
+                search.search || status
+                  ? {
+                      label: t('certificates.clear'),
+                      onClick: () =>
+                        search.clear((p) => {
+                          p.delete('status');
+                          p.delete('page');
+                        }),
+                    }
+                  : undefined
+              }
+            />
+          }
           pageSizeOptions={[10, 20, 50, 100]}
         />
       ) : null}

@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApprovalProgress } from '#components/approval-progress';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -167,7 +168,7 @@ export default function AssetRequestDetail() {
     <RecordDetailDrawer
       headerStatus={
         d ? (
-          <StatusBadge tone='neutral'>
+          <StatusBadge tone={statusTone(d.record.status)}>
             {t(`assetRequests.statuses.${d.record.status}`)}
           </StatusBadge>
         ) : null

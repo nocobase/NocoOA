@@ -29,7 +29,10 @@ import {
   type Command,
 } from './contract.js';
 export class WorkItemError extends Error {
-  constructor(public readonly code: string) {
+  constructor(
+    public readonly code: string,
+    public readonly field?: string,
+  ) {
     super(code);
   }
 }
@@ -773,11 +776,11 @@ export function createWorkItemService(d: {
             if (
               !input.title.trim() ||
               input.title.length > 200 ||
-              input.description.length > 100000 ||
-              !Number.isFinite(+dueAt) ||
-              dueAt <= now()
+              input.description.length > 100000
             )
               fail('INVALID_INPUT');
+            if (!Number.isFinite(+dueAt) || dueAt <= now())
+              throw new WorkItemError('INVALID_INPUT', 'dueAt');
             await target(input.targetUserId, input.dutyRoleCode, tx);
             const id = old?.id ?? randomUUID();
             await files(

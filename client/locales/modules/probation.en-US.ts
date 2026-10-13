@@ -1,5 +1,21 @@
 export default {
   probationRequests: {
+    businessErrors: {
+      PROBATION_SELF_EVALUATION_REQUIRED:
+        "Enter the employee's self-evaluation before submitting.",
+      PROBATION_CONCLUSION_REQUIRED:
+        "Enter the manager's conclusion before approving.",
+      PROBATION_COMPENSATION_REQUIRED:
+        'Complete the protected grade and salary information in the HR approval form.',
+      PROBATION_INVALID_GRADE: 'Select an enabled grade.',
+      PROBATION_ALREADY_ACTIVE:
+        'This employee already has an active probation request. Open the existing request.',
+      PROBATION_STALE_EMPLOYEE:
+        "The employee's probation information changed. Refresh before acting again.",
+      PROBATION_DEPARTMENT_REQUIRED:
+        'The employee needs an active primary department. Ask HR to update the record.',
+    },
+
     title: 'Probation requests',
     description:
       'Review probation evaluations and follow the regularization decision.',

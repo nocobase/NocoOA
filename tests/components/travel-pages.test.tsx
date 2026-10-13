@@ -433,3 +433,30 @@ it('blocks saving when the selected target standard is denied instead of submitt
   expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
   expect(api.request.mock.calls.some(([r]) => r.method === 'POST')).toBe(false);
 });
+
+it('requires an itinerary for international submission before any write, while allowing a draft', async () => {
+  serve();
+  open();
+  const user = await fill('0');
+  await user.click(
+    screen.getByRole('checkbox', { name: travel.travel.international }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Submit' }));
+  expect(
+    await screen.findByText(
+      travel.travel.businessErrors.TRAVEL_ITINERARY_REQUIRED,
+    ),
+  ).toBeVisible();
+  await waitFor(() =>
+    expect(document.getElementById('travel-file')).toHaveFocus(),
+  );
+  expect(api.request.mock.calls.some(([call]) => call.method === 'POST')).toBe(
+    false,
+  );
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(() =>
+    expect(
+      api.request.mock.calls.some(([call]) => call.method === 'POST'),
+    ).toBe(true),
+  );
+});

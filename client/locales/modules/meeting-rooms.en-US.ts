@@ -1,5 +1,20 @@
 export default {
   meetingRooms: {
+    finder: {
+      title: 'Find a time',
+      description:
+        'Choose a time in {{zone}} and attendance including yourself. Rooms are paginated after capacity filtering.',
+      date: 'Meeting date',
+      start: 'Start time',
+      end: 'End time',
+      capacity: 'People (including you)',
+      select: 'Choose a date and valid time to check rooms.',
+      snapshot:
+        'Availability is a current snapshot, not a reservation. The server checks conflicts again when you book. Totals include both busy and free rooms.',
+      busy: 'Conflict',
+      confirmation: 'Available · admin confirmation',
+      free: 'Available',
+    },
     discardTitle: 'Discard unsaved changes?',
     discardDescription:
       'Your changes have not been saved. Discard them and return to the previous view?',

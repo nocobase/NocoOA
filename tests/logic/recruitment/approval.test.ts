@@ -320,3 +320,39 @@ it('public SDK histories contain private revision references without amounts', a
     JSON.stringify(await f.sdk.runViewsFor(RECRUITMENT_LIFECYCLE, 'r1')),
   ).not.toContain('Cents');
 });
+
+it('administrators can search eligible reassignment recipients and hand over a task', async () => {
+  const f = setup();
+  f.directory.searchPeople = ({ search }) =>
+    ['replacement', 'applicant'].filter((id) => !search || id.includes(search));
+  await f.fire('submit');
+  const task = (await f.sdk.tasksFor(RECRUITMENT_LIFECYCLE, 'r1'))[0]!;
+  const target = { taskId: task.id };
+  const page = await f.sdk.candidatesFor({
+    target,
+    action: 'reassign',
+    actor: { id: 'admin' },
+    query: { search: '', offset: 0, limit: 20 },
+  });
+  expect(page.people).toContain('replacement');
+  expect(page.people).not.toContain('applicant');
+  await expect(
+    f.sdk.candidatesFor({
+      target,
+      action: 'reassign',
+      actor: { id: 'applicant' },
+    }),
+  ).rejects.toThrow();
+  await f.sdk.perform({
+    target,
+    action: 'reassign',
+    actor: { id: 'admin' },
+    input: { to: 'replacement', override: false },
+    comment: 'Cover absence',
+  });
+  expect(
+    (await f.sdk.tasksFor(RECRUITMENT_LIFECYCLE, 'r1')).some(
+      (row) => row.assigneeId === 'replacement',
+    ),
+  ).toBe(true);
+});

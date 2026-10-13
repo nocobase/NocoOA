@@ -1,3 +1,4 @@
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -80,9 +81,11 @@ export default function Instances() {
       <ApplicationToolbar
         actions={
           <>
-            <Button variant='outline' disabled={r.loading} onClick={r.reload}>
-              {t('seals.refresh')}
-            </Button>
+            <ApplicationRefreshButton
+              label={t('seals.refresh')}
+              loading={r.loading}
+              onClick={r.reload}
+            />
             {allowed ? (
               <Button nativeButton={false} render={<Link to={link('new')} />}>
                 {t('seals.newInstance')}

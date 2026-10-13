@@ -1,3 +1,5 @@
+import { ApiClientError } from '@nocobase/app-client';
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Alert, AlertDescription } from '#components/ui/alert';
 import { Button } from '#components/ui/button';
@@ -12,6 +14,7 @@ export function ErrorState({
   error: unknown;
   retry?: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'assetRequests');
   const { t } = useTranslation();
   const status = statusOf(error);
   const reason = reasonOf(error);
@@ -30,11 +33,16 @@ export function ErrorState({
   return (
     <Alert variant='destructive'>
       <AlertDescription>
-        {reason?.startsWith('ASSET_')
-          ? t(`assetRequests.errors.${reason}`, { defaultValue: fallback })
-          : fallback}
+        {businessMessage ??
+          (reason?.startsWith('ASSET_')
+            ? t(`assetRequests.errors.${reason}`, { defaultValue: fallback })
+            : fallback)}
       </AlertDescription>
-      {retry && status !== 403 && status !== 404 ? (
+      {retry &&
+      (!businessMessage ||
+        (error instanceof ApiClientError && error.status === 409)) &&
+      status !== 403 &&
+      status !== 404 ? (
         <Button variant='outline' onClick={retry}>
           {t(
             status === 409 ? 'assetRequests.loadLatest' : 'assetRequests.retry',

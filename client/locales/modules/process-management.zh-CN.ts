@@ -2,7 +2,7 @@ export default {
   flowDiagram: {
     empty: '没有可显示的阶段',
     loading: '正在自动布局流程图…',
-    failed: '流程图布局失败，请查看下方流程规则',
+    failed: '流程图布局失败，请查看流程规则',
     nodeHelp: '流程阶段，可通过平移和缩放查看',
     edgeHelp: '流程转移',
   },
@@ -236,7 +236,7 @@ export default {
 
     conditional: '按业务条件选择',
     normalDescription:
-      '展示主要审批与办理路径；各环节的人员、操作及流转条件见下方流程规则。',
+      '展示主要审批与办理路径；各环节的人员、操作及流转条件见流程规则。',
     transitionUnknown: '操作：{{name}}',
     transitionNames: {
       edit: '修改内容',
@@ -294,6 +294,8 @@ export default {
     currentNode: '当前状态',
     visitedNode: '已走过',
     unvisitedNode: '未经过',
+    executionHistory: '执行历史',
+    terminationOutcome: '终止结果',
     actualPath: '实际执行路径',
     actualDescription:
       '以完整审批与办理流程为背景，标注实际经过的节点、连线和当前状态；已发生的退回或历史路径仍保留。',
@@ -316,7 +318,7 @@ export default {
     automatic: '自动转换',
     transitions: '状态转换',
     definitionDetails: '阶段与转换',
-    viewExecutions: '查看执行记录',
+    viewExecutions: '查看全部记录',
     back: '返回',
     manage: '管理操作',
     appoint: '指派',

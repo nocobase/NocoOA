@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
@@ -341,7 +342,6 @@ export function BalancePage({ administration }: { administration: boolean }) {
     (administration && !!employeeId && employee.loading);
   const error = balances.error ?? options.error ?? employee.error;
   const rows = balances.data?.data ?? [];
-  const hasRows = rows.length > 0;
   const ready =
     !!balances.data &&
     !!options.data &&
@@ -381,7 +381,7 @@ export function BalancePage({ administration }: { administration: boolean }) {
       <ApplicationToolbar
         actions={
           <>
-            {canUpdate && ready && hasRows ? add : null}
+            {canUpdate ? add : null}
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -508,25 +508,22 @@ export function BalancePage({ administration }: { administration: boolean }) {
         <BalanceSkeleton />
       ) : (
         <>
-          {hasRows ? (
-            <DataTable
-              columns={columns}
-              data={rows}
-              showSelectedCount={false}
-              getRowId={(row) => row.leaveType}
-            />
-          ) : (
-            <BalanceEmpty
-              kind={
-                administration
-                  ? canUpdate
-                    ? 'accounts'
-                    : 'readonlyAccounts'
-                  : 'mine'
-              }
-              action={canUpdate ? add : undefined}
-            />
-          )}{' '}
+          <DataTable
+            columns={columns}
+            data={rows}
+            showSelectedCount={false}
+            getRowId={(row) => row.leaveType}
+            emptyMessage={
+              <ApplicationTableEmpty
+                title={t(
+                  `leaveBalances.empty.${administration ? (canUpdate ? 'accounts' : 'readonlyAccounts') : 'mine'}Title`,
+                )}
+                description={t(
+                  `leaveBalances.empty.${administration ? (canUpdate ? 'accounts' : 'readonlyAccounts') : 'mine'}Description`,
+                )}
+              />
+            }
+          />
           {administration && !types.length ? (
             <p className='text-sm text-muted-foreground'>
               {t('leaveBalances.noTypes')}
@@ -552,8 +549,6 @@ export function BalancePage({ administration }: { administration: boolean }) {
                 <BalanceError error={ledger.error} retry={ledger.reload} />
               ) : !ledger.data ? (
                 <BalanceSkeleton />
-              ) : ledger.data.meta.total === 0 ? (
-                <BalanceEmpty kind='ledger' />
               ) : (
                 <DataTableServer
                   columns={ledgerColumns}
@@ -579,7 +574,12 @@ export function BalancePage({ administration }: { administration: boolean }) {
                       params.delete('page');
                     })
                   }
-                  emptyMessage={t('leaveBalances.noResults')}
+                  emptyMessage={
+                    <ApplicationTableEmpty
+                      title={t('leaveBalances.empty.ledgerTitle')}
+                      description={t('leaveBalances.empty.ledgerDescription')}
+                    />
+                  }
                   pageSizeOptions={[10, 20, 50, 100]}
                 />
               )}

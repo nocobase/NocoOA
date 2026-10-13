@@ -511,6 +511,74 @@ export default [
       },
     );
     rooms.get(
+      '/availability-search',
+      doc(
+        'searchMeetingRoomAvailability',
+        'List capacity-matched authorized rooms with busy intervals only',
+        S.AvailabilityRoom,
+        true,
+      ),
+      apiValidator('query', S.AvailabilitySearchQuery),
+      async (ctx) => {
+        const q = ctx.req.valid('query');
+        const p = await policy(ctx, 'oa.meetingRooms', 'view');
+        if (!readableFields(p, ROOM_FIELDS)) fail('ACCESS_DENIED');
+        const repo = db.repository<MeetingRoom>('meetingRooms').withPolicy(p);
+        const filter = (f: import('@nocobase/db').FilterBuilder) =>
+          f.and([
+            f.boolean('active').isTrue(),
+            f.number('capacity').gte(q.capacity),
+          ]);
+        const total = await repo.count({ filter });
+        const matched = await repo.findMany({
+          filter,
+          offset: (q.page - 1) * q.pageSize,
+          limit: q.pageSize,
+          sort: (s) => [s.field('capacity').asc(), s.field('id').asc()],
+        });
+        if (
+          matched.some((room) => ROOM_FIELDS.some((field) => !(field in room)))
+        )
+          fail('ACCESS_DENIED');
+        // Same privacy boundary as single-room availability: only intervals, never booking identities or titles.
+        const busy = matched.length
+          ? await db.repository<MeetingBooking>('meetingBookings').findMany({
+              filter: (f) =>
+                f.and([
+                  f.or(
+                    matched.map((room) =>
+                      f.string('roomId').eq(S.Room.parse(room).id),
+                    ),
+                  ),
+                  f.or([
+                    f.string('status').eq('confirmed'),
+                    f.string('status').eq('pendingConfirmation'),
+                  ]),
+                  f.date('startAt').before(new Date(q.endAt)),
+                  f.date('endAt').after(new Date(q.startAt)),
+                ]),
+              select: (s) => s.fields('roomId', 'startAt', 'endAt'),
+              sort: (s) => s.field('startAt').asc(),
+            })
+          : [];
+        ctx.header('Cache-Control', 'no-store');
+        return ctx.json({
+          data: matched.map((room) =>
+            S.AvailabilityRoom.parse({
+              ...room,
+              busy: busy
+                .filter((item) => item.roomId === room.id)
+                .map((item) => ({
+                  startAt: new Date(item.startAt).toISOString(),
+                  endAt: new Date(item.endAt).toISOString(),
+                })),
+            }),
+          ),
+          meta: { page: q.page, pageSize: q.pageSize, total },
+        });
+      },
+    );
+    rooms.get(
       '/:id/actions',
       describeRoute({
         tags: ['Meeting rooms'],
