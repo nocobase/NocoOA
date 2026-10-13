@@ -1,0 +1,83 @@
+# Deploy PR heads to isolated preview Apps and main commits to the existing nocooa App.
+# Studio keeps the repository secret NB_STUDIO_API_KEY (an organization API key for this repository's CI) and rotates it.
+name: NocoBase Studio nocooa
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+env:
+  NB_STUDIO_URL: 'https://studio.v2.test.nocobase.com/main'
+jobs:
+  deploy:
+    name: Deploy nocooa to Studio
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: nb-studio-nocooa-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'main' }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    env:
+      APP_ID: ${{ github.event_name == 'pull_request' && format('nocooa-pr-{0}', github.event.pull_request.number) || 'nocooa' }}
+      NOCOBASE_NPM_PASSWORD: ${{ secrets.NOCOBASE_NPM_PASSWORD }}
+      ENVIRONMENT: 'preview'
+      LOGS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Configure private package registry
+        run: |
+          if [ -z "$NOCOBASE_NPM_PASSWORD" ]; then
+            echo '::error::Add the repository Actions secret NOCOBASE_NPM_PASSWORD for pkg-v3.nocobase.com.'
+            exit 1
+          fi
+          NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/nocooa.npmrc"
+          echo "NPM_CONFIG_USERCONFIG=$NPM_CONFIG_USERCONFIG" >> "$GITHUB_ENV"
+          umask 077
+          registry_password_b64=$(printf '%s' "$NOCOBASE_NPM_PASSWORD" | base64 -w 0)
+          echo "::add-mask::$registry_password_b64"
+          {
+            printf '%s\n' '//pkg-v3.nocobase.com/:username=ci'
+            printf '//pkg-v3.nocobase.com/:_password=%s\n' "$registry_password_b64"
+          } > "$NPM_CONFIG_USERCONFIG"
+      - name: Install the nb-studio CLI
+        id: studio-cli
+        env:
+          NB_STUDIO_API_KEY: ${{ secrets.NB_STUDIO_API_KEY }}
+        run: |
+          eval "$(curl -fsS -H "x-api-key: $NB_STUDIO_API_KEY" "$NB_STUDIO_URL/api/agents/dist/products/nb-studio/targets/linux-x64?format=env")"
+          mkdir -p "$RUNNER_TEMP/nb-studio"
+          curl -fsS -H "x-api-key: $NB_STUDIO_API_KEY" "$NB_STUDIO_URL$url" | tar -xz --strip-components=1 -C "$RUNNER_TEMP/nb-studio"
+          echo "$RUNNER_TEMP/nb-studio/bin" >> "$GITHUB_PATH"
+          printf %s "$NB_STUDIO_API_KEY" | NB_STUDIO_KEYCHAIN=off "$RUNNER_TEMP/nb-studio/bin/nb-studio" login --server "$NB_STUDIO_URL" --api-key-stdin
+      - name: Ensure PR preview App
+        if: github.event_name == 'pull_request'
+        run: nb-studio app ensure "$APP_ID" --environment "$ENVIRONMENT"
+      - run: nb-studio build status --app "$APP_ID" --state building --logs "$LOGS"
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare SQLite release template for PR preview
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci/prepare-studio-preview.mjs
+      - name: Include source revision in the published client
+        run: node scripts/ci/prepare-studio-revision.mjs
+        env:
+          STUDIO_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      # Leaves storage/exports/dist.tar.gz: dist/ and config.example.yml.
+      - run: pnpm build --target linux-x64 --node-version 24 --tar
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+      # Uploads the archive and deploys it; a protected environment asks its approvers instead.
+      - name: Deploy and wait for Studio startup
+        run: node scripts/ci/deploy-studio.mjs
+        env:
+          STUDIO_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      - if: failure() && steps.studio-cli.outcome == 'success'
+        run: nb-studio build status --app "$APP_ID" --state failed --logs "$LOGS"

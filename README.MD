@@ -285,6 +285,18 @@ import { resolveAssetUrl } from '@nocobase/app-client';
 
 Pass the file's path relative to `dist/client/`, with or without a leading slash. `resolveAssetUrl` reads `import.meta.env.BASE_URL`, which Vite replaces with the configured `base` during the application build; the browser does not read `CDN_BASE_URL` from the server environment. With an absolute HTTP(S) CDN base it returns the CDN URL, otherwise it falls back to `resolveAppUrl` and the runtime `APP_BASE_PATH`. Already resolved URLs are preserved. Use `resolveAppUrl` for API URLs, page links and runtime-generated resources; the CDN must actually contain a file before it can be served there.
 
+#### Studio CI deployment
+
+[The Studio workflow](.github/workflows/nb-studio-nocooa-preview.yml) builds Linux x64 archives with Node.js 24 and deploys through `nb-studio`. One job handles all deployment triggers:
+
+- Pull requests opened, updated, or reopened deploy their head commit to `nocooa-pr-<number>` in the `preview` environment. The PR archive uses a SQLite release template (`database.sqlite` under that App’s persistent storage); no database is packaged or copied from another App. Main archives keep the PostgreSQL template. A newer run cancels the previous run for the same PR.
+- Pushes to the default branch `main`, including merged PRs, deploy the pushed commit to the existing `nocooa` App. Main deployments share a concurrency group and do not cancel a running deployment. PR builds never deploy to this fixed App.
+- Manual runs through **Actions → NocoBase Studio nocooa → Run workflow** deploy `main` to the existing `nocooa` App. Select `main`; manual runs on other branches are skipped. The workflow must first be merged into the default branch for GitHub to offer this button.
+
+Configure repository secrets under **Settings → Secrets and variables → Actions**: `NB_STUDIO_API_KEY` authenticates to Studio; `NOCOBASE_NPM_PASSWORD` holds the password supplied by the package registry provider for downloads from `pkg-v3.nocobase.com`, including the private Approval package. The workflow uses the arbitrary username `ci` and a base64-encoded `_password`, scoped to that registry, in a temporary npm configuration outside the checkout. The same configuration is used during archive builds. Enter the original password in the Secret; the workflow performs encoding. Do not commit credentials. Fork PRs do not receive repository secrets and cannot deploy with this workflow.
+
+The Studio server is `https://studio.v2.test.nocobase.com/main`. Main deployments update code in the existing App without replacing its configuration, database, or persistent storage. A protected Studio environment may require approval before deployment. Merging the workflow activates the main trigger; the deployment script waits up to ten minutes for the published client revision to match the uploaded commit and for the public health endpoint to report the expected App. This avoids management reads unavailable to the repository CI key. A pending protected-environment approval is reported separately from a running deployment. Frontend compilation uses a 4 GiB Node.js heap limit after the default ~2 GiB limit caused a CI out-of-memory failure.
+
 #### Packing the build
 
 `pnpm build --tar` writes `storage/exports/dist.tar.gz`, the artifact `@nocobase/app-installer` installs on a server.
