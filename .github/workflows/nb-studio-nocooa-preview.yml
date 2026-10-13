@@ -20,7 +20,7 @@ jobs:
     env:
       APP_ID: ${{ github.event_name == 'pull_request' && format('nocooa-pr-{0}', github.event.pull_request.number) || 'nocooa' }}
       NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/nocooa.npmrc
-      NOCOBASE_NPM_TOKEN: ${{ secrets.NOCOBASE_NPM_TOKEN }}
+      NOCOBASE_NPM_PASSWORD: ${{ secrets.NOCOBASE_NPM_PASSWORD }}
       ENVIRONMENT: 'preview'
       LOGS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
@@ -34,12 +34,17 @@ jobs:
           cache: pnpm
       - name: Configure private package registry
         run: |
-          if [ -z "$NOCOBASE_NPM_TOKEN" ]; then
-            echo '::error::Add the repository Actions secret NOCOBASE_NPM_TOKEN for pkg-v3.nocobase.com.'
+          if [ -z "$NOCOBASE_NPM_PASSWORD" ]; then
+            echo '::error::Add the repository Actions secret NOCOBASE_NPM_PASSWORD for pkg-v3.nocobase.com.'
             exit 1
           fi
           umask 077
-          printf '%s\n' '//pkg-v3.nocobase.com/:_authToken=${NOCOBASE_NPM_TOKEN}' > "$NPM_CONFIG_USERCONFIG"
+          registry_password_b64=$(printf '%s' "$NOCOBASE_NPM_PASSWORD" | base64 -w 0)
+          echo "::add-mask::$registry_password_b64"
+          {
+            printf '%s\n' '//pkg-v3.nocobase.com/:username=ci'
+            printf '//pkg-v3.nocobase.com/:_password=%s\n' "$registry_password_b64"
+          } > "$NPM_CONFIG_USERCONFIG"
       - name: Install the nb-studio CLI
         id: studio-cli
         env:
