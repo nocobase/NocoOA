@@ -287,10 +287,11 @@ Pass the file's path relative to `dist/client/`, with or without a leading slash
 
 #### Studio CI deployment
 
-[The Studio workflow](.github/workflows/nb-studio-nocooa-preview.yml) builds Linux x64 archives with Node.js 24 and deploys through `nb-studio`. One job handles both triggers:
+[The Studio workflow](.github/workflows/nb-studio-nocooa-preview.yml) builds Linux x64 archives with Node.js 24 and deploys through `nb-studio`. One job handles all deployment triggers:
 
 - Pull requests opened, updated, or reopened deploy their head commit to `nocooa-pr-<number>` in the `preview` environment. The PR archive uses a SQLite release template (`database.sqlite` under that App’s persistent storage); no database is packaged or copied from another App. Main archives keep the PostgreSQL template. A newer run cancels the previous run for the same PR.
 - Pushes to the default branch `main`, including merged PRs, deploy the pushed commit to the existing `nocooa` App. Main deployments share a concurrency group and do not cancel a running deployment. PR builds never deploy to this fixed App.
+- Manual runs through **Actions → NocoBase Studio nocooa → Run workflow** deploy `main` to the existing `nocooa` App. Select `main`; manual runs on other branches are skipped. The workflow must first be merged into the default branch for GitHub to offer this button.
 
 Configure repository secrets under **Settings → Secrets and variables → Actions**: `NB_STUDIO_API_KEY` authenticates to Studio; `NOCOBASE_NPM_PASSWORD` holds the password supplied by the package registry provider for downloads from `pkg-v3.nocobase.com`, including the private Approval package. The workflow uses the arbitrary username `ci` and a base64-encoded `_password`, scoped to that registry, in a temporary npm configuration outside the checkout. The same configuration is used during archive builds. Enter the original password in the Secret; the workflow performs encoding. Do not commit credentials. Fork PRs do not receive repository secrets and cannot deploy with this workflow.
 

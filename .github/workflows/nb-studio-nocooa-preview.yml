@@ -2,6 +2,7 @@
 # Studio keeps the repository secret NB_STUDIO_API_KEY (an organization API key for this repository's CI) and rotates it.
 name: NocoBase Studio nocooa
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -13,6 +14,7 @@ env:
 jobs:
   deploy:
     name: Deploy nocooa to Studio
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency:
       group: nb-studio-nocooa-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'main' }}
