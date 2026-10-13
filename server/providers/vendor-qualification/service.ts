@@ -939,8 +939,10 @@ export function createVendorQualificationService(d: QualificationDependencies) {
     async options(actorId: string, vendorPolicy: RepositoryPolicy) {
       await sdk();
       const employee = await d.employees.getByUserId(actorId);
-      if (!employee?.active || employee.status === 'left')
-        refuse('EMPLOYEE_REQUIRED', 'An active employee archive is required.');
+      // Reading list/form options reports eligibility; only business writes require an employee archive.
+      const activeEmployee = Boolean(
+        employee?.active && employee.status !== 'left',
+      );
       let sourceOptions: Awaited<ReturnType<VendorService['options']>>;
       try {
         sourceOptions = await d.vendors.options(
@@ -987,11 +989,16 @@ export function createVendorQualificationService(d: QualificationDependencies) {
           'permission',
         );
       return {
-        applicant: { id: actorId, name: employee.name },
+        applicant: {
+          id: actorId,
+          name: employee?.name ?? (await d.users.get(actorId))?.name ?? actorId,
+        },
         timeZone: d.calendar.timeZone(),
-        canCreateQualification: Boolean(department),
+        canCreateQualification: activeEmployee && Boolean(department),
         canCreateRemoval:
-          Boolean(department) && directory.hasRole(actorId, 'purchasing'),
+          activeEmployee &&
+          Boolean(department) &&
+          directory.hasRole(actorId, 'purchasing'),
         categories: await d.dictionaries.list('supplierCategory'),
         vendors: permitted.data.map((row) => ({
           id: row.id,

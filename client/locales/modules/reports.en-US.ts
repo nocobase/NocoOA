@@ -1,5 +1,6 @@
 export default {
   reports: {
+    noData: 'No report data yet',
     title: 'Reports',
     description:
       'Read current authorized reports and export their source data.',
@@ -29,6 +30,8 @@ export default {
     capacityNotice:
       'Uninitialized capacity cannot be used. Blocked replacements require business resolution and never add available capacity.',
     states: {
+      activePendingSeal: 'Active, seal pending',
+      active: 'Active',
       uninitialized: 'Uninitialized',
       blocked: 'Blocked replacement',
       ready: 'Initialized',
@@ -74,6 +77,9 @@ export default {
       },
     },
     fields: {
+      departmentName: 'Department',
+      positionName: 'Position',
+      subjectName: 'Budget subject',
       month: 'Start month',
       leaveType: 'Leave type',
       approvedRequestCount: 'Approved requests',
@@ -89,14 +95,14 @@ export default {
       positionId: 'Position ID',
       year: 'Year',
       subject: 'Subject',
-      allocatedCents: 'Allocated (cents)',
-      heldCents: 'Reserved (cents)',
-      usedCents: 'Used (cents)',
-      availableCents: 'Available (cents)',
+      allocatedCents: 'Allocated (CNY)',
+      heldCents: 'Reserved (CNY)',
+      usedCents: 'Used (CNY)',
+      availableCents: 'Available (CNY)',
       number: 'Contract number',
       status: 'Status',
-      amountCents: 'Amount (cents)',
-      paidCents: 'Paid (cents)',
+      amountCents: 'Amount (CNY)',
+      paidCents: 'Paid (CNY)',
       limit: 'Limit',
       initialized: 'Initialized',
       used: 'Used',

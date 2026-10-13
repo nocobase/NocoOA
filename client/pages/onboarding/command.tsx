@@ -170,7 +170,7 @@ export function Command({
             }
           }}
         >
-          {error ? <Failure error={error} /> : null}
+          {error ? <Failure module='onboarding' error={error} /> : null}
           {children({
             disabled,
             changed: (id) => {

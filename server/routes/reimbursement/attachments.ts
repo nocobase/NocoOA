@@ -1,3 +1,4 @@
+import { attachmentSelectionFilters } from '../attachment-selection.js';
 import {
   authenticationToken,
   type AuthEnv,
@@ -45,19 +46,14 @@ const generated = defineFileRepositoryApiRoutes<Principal>({
       accessPath: '/uploads/reimbursement',
       accessMode: 'stream',
       policy: (p) => ({
-        read:
-          p.ids?.length === 0
-            ? false
-            : {
-                scope: (f) =>
-                  f.and([
-                    f.string('reimbursementId').eq(p.reimbursementId),
-                    ...(p.ids
-                      ? [f.or(p.ids.map((id) => f.string('id').eq(id)))]
-                      : []),
-                  ]),
-                fields: REIMBURSEMENT_FILE_FIELDS,
-              },
+        read: {
+          scope: (f) =>
+            f.and([
+              f.string('reimbursementId').eq(p.reimbursementId),
+              ...attachmentSelectionFilters(f, p.ids),
+            ]),
+          fields: REIMBURSEMENT_FILE_FIELDS,
+        },
         create: p.upload
           ? {
               scope: { reimbursementId: p.reimbursementId, ownerId: p.actorId },

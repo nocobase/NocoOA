@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { useMemo } from 'react';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -41,7 +42,7 @@ import {
   type Template,
   type Page,
 } from './types.js';
-import { Loading, ErrorState, EmptyState } from './states.js';
+import { Loading, ErrorState } from './states.js';
 export default function Templates() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -162,7 +163,6 @@ export default function Templates() {
       ),
     },
   ];
-  const empty = !!r.data && r.data.meta.total === 0 && !source;
   return (
     <PageContainer>
       <PageHeader
@@ -172,15 +172,17 @@ export default function Templates() {
       <ApplicationToolbar
         actions={
           <>
-            {r.data && !empty ? newButton : null}
+            {newButton}
             <Button
               data-print-management-focus
               variant='outline'
+              size='icon'
+              aria-label={t('templatePrintUI.refresh')}
+              title={t('templatePrintUI.refresh')}
               onClick={r.reload}
               disabled={r.loading}
             >
               {r.loading ? <Spinner /> : <RefreshCw />}
-              {t('templatePrintUI.refresh')}
             </Button>
           </>
         }
@@ -241,16 +243,19 @@ export default function Templates() {
             })
           }
           emptyMessage={
-            <EmptyState
-              filtered={!!source}
-              action={
-                source ? (
-                  <Button variant='outline' onClick={clear}>
-                    {t('templatePrintUI.clear')}
-                  </Button>
-                ) : (
-                  newButton
-                )
+            <ApplicationTableEmpty
+              title={t(
+                source ? 'templatePrintUI.noResults' : 'templatePrintUI.empty',
+              )}
+              description={t(
+                source
+                  ? 'templatePrintUI.noResultsDescription'
+                  : 'templatePrintUI.emptyDescription',
+              )}
+              clearFilters={
+                source
+                  ? { label: t('templatePrintUI.clear'), onClick: clear }
+                  : undefined
               }
             />
           }

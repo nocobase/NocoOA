@@ -653,7 +653,10 @@ function PricingForm({
                   />
                 </div>
                 {rows.fields.map((row, i) => (
-                  <div key={row.id} className='space-y-4 rounded-md border p-4'>
+                  <div
+                    key={row.id}
+                    className='flex flex-col gap-4 rounded-md border p-4'
+                  >
                     {vendorField(
                       `quotes.${i}.vendorId`,
                       `purchase-quote-vendor-${i}`,

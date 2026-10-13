@@ -333,7 +333,7 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
                 .getByRole('button', { name: 'Refresh', exact: true })
                 .click();
               await expect(p.locator('tbody tr td').nth(3)).toHaveText('1');
-              await expect(p.locator('tbody tr td').nth(4)).toHaveText('17');
+              await expect(p.locator('tbody tr td').nth(4)).toHaveText('0.17');
             }
             await p.getByLabel(copy.month, { exact: true }).fill('13');
             await expect(p.locator('tbody tr')).toHaveCount(0);

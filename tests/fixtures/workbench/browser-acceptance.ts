@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
+import { vi } from 'vitest';
 import { databaseManagerToken } from '@nocobase/db';
 import { createEmployee } from '../../logic/employees/helpers.js';
 import { startIsolatedBrowserApp } from '../browser/harness.js';
@@ -23,6 +24,12 @@ export async function runWorkbenchBrowser() {
     const c = h.testApp.application.container,
       db = c.resolve(databaseManagerToken),
       calendar = c.resolve(calendarServiceToken);
+    // Keep a same-day upcoming meeting regardless of the hour this fixture runs.
+    // Mock Date only; timers and browser/network I/O remain real.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(
+      calendar.resolveLocalDateTime(calendar.localDate(new Date()), '12:00'),
+    );
     const employee = await createEmployee(
         h.testApp,
         'Workbench browser employee',
@@ -184,7 +191,7 @@ export async function runWorkbenchBrowser() {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.goto(`${h.origin}${h.basePath}/`);
     await page
-      .getByRole('link', { name: 'Browser confirmation notice' })
+      .locator(`a[href="${h.basePath}/announcements/${notice.id}"]`)
       .click();
     await expect(page).toHaveURL(new RegExp(`/announcements/${notice.id}`));
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -200,7 +207,7 @@ export async function runWorkbenchBrowser() {
           errors,
           screenshots,
           scope:
-            'Disposable SQLite full main App and synthetic role employee; not production acceptance',
+            'Disposable PostgreSQL full main App and synthetic role employee; not production acceptance',
         },
         null,
         2,
@@ -208,6 +215,7 @@ export async function runWorkbenchBrowser() {
     );
     return checks;
   } finally {
+    vi.useRealTimers();
     await h.close();
   }
 }

@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -6,7 +7,8 @@ import { PageHeader } from '#components/page-header';
 import { DataTable, DataTableColumnHeader } from '#components/data-table';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
-import { Badge } from '#components/ui/badge';
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
 import { useRecruitmentResource } from './resource.js';
 import { Refresh, ErrorState } from './shared.js';
 import type { Requisition } from './types.js';
@@ -74,9 +76,9 @@ export default function Requisitions() {
       header: t('recruitment.fields.status'),
       enableSorting: false,
       cell: ({ row }) => (
-        <Badge variant='outline'>
+        <StatusBadge tone={statusTone(row.original.status)}>
           {t(`recruitment.status.${row.original.status}`)}
-        </Badge>
+        </StatusBadge>
       ),
     },
   ];
@@ -95,7 +97,9 @@ export default function Requisitions() {
           columns={columns}
           data={r.data.data}
           getRowId={(row) => row.id}
-          emptyMessage={t('recruitment.emptyRequisitions')}
+          emptyMessage={
+            <ApplicationTableEmpty title={t('recruitment.emptyRequisitions')} />
+          }
         />
       ) : null}
       <Outlet context={{ reload: r.reload }} />

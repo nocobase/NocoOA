@@ -36,6 +36,9 @@ export const CenterQuery = z.object({
     .optional(),
   search: z.string().trim().max(200).default(''),
   status: z.string().max(64).optional(),
+  category: z
+    .enum(['drafts', 'revisions', 'inProgress', 'submitted'])
+    .optional(),
   homeSummary: z.enum(['true', 'false']).default('false'),
   own: z.enum(['true', 'false']).default('false'),
   orderBy: z.enum(['createdAt', 'startDate', 'dueAt']).default('createdAt'),
@@ -76,6 +79,7 @@ export const CenterItem = z.object({
     'oa.outing',
   ]),
   title: z.string().optional(),
+  updatedAt: z.string().nullable().optional(),
   dueAt: z.string().optional(),
   number: z.string().nullable(),
   applicantId: z.string(),
@@ -128,6 +132,7 @@ export const CenterMeta = z.object({
     .object({
       drafts: z.array(CenterItem),
       revisions: z.array(CenterItem),
+      submitted: z.array(CenterItem),
     })
     .optional(),
   counts: z.object({

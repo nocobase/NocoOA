@@ -315,23 +315,17 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole('combobox')).toBeEnabled();
-      await dialog
-        .getByRole('button', { name: 'Reassign', exact: true })
-        .click();
       await expect(
-        dialog.getByText('Choose a recipient', { exact: true }),
-      ).toBeVisible();
+        dialog.getByRole('button', { name: 'Reassign', exact: true }),
+      ).toBeDisabled();
       await dialog.getByRole('combobox').click();
+      await dialog.getByRole('combobox').fill('Recipient');
       await page
         .getByRole('option', { name: 'Browser Recipient', exact: true })
         .click();
-      const candidateSearch = dialog.getByPlaceholder(
-        'Search authorized recipients',
-      );
-      await candidateSearch.pressSequentially('Recipient');
-      await expect(dialog.getByRole('combobox')).not.toHaveText(
-        'Browser Recipient',
-      );
+      const candidateSearch = dialog.getByRole('combobox');
+      await candidateSearch.fill('Browser');
+      await expect(candidateSearch).not.toHaveValue('Browser Recipient');
       await expect(dialog.getByRole('combobox')).toBeEnabled();
       await dialog.getByRole('combobox').click();
       await page
@@ -340,7 +334,7 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
       evidence.checks.push(
         'New candidate search clears previous recipient and requires reselection',
       );
-      const reason = dialog.getByRole('textbox', { name: /Reason/ });
+      const reason = dialog.locator('textarea');
       await reason.pressSequentially('Reviewer absence');
       await reason.press('Home');
       await reason.pressSequentially('Verified ');

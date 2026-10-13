@@ -325,6 +325,21 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
             ).toBeDisabled();
             await p.context().close();
           }
+    } catch (error) {
+      for (const context of h.browser.contexts()) {
+        for (const page of context.pages()) {
+          console.log(
+            'Monthly report failure state',
+            page.url(),
+            (await page.locator('body').innerText()).slice(-6000),
+          );
+          await page.screenshot({
+            path: path.join(h.screenshotsDir, 'failure.png'),
+            fullPage: true,
+          });
+        }
+      }
+      throw error;
     } finally {
       await h.close();
     }

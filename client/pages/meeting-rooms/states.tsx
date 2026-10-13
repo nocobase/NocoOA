@@ -30,11 +30,15 @@ export function MeetingError({
       <AlertDescription>
         {t(`meetingRooms.errors.${errorKey(error)}`)}
       </AlertDescription>
-      <AlertAction>
-        <Button variant='outline' onClick={retry}>
-          {t('meetingRooms.retry')}
-        </Button>
-      </AlertAction>
+      {!(
+        error instanceof ApiClientError && [403, 404].includes(error.status)
+      ) ? (
+        <AlertAction>
+          <Button variant='outline' onClick={retry}>
+            {t('meetingRooms.retry')}
+          </Button>
+        </AlertAction>
+      ) : null}
     </Alert>
   );
 }

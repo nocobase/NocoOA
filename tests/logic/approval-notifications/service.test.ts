@@ -15,6 +15,7 @@ import { createApprovalNotificationService } from '../../../server/providers/app
 
 describe('OA approval notifications', () => {
   const send = vi.fn<NotificationService['send']>();
+  const existing = vi.fn<NotificationService['getByIdempotencyKey']>();
   const users = new Map<string, AdministratedUser>();
   let i18n: I18nRuntime;
   const task = {
@@ -38,7 +39,10 @@ describe('OA approval notifications', () => {
     > = {},
   ) {
     return createApprovalNotificationService({
-      notification: { send } as unknown as NotificationService,
+      notification: {
+        send,
+        getByIdempotencyKey: existing,
+      } as unknown as NotificationService,
       users: { get: async (id) => users.get(id) },
       i18n,
       channels,
@@ -56,6 +60,7 @@ describe('OA approval notifications', () => {
   }
   beforeEach(async () => {
     send.mockReset();
+    existing.mockReset();
     users.clear();
     for (const id of ['reviewer', 'proxy', 'applicant']) {
       users.set(id, {
@@ -109,8 +114,36 @@ describe('OA approval notifications', () => {
       },
     });
     expect(send.mock.calls[1]?.[0].messages).toEqual({
-      inbox: expect.objectContaining({ to: 'proxy', title: '审批动态' }),
+      inbox: expect.objectContaining({
+        to: 'proxy',
+        title: '请假申请 · 待你代理处理',
+      }),
     });
+  });
+
+  it('uses the configured default language when there is no durable recipient preference', async () => {
+    const chinese = new I18nRuntime({ defaultLocale: 'zh-CN' });
+    chinese.registerApplicationNamespace('nb3-oa', locales);
+    await chinese.init();
+    await service({ localeOf: undefined, i18n: chinese }).task({
+      task,
+      reason: 'assigned',
+    });
+    expect(send.mock.calls[0]?.[0].messages.inbox).toMatchObject({
+      title: '请假申请 · 待你处理',
+      body: '您有一项待处理审批。',
+    });
+  });
+  it('retains persisted messages across language and template changes on effect retry', async () => {
+    existing.mockResolvedValue({ id: 'previous-notice' } as never);
+    await service({ localeOf: () => 'zh-CN' }).task({
+      task,
+      reason: 'assigned',
+    });
+    expect(existing).toHaveBeenCalledWith(
+      'oa.approvals:task:task1:assigned:reviewer',
+    );
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('copies never create delegated decision notifications', async () => {

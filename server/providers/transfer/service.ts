@@ -72,6 +72,7 @@ export type TransferCenterView = 'pending' | 'done' | 'copied' | 'mine';
 export interface TransferCenterItem {
   id: string;
   kind: 'oa.transfer';
+  title?: string;
   number: null;
   applicantId: string;
   applicant: { id: string; name: string } | null;
@@ -1472,6 +1473,7 @@ export function createTransferService(d: TransferDependencies) {
         items.push({
           id: row.id,
           kind: 'oa.transfer',
+          title: row.reason.trim().replace(/\s+/g, ' ').slice(0, 240),
           number: null,
           applicantId: row.applicantId,
           applicant: applicant

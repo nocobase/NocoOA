@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApprovalProgress } from '#components/approval-progress';
 import { UserNameText } from '#components/user-name';
 import { Missing } from './missing.js';
@@ -201,19 +202,7 @@ export default function DepartureDetailPage() {
     <RecordDetailDrawer
       headerStatus={
         data ? (
-          <StatusBadge
-            tone={
-              ['completed'].includes(data.record.status)
-                ? 'success'
-                : ['rejected', 'terminated'].includes(data.record.status)
-                  ? 'warning'
-                  : ['draft', 'revision', 'withdrawn'].includes(
-                        data.record.status,
-                      )
-                    ? 'neutral'
-                    : 'info'
-            }
-          >
+          <StatusBadge tone={statusTone(data.record.status)}>
             {t(`departureRequests.statuses.${data.record.status}`)}
           </StatusBadge>
         ) : null

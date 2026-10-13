@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { Link, useLocation } from 'react-router';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -12,6 +13,7 @@ export function CertificateError({
   error: unknown;
   retry?: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'certificates');
   const { t } = useTranslation(),
     location = useLocation();
   if (error instanceof ApiClientError && error.status === 401)
@@ -21,7 +23,8 @@ export function CertificateError({
   return (
     <Alert variant='destructive'>
       <AlertDescription>
-        {t(`certificates.${denied ? 'unavailable' : 'failed'}`)}
+        {businessMessage ??
+          t(`certificates.${denied ? 'unavailable' : 'failed'}`)}
       </AlertDescription>
       {denied ? (
         <Button
@@ -34,9 +37,16 @@ export function CertificateError({
           {t('certificates.backToList')}
         </Button>
       ) : null}
-      {!denied && retry ? (
+      {!denied &&
+      (!businessMessage ||
+        (error instanceof ApiClientError && error.status === 409)) &&
+      retry ? (
         <Button variant='outline' onClick={retry}>
-          {t('certificates.retry')}
+          {t(
+            error instanceof ApiClientError && error.status === 409
+              ? 'approvals.loadLatest'
+              : 'certificates.retry',
+          )}
         </Button>
       ) : null}
     </Alert>

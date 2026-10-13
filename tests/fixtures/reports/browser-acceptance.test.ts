@@ -263,7 +263,9 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
         await expect(
           page.getByRole('button', { name: 'Retry', exact: true }),
         ).toBeVisible();
-        await expect(page.locator('tbody tr')).toHaveCount(0);
+        await expect(
+          page.locator('tbody tr:has(td:not([colspan]))'),
+        ).toHaveCount(0);
         await page.getByRole('button', { name: 'Retry', exact: true }).click();
         await expect(page.locator('tbody tr')).toHaveCount(1);
         await page.unroute(`**/api/reports/${dataset}?*`);
@@ -285,7 +287,9 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
       await page.locator('select').nth(0).selectOption('11');
       await page.locator('select').nth(1).selectOption('2026');
       await page.getByRole('button', { name: /December 30th.*2026/ }).click();
-      await expect(page.locator('tbody tr')).toHaveCount(0);
+      await expect(
+        page.locator('tbody tr[data-slot="table-row"]:has(td:not([colspan]))'),
+      ).toHaveCount(0);
       const expiredFilter = await data(
         page,
         'contract-ledger?endsBefore=2026-12-30',
@@ -360,7 +364,7 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
       const excelUrl = new URL((await capacityExcelResponse).url());
       expect(excelUrl.searchParams.get('positionId')).toBe(position.id);
       expect(excelUrl.searchParams.get('departmentId')).toBe(department.id);
-      expect(capacityBook.worksheets[0].getCell('L2').value).toBe(4);
+      expect(capacityBook.worksheets[0].getCell('L2').value).toBeNull();
       expect(capacityBook.worksheets[0].getCell('M2').value).toBe(
         'uninitialized',
       );
@@ -368,7 +372,9 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
       await page
         .getByRole('option', { name: 'A5 Other (A5-OTHER)', exact: true })
         .click();
-      await expect(page.locator('tbody tr')).toHaveCount(0);
+      await expect(page.locator('tbody tr:has(td:not([colspan]))')).toHaveCount(
+        0,
+      );
       await db.repository('headcountAccounts').updateOne({
         filter: { id: accountId },
         values: { initialized: true },
@@ -526,7 +532,9 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
           { exact: true },
         ),
       ).toBeVisible();
-      await expect(page.locator('tbody tr')).toHaveCount(0);
+      await expect(page.locator('tbody tr:has(td:not([colspan]))')).toHaveCount(
+        0,
+      );
       await expect(
         page.getByRole('button', { name: 'Export Excel', exact: true }),
       ).toBeDisabled();
@@ -554,7 +562,9 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
           ).toBeVisible();
           expect((await data(page, `${dataset}.xlsx`)).status).toBe(403);
         }
-        await expect(page.locator('tbody tr')).toHaveCount(0);
+        await expect(
+          page.locator('tbody tr:has(td:not([colspan]))'),
+        ).toHaveCount(0);
       }
       checks.push(
         'actual permission-set revocation denies budget/headcount list and Excel; contract scope shrinks to empty',

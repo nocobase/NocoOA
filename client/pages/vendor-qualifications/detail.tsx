@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApprovalProgress } from '#components/approval-progress';
 import { Missing } from './missing.js';
 import { useMemo, useReducer, useState, useEffect } from 'react';
@@ -189,13 +190,7 @@ export default function QualificationDrawer() {
     <RecordDetailDrawer
       headerStatus={
         data ? (
-          <StatusBadge
-            tone={
-              ['qualified', 'removed'].includes(data.record.status)
-                ? 'success'
-                : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(data.record.status)}>
             {stageLabel(data.record.status, t)}
           </StatusBadge>
         ) : null

@@ -1,3 +1,4 @@
+import { reportMoney } from './presentation';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useAuthorizationRevision } from '@nocobase/app-plugin-authorization/client';
@@ -214,7 +215,9 @@ function ExpenseSummaryContent() {
           enableHiding: false,
           cell: ({ row }: { row: { original: ExpenseRow } }) => (
             <div className='text-right tabular-nums'>
-              {row.original[field].toLocaleString(locale)}
+              {field === 'settledExpenseCents'
+                ? reportMoney(row.original[field], locale)
+                : row.original[field].toLocaleString(locale)}
             </div>
           ),
         }),

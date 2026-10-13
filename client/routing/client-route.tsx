@@ -6,6 +6,7 @@ import type {
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { NamespaceScope } from '@nocobase/i18n/client';
 import { type ReactElement, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { requestActionDefinitions } from '#components/request-action-definitions';
@@ -68,12 +69,11 @@ export function ClientRoute({ route }: ClientRouteProps): ReactElement {
   }, [allowed, checkAccess, componentLoader]);
 
   if (loadError) {
-    return feedback(<ClientPageError route={route} />);
+    return feedback(<ClientPageError />);
   }
 
   if (checkAccess && accessLoading) return feedback(<ClientPageLoading />);
-  if (checkAccess && !allowed)
-    return feedback(<ClientPageDenied route={route} />);
+  if (checkAccess && !allowed) return feedback(<ClientPageDenied />);
 
   if (!componentModule) {
     return feedback(<ClientPageLoading />);
@@ -82,7 +82,7 @@ export function ClientRoute({ route }: ClientRouteProps): ReactElement {
   const Component = componentModule.default;
 
   return (
-    <ErrorBoundary fallback={feedback(<ClientPageError route={route} />)}>
+    <ErrorBoundary fallback={feedback(<ClientPageError />)}>
       {/* The owning package is the page's namespace, so a plugin page translates with a bare useTranslation(). */}
       <NamespaceScope ns={route.packageName}>
         <Component />
@@ -91,9 +91,8 @@ export function ClientRoute({ route }: ClientRouteProps): ReactElement {
   );
 }
 
-function ClientPageDenied(inputProps: ClientRouteProps): ReactElement {
+function ClientPageDenied(): ReactElement {
   const { t } = useTranslation();
-  const { route } = inputProps;
 
   return (
     <section className='grid min-h-[calc(100svh-4rem)] place-items-center px-6'>
@@ -103,10 +102,13 @@ function ClientPageDenied(inputProps: ClientRouteProps): ReactElement {
         </h1>
         <p className='text-sm text-muted-foreground'>
           {t('status.deniedDescription', {
-            label: route.name,
-            defaultValue: `You do not have permission to access ${route.name}.`,
+            defaultValue: 'You do not have permission to access this page.',
           })}
         </p>
+        {/* Route ids are implementation details; denied pages offer a safe exit. */}
+        <Button nativeButton={false} render={<Link to='/' />}>
+          {t('status.backHome', { defaultValue: 'Back to workbench' })}
+        </Button>
       </section>
     </section>
   );
@@ -123,9 +125,8 @@ function ClientPageLoading(): ReactElement {
   );
 }
 
-function ClientPageError(inputProps: ClientRouteProps): ReactElement {
+function ClientPageError(): ReactElement {
   const { t } = useTranslation();
-  const { route } = inputProps;
 
   return (
     <section className='grid min-h-[calc(100svh-4rem)] place-items-center px-6'>
@@ -135,9 +136,7 @@ function ClientPageError(inputProps: ClientRouteProps): ReactElement {
         </h1>
         <p className='text-sm text-muted-foreground'>
           {t('status.routeFailedDescription', {
-            label: route.name,
-            packageName: route.packageName,
-            defaultValue: `Route ${route.name} from ${route.packageName} could not be loaded.`,
+            defaultValue: 'This page could not be loaded. Please try again.',
           })}
         </p>
         <Button onClick={() => window.location.reload()}>

@@ -83,7 +83,13 @@ export function createApprovalNotificationService(
   }): Promise<void> {
     const user = await deps.users.get(input.userId);
     if (!user || user.disabledAt || user.kind !== 'person') return;
-    const locale = deps.i18n.resolveLocale(await deps.localeOf?.(user.id));
+    const idempotencyKey = `oa.approvals:${input.key}:${user.id}`;
+    // Preserve the original persisted payload across template/locale changes. Delivery retries
+    // belong to the notification service; a business-effect retry must not rewrite history.
+    if (await deps.notification.getByIdempotencyKey(idempotencyKey)) return;
+    const locale = deps.i18n.resolveLocale(
+      (await deps.localeOf?.(user.id)) ?? deps.i18n.getDefaultLocale(),
+    );
     await deps.i18n.ensureLocaleLoaded(locale);
     const t = deps.i18n.getFixedT('nb3-oa', locale);
     // The path is internal to the application; only external mail/IM links carry the mount path.
@@ -95,7 +101,41 @@ export function createApprovalNotificationService(
             deps.publicOrigin,
           ).href
         : undefined;
-    const title = t('approvals.notifications.title');
+    const kind = (input.kind ?? 'oa.leave').replace(/^oa\./u, '');
+    const knownKinds = [
+      'leave',
+      'overtime',
+      'general',
+      'supplies',
+      'expensePlan',
+      'training',
+      'travel',
+      'reimbursement',
+      'purchase',
+      'loan',
+      'payment',
+      'probation',
+      'departure',
+      'vendorQualification',
+      'assetRequest',
+      'contract',
+      'travelCancellation',
+      'budgetAdjustment',
+      'attendanceChange',
+      'outing',
+      'leaveCancellation',
+      'recruitment',
+      'transfer',
+      'certificateRequest',
+      'sealRequest',
+      'vehicleRequest',
+    ];
+    const title = t('approvals.notifications.eventTitle', {
+      kind: t(
+        `approvals.notifications.kinds.${knownKinds.includes(kind) ? kind : 'request'}`,
+      ),
+      event: t(`approvals.notifications.events.${input.message}`),
+    });
     const body = input.detail
       ? t(input.detail.key, input.detail.values)
       : t(`approvals.notifications.${input.message}`);
@@ -119,7 +159,7 @@ export function createApprovalNotificationService(
       };
     if (!Object.keys(messages).length) return;
     await deps.notification.send({
-      idempotencyKey: `oa.approvals:${input.key}:${user.id}`,
+      idempotencyKey,
       source: { type: 'oa.approval', referenceId: input.recordId },
       messages,
     });
@@ -208,6 +248,8 @@ export function createApprovalNotificationService(
         'dingtalk-webhook',
       ]);
       if (!name || !deps.publicOrigin) return;
+      const idempotencyKey = `oa.approvals:alarm:${eventId}:webhook`;
+      if (await deps.notification.getByIdempotencyKey(idempotencyKey)) return;
       const locale = deps.i18n.getDefaultLocale();
       await deps.i18n.ensureLocaleLoaded(locale);
       const t = deps.i18n.getFixedT('nb3-oa', locale);
@@ -219,7 +261,7 @@ export function createApprovalNotificationService(
           ).href
         : undefined;
       await deps.notification.send({
-        idempotencyKey: `oa.approvals:alarm:${eventId}:webhook`,
+        idempotencyKey,
         source: { type: 'oa.approval', referenceId: recordId },
         messages: {
           [name]: {

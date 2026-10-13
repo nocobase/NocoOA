@@ -4,7 +4,7 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { Badge } from '#components/ui/badge';
 import { FlowDiagram } from '#components/flow-diagram';
 import { Button } from '#components/ui/button';
-import { Pencil } from 'lucide-react';
+import { Pencil, OctagonX } from 'lucide-react';
 /** Use the registry's React Flow/ELK renderer so cycles and return paths are routed
  * automatically. Parallel transitions share one visual edge; full rules remain below. */
 export function ProcessGraph({
@@ -135,12 +135,18 @@ export function ProcessGraph({
           highlighted: state.name === current,
           visited: visitedStates.has(state.name),
           className:
-            definition && configurableNodes?.has(state.name)
-              ? 'cursor-pointer transition-colors hover:border-primary hover:bg-accent hover:ring-2 hover:ring-primary/20'
-              : 'cursor-default',
+            state.name === 'terminated'
+              ? 'cursor-default rounded-full border-dashed border-destructive! bg-destructive/10! text-destructive ring-destructive/30!'
+              : definition && configurableNodes?.has(state.name)
+                ? 'cursor-pointer transition-colors hover:border-primary hover:bg-accent hover:ring-2 hover:ring-primary/20'
+                : 'cursor-default',
           // Reserve room for the node's configuration control in ELK's layout.
           height:
-            definition && configurableNodes?.has(state.name) ? 96 : undefined,
+            state.name === 'terminated'
+              ? 112
+              : definition && configurableNodes?.has(state.name)
+                ? 96
+                : undefined,
         }))}
         edges={graphEdges.map((edge) => ({
           id: edge.key,
@@ -151,7 +157,17 @@ export function ProcessGraph({
         }))}
         renderNode={(node) => (
           <div className='flex flex-col items-center gap-1'>
-            <span>{node.label}</span>
+            <span className='flex items-center gap-2'>
+              {node.id === 'terminated' && (
+                <OctagonX className='size-4' aria-hidden='true' />
+              )}
+              {node.label}
+            </span>
+            {node.id === 'terminated' && (
+              <Badge variant='destructive'>
+                {t('processManagement.terminationOutcome')}
+              </Badge>
+            )}
             {definition && configurableNodes?.has(node.id) && (
               <Button
                 variant='ghost'
@@ -170,7 +186,11 @@ export function ProcessGraph({
               </Button>
             )}
             {history && node.highlighted ? (
-              <Badge>{t('processManagement.currentNode')}</Badge>
+              <Badge
+                variant={node.id === 'terminated' ? 'destructive' : 'default'}
+              >
+                {t('processManagement.currentNode')}
+              </Badge>
             ) : history && node.visited ? (
               <Badge variant='secondary'>
                 {t('processManagement.visitedNode')}

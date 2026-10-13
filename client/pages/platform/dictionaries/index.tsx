@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { useApiClient, useToaster } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
@@ -5,7 +6,6 @@ import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   BanIcon,
-  BookTextIcon,
   CheckIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -40,14 +40,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#components/ui/dropdown-menu';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#components/ui/empty';
 import {
   InputGroup,
   InputGroupAddon,
@@ -326,23 +318,6 @@ export default function DictionariesPage(): ReactElement {
     );
   } else if (rows === undefined || !definition || update.isPending) {
     content = <TableSkeleton columns={5} />;
-  } else if (rowsOfType?.length === 0) {
-    content = (
-      <Empty className='min-h-48 border border-dashed'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <BookTextIcon />
-          </EmptyMedia>
-          <EmptyTitle>{t('platform.dictionaries.empty.title')}</EmptyTitle>
-          <EmptyDescription>
-            {canUpdate
-              ? t('platform.dictionaries.empty.description')
-              : t('platform.dictionaries.empty.readOnly')}
-          </EmptyDescription>
-        </EmptyHeader>
-        {canUpdate ? <EmptyContent>{newButton}</EmptyContent> : null}
-      </Empty>
-    );
   } else {
     content = (
       <DataTable
@@ -353,12 +328,30 @@ export default function DictionariesPage(): ReactElement {
         pageSize={20}
         initialSorting={[{ id: 'sortOrder', desc: false }]}
         emptyMessage={
-          <div className='flex flex-col items-center gap-2'>
-            <span>{t('platform.common.noResults')}</span>
-            <Button variant='link' size='sm' onClick={clearFilters}>
-              {t('platform.common.clearFilters')}
-            </Button>
-          </div>
+          <ApplicationTableEmpty
+            title={
+              hasFilters
+                ? t('platform.common.noResults')
+                : t('platform.dictionaries.empty.title')
+            }
+            description={
+              hasFilters
+                ? undefined
+                : t(
+                    canUpdate
+                      ? 'platform.dictionaries.empty.description'
+                      : 'platform.dictionaries.empty.readOnly',
+                  )
+            }
+            clearFilters={
+              hasFilters
+                ? {
+                    label: t('platform.common.clearFilters'),
+                    onClick: clearFilters,
+                  }
+                : undefined
+            }
+          />
         }
       />
     );
@@ -370,13 +363,7 @@ export default function DictionariesPage(): ReactElement {
         title={t('platform.dictionaries.title')}
         description={t('platform.dictionaries.description')}
       />
-      <ApplicationToolbar
-        actions={
-          canUpdate && rowsOfType !== undefined && rowsOfType.length > 0
-            ? newButton
-            : null
-        }
-      >
+      <ApplicationToolbar actions={canUpdate ? newButton : null}>
         <Select
           items={typeItems}
           value={type}

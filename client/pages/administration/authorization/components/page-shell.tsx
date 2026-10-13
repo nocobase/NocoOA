@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { useAuthorizationTranslation } from '../i18n.js';
 import { Button } from '#components/ui/button';
 import { Card } from '#components/ui/card';
+import { PageHeader } from '#components/page-header';
 
 /** The chrome every Authorization settings page renders inside. */
 export function PermissionsPage({
@@ -24,25 +25,16 @@ export function PermissionsPage({
   children: ReactNode;
 }): ReactElement {
   return (
-    <main
+    <div
       className={`min-h-[calc(100svh-4rem)] bg-background p-5 sm:p-8 ${fill ? 'lg:flex lg:h-full lg:min-h-[36rem] lg:flex-col' : ''}`}
     >
       <div
         className={`min-w-0 space-y-5 ${fill ? 'lg:flex lg:min-h-0 lg:flex-1 lg:flex-col' : ''}`}
       >
-        <header className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
-          <div className='min-w-0'>
-            <h1 className='font-heading text-3xl font-semibold tracking-[-0.035em]'>
-              {title}
-            </h1>
-            <p className='mt-2 max-w-2xl text-sm leading-6 text-muted-foreground'>
-              {description}
-            </p>
-          </div>
-        </header>
+        <PageHeader title={title} description={description} />
         {children}
       </div>
-    </main>
+    </div>
   );
 }
 

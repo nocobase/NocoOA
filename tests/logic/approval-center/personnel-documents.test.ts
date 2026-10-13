@@ -145,6 +145,7 @@ test('center composes real transfer and certificate owners with current resource
       [
         'id',
         'kind',
+        'title',
         'number',
         'applicantId',
         'applicant',
@@ -156,9 +157,16 @@ test('center composes real transfer and certificate owners with current resource
         'unit',
       ].sort(),
     );
-    expect(JSON.stringify(result)).not.toMatch(
-      /1300|1000|Private personnel|Private employment|snapshot|privateSalary|monthlyCents|baseSalary/,
+    expect(result.data[0].title).toBe(
+      source.kind === 'oa.transfer'
+        ? 'Private personnel reason'
+        : 'Private employment purpose',
     );
+    expect(JSON.stringify(result)).not.toMatch(
+      /1300|1000|snapshot|privateSalary|monthlyCents|baseSalary/,
+    );
+    expect(result.data[0]).not.toHaveProperty('reason');
+    expect(result.data[0]).not.toHaveProperty('purpose');
     const foreign = await (await stranger.session()).fetch(route);
     expect(foreign.status).toBe(200);
     expect((await foreign.json()).data).toEqual([]);

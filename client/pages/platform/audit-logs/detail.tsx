@@ -94,7 +94,7 @@ export default function AuditLogDetail(): ReactElement {
       <div
         role='status'
         aria-label={t('status.loading')}
-        className='grid grid-cols-[8rem_1fr] gap-3'
+        className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-3'
       >
         {Array.from({ length: 5 }, (_, index) => (
           <div key={index} className='contents'>
@@ -127,7 +127,7 @@ export default function AuditLogDetail(): ReactElement {
     ];
     body = (
       <div className='flex flex-col gap-6'>
-        <dl className='grid grid-cols-[8rem_1fr] gap-x-4 gap-y-3 text-sm'>
+        <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm'>
           {details.map(([label, value]) => (
             <div key={label} className='contents'>
               <dt className='text-muted-foreground'>{label}</dt>

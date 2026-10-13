@@ -8,6 +8,8 @@ import {
   commentAction,
   appointAction,
   reassignAction,
+  defineApprovalAction,
+  allActivePeople,
   readAction,
   ccAction,
   type ApprovalDirectory,
@@ -121,7 +123,20 @@ export function createRecruitmentApproval(hooks: RecruitmentApprovalHooks) {
       returnTo({ reason: 'required' }),
       commentAction,
       appointAction,
-      reassignAction,
+      defineApprovalAction({
+        ...reassignAction,
+        async people(context, query) {
+          const page = await allActivePeople().search(context, query);
+          return {
+            ...page,
+            people: page.people.filter(
+              (person) =>
+                context.eligible(person, { replacing: true, via: 'reassign' })
+                  .ok,
+            ),
+          };
+        },
+      }),
       readAction,
     ],
     onEmpty: 'hold' as const,

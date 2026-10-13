@@ -42,6 +42,7 @@ import {
   Field,
   FieldLabel,
   FieldError,
+  FieldDescription,
   FieldGroup,
 } from '#components/ui/field';
 import { Alert, AlertDescription } from '#components/ui/alert';
@@ -273,11 +274,37 @@ function Form({ actorId }: { actorId: string }) {
     if (errors[key])
       setErrors((e) => ({
         ...e,
-        [key]: value ? '' : t('vendorQualifications.common.required'),
+        [key]: submissionErrors({ ...values, [key]: value })[key] ?? '',
       }));
   }
-  function validate() {
+  function submissionErrors(input: QualificationInput) {
     const next: Record<string, string> = {};
+    if (!input.reason.trim())
+      next.reason = t('vendorQualifications.common.required');
+    if (input.operation === 'remove') return next;
+    if (!input.name.trim())
+      next.name = t('vendorQualifications.common.required');
+    if (!options.data?.categories.some((item) => item.code === input.category))
+      next.category = t('vendorQualifications.errors.category');
+    if (!input.attachments.length)
+      next.attachments = t('vendorQualifications.errors.evidence');
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: options.data?.timeZone ?? 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type: string) =>
+      parts.find((item) => item.type === type)?.value;
+    const today = `${part('year')}-${part('month')}-${part('day')}`;
+    if (!input.qualificationExpiry || input.qualificationExpiry <= today)
+      next.qualificationExpiry = t('vendorQualifications.errors.expiry');
+    return next;
+  }
+  function validate(submitting = false) {
+    const next: Record<string, string> = submitting
+      ? submissionErrors(values)
+      : {};
     if (!vendor) next.vendorId = t('vendorQualifications.common.required');
     if (!eligible)
       next.operation = t('vendorQualifications.errors.eligibility');
@@ -292,7 +319,14 @@ function Form({ actorId }: { actorId: string }) {
       next.contactEmail = t('vendorQualifications.errors.email');
     setErrors(next);
     if (Object.keys(next).length) {
-      document.getElementById(`qualification-${Object.keys(next)[0]}`)?.focus();
+      const field = Object.keys(next)[0];
+      const id =
+        field === 'attachments'
+          ? 'evidence'
+          : field === 'qualificationExpiry'
+            ? 'expiry'
+            : field;
+      document.getElementById(`qualification-${id}`)?.focus();
       return null;
     }
     return { ...values, quoteCents: amount! };
@@ -349,7 +383,7 @@ function Form({ actorId }: { actorId: string }) {
   }
   async function save() {
     if (busyRef.current) return;
-    const input = validate();
+    const input = validate(submission.intent.current === 'submit');
     if (!input) return;
     busyRef.current = true;
     setBusy(true);
@@ -627,7 +661,7 @@ function Form({ actorId }: { actorId: string }) {
                 <Field key={key} data-invalid={!!errors[key]}>
                   <FieldLabel htmlFor={`qualification-${key}`}>
                     {t(`vendorQualifications.fields.${key}`)}
-                    {key === 'reason' ? ' *' : ''}
+                    {key === 'reason' || key === 'name' ? ' *' : ''}
                   </FieldLabel>
                   {['reason', 'cases'].includes(key) ? (
                     <Textarea
@@ -651,9 +685,9 @@ function Form({ actorId }: { actorId: string }) {
               ))}
               {values.operation === 'qualify' && (
                 <>
-                  <Field>
+                  <Field data-invalid={!!errors.category}>
                     <FieldLabel htmlFor='qualification-category'>
-                      {t('vendorQualifications.fields.category')}
+                      {t('vendorQualifications.fields.category')} *
                     </FieldLabel>
                     <Choice
                       id='qualification-category'
@@ -663,6 +697,9 @@ function Form({ actorId }: { actorId: string }) {
                       disabled={disabled}
                       onChange={(v) => update('category', v)}
                     />
+                    {errors.category && (
+                      <FieldError>{errors.category}</FieldError>
+                    )}
                   </Field>
                   <Field data-invalid={!!errors.quoteCents}>
                     <FieldLabel htmlFor='qualification-quoteCents'>
@@ -690,12 +727,13 @@ function Form({ actorId }: { actorId: string }) {
                       <FieldError>{errors.quoteCents}</FieldError>
                     )}
                   </Field>
-                  <Field>
+                  <Field data-invalid={!!errors.qualificationExpiry}>
                     <FieldLabel htmlFor='qualification-expiry'>
-                      {t('vendorQualifications.fields.qualificationExpiry')}
+                      {t('vendorQualifications.fields.qualificationExpiry')} *
                     </FieldLabel>
                     <DatePicker
                       id='qualification-expiry'
+                      invalid={!!errors.qualificationExpiry}
                       disabled={disabled}
                       value={
                         values.qualificationExpiry
@@ -709,8 +747,15 @@ function Form({ actorId }: { actorId: string }) {
                         )
                       }
                     />
+                    {errors.qualificationExpiry && (
+                      <FieldError>{errors.qualificationExpiry}</FieldError>
+                    )}
+                    <FieldDescription>
+                      {t('vendorQualifications.errors.expiry')}
+                    </FieldDescription>
                   </Field>
                   <QualificationAttachmentEditor
+                    invalid={!!errors.attachments}
                     id='qualification-evidence'
                     recordId={savedId}
                     ids={values.attachments}
@@ -719,6 +764,9 @@ function Form({ actorId }: { actorId: string }) {
                     onChange={(ids) => update('attachments', ids)}
                     onBusyChange={setUploading}
                   />
+                  {errors.attachments && (
+                    <FieldError>{errors.attachments}</FieldError>
+                  )}
                   <p className='text-sm text-muted-foreground'>
                     {t('vendorQualifications.bankHint')}
                   </p>

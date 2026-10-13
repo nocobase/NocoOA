@@ -115,7 +115,11 @@ export default [
           const employee = await c
             .resolve(employeeServiceToken)
             .getByUserId(actorId, tx);
-          if (!employee?.active || employee.status === 'left')
+          // A standalone administrator has no employee meetings to summarize.
+          // Authorization above still applies even when there is no archive.
+          if (!employee)
+            return { date, timeZone: calendar.timeZone(), total: 0, items: [] };
+          if (!employee.active || employee.status === 'left')
             throw new ApiError({
               status: 'PERMISSION_DENIED',
               reason: 'ACCESS_DENIED',

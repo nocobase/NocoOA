@@ -15,6 +15,7 @@ export default {
     creator: '创建人',
     assignee: '办理人',
     status: '状态',
+    dueAtFuture: '请选择晚于当前时间的截止日期和时间',
     dueAt: '截止时间',
     overdue: '已逾期',
     forced: '管理强制完成',

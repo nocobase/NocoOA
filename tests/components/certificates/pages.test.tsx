@@ -215,7 +215,9 @@ it('keeps initiation in the toolbar for an empty table and preserves composed se
   expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent(
     'All statuses',
   );
-  const initiation = screen.getByRole('button', { name: 'New request' });
+  const initiation = screen.getByRole('button', {
+    name: 'New certificate request',
+  });
   expect(
     initiation.closest('[data-slot="application-actions"]'),
   ).not.toBeNull();

@@ -1,4 +1,22 @@
 export default {
+  businessErrors: {
+    TRANSFER_INVALID_DATE: '请选择有效的人事变动生效日期。',
+    TRANSFER_NO_CHANGE: '尚未修改业务内容，请修改至少一项允许变更的字段。',
+    TRANSFER_SALARY_INVALID: '请输入支持范围内的有效薪资金额。',
+    TRANSFER_RATIO_INVALID: '请核对薪资调整比例是否符合已配置的上限。',
+    TRANSFER_INVALID_PROMOTION:
+      '所选职级不符合晋升条件，请核对当前职级和目标职级。',
+    TRANSFER_TARGET_DEPARTMENT_UNAVAILABLE: '请选择有效的目标部门。',
+    TRANSFER_TARGET_POSITION_UNAVAILABLE: '请选择目标部门中的有效岗位。',
+    TRANSFER_ACCOUNT_UNAVAILABLE: '请选择匹配且已初始化、可用人数充足的编制。',
+    TRANSFER_YEAR_REBIND_REQUIRED:
+      '年度已变化，请将申请重新绑定到对应年度的编制。',
+    TRANSFER_SOURCE_CHANGED: '员工当前任职已变化，请刷新并修订变动申请。',
+    TRANSFER_COMPENSATION_CHANGED: '员工薪资已变化，请刷新后再修改薪资。',
+    TRANSFER_NOT_DUE: '尚未到生效日期，请在计划生效日办理。',
+    TRANSFER_INVALID_KINDS: '请选择与实际变更字段相符的人事变动类型。',
+  },
+
   moreActions: '更多操作',
   return: '返回',
   destructiveConsequence: '此操作将结束或改变当前审批。请核对后果后再确认。',

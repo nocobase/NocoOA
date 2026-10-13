@@ -1,3 +1,4 @@
+import { useBusinessErrorFormatter } from '#hooks/use-business-error-message';
 import { createRequestKey } from '#lib/request-key';
 import {
   useRequestFormSubmission,
@@ -159,6 +160,7 @@ function Body({
         }),
     [t],
   );
+  const businessError = useBusinessErrorFormatter('vehicles');
   const form = useForm({
       resolver: zodResolver(schema),
       defaultValues: {
@@ -250,7 +252,7 @@ function Body({
               error instanceof ApiClientError && error.status === 401
                 ? 'sessionExpired'
                 : 'server',
-            message: t(`vehicles.errors.${key}`),
+            message: businessError(error) ?? t(`vehicles.errors.${key}`),
           });
         }
       },

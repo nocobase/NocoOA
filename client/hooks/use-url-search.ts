@@ -14,6 +14,8 @@ export interface UrlSearchOptions {
   readonly resetParams?: readonly string[];
   /** Milliseconds between the last keystroke and the URL write (guideline I5). Defaults to 300. */
   readonly delay?: number;
+  /** Share one latest-parameter writer when a page has several debounced inputs. */
+  readonly writeParams?: (mutate: (params: URLSearchParams) => void) => void;
 }
 
 export interface UrlSearch {
@@ -45,6 +47,7 @@ export function useUrlSearch({
   param = 'q',
   resetParams = [],
   delay = 300,
+  writeParams,
 }: UrlSearchOptions = {}): UrlSearch {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlSearch = searchParams.get(param) ?? '';
@@ -57,6 +60,13 @@ export function useUrlSearch({
     paramsRef.current = searchParams;
   }, [searchParams]);
   function updateParams(mutate: (params: URLSearchParams) => void): void {
+    if (writeParams) {
+      writeParams((params) => {
+        mutate(params);
+        paramsRef.current = new URLSearchParams(params);
+      });
+      return;
+    }
     const next = new URLSearchParams(paramsRef.current);
     mutate(next);
     paramsRef.current = next;

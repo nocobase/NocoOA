@@ -27,7 +27,8 @@ const auth: AppConfigFactory<AuthConfig> = defineAuthConfig({
       }),
       bearer(),
     ],
-    emailAndPassword: { enabled: true, autoSignIn: false },
+    // OA accounts are provisioned by administrators and onboarding, not self-registration.
+    emailAndPassword: { enabled: true, autoSignIn: false, disableSignUp: true },
     session: { storeSessionInDatabase: true },
     account: { encryptOAuthTokens: true },
   },

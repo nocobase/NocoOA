@@ -1,3 +1,4 @@
+import { attachmentSelectionFilters } from '../attachment-selection.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { bodyLimit } from 'hono/body-limit';
@@ -45,20 +46,15 @@ const generated = defineFileRepositoryApiRoutes<Principal>({
       accessPath: '/uploads/onboarding',
       accessMode: 'stream',
       policy: (p) => ({
-        read:
-          p.ids?.length === 0
-            ? false
-            : {
-                scope: (f) =>
-                  f.and([
-                    f.string('onboardingId').eq(p.id),
-                    f.string('taskId').eq(p.taskId),
-                    ...(p.ids
-                      ? [f.or(p.ids.map((id) => f.string('id').eq(id)))]
-                      : []),
-                  ]),
-                fields: FILE_COLUMNS.filter((k) => k !== 'disk' && k !== 'key'),
-              },
+        read: {
+          scope: (f) =>
+            f.and([
+              f.string('onboardingId').eq(p.id),
+              f.string('taskId').eq(p.taskId),
+              ...attachmentSelectionFilters(f, p.ids),
+            ]),
+          fields: FILE_COLUMNS.filter((k) => k !== 'disk' && k !== 'key'),
+        },
         create: p.upload
           ? {
               scope: { onboardingId: p.id, ownerId: p.actorId },

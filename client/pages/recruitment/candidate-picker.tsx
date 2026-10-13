@@ -1,11 +1,19 @@
+import { Button } from '#components/ui/button';
 import { UserName } from '#components/user-name';
 import { useEffect, useState, useEffectEvent } from 'react';
 import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { Input } from '#components/ui/input';
-import { Button } from '#components/ui/button';
-import { Choice } from './shared.js';
-import { ErrorState } from './shared.js';
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxList,
+  ComboboxItem,
+} from '#components/ui/combobox';
+import { Alert, AlertDescription } from '#components/ui/alert';
+import { ApiClientError } from '@nocobase/app-client';
+import { SessionExpiredAlert } from '#components/session-expired-alert';
 import type { Person } from './types.js';
 /** Both endpoints return already eligible named identities; no broad users query. */
 export function CandidatePicker({
@@ -28,9 +36,9 @@ export function CandidatePicker({
   const clearSelection = useEffectEvent(() => onChange(''));
   const api = useApiClient(),
     { t } = useTranslation();
+  const [remembered, setRemembered] = useState<Person | null>(null);
+  const [failedSearch, setFailedSearch] = useState('');
   const [search, setSearch] = useState(''),
-    [page, setPage] = useState(0),
-    [next, setNext] = useState<number | null>(null),
     [people, setPeople] = useState<Person[]>([]),
     [error, setError] = useState<unknown>(),
     [loading, setLoading] = useState(false),
@@ -40,7 +48,7 @@ export function CandidatePicker({
   const [identity, setIdentity] = useState(source);
   const current = identity === source ? people : [];
   useEffect(() => {
-    if (disabled) return;
+    if (disabled || !search.trim()) return;
     let disposed = false;
     const timer = setTimeout(() => {
       setLoading(true);
@@ -49,22 +57,21 @@ export function CandidatePicker({
           path,
           query: {
             ...(JSON.parse(queryKey) as Record<string, string>),
-            search,
-            offset: String(page),
-            limit: '20',
+            search: search.trim(),
+            offset: '0',
+            limit: '50',
           },
         })
         .then(({ data }) => {
           if (disposed) return;
           setIdentity(source);
-          setPeople((old) => (page ? [...old, ...data.people] : data.people));
-          setNext(data.nextOffset);
+          setPeople(data.people.slice(0, 50));
           setError(undefined);
         })
         .catch((cause: unknown) => {
           if (!disposed) {
             setPeople([]);
-            setNext(null);
+            setFailedSearch(search.trim());
             setError(cause);
             clearSelection();
           }
@@ -77,50 +84,88 @@ export function CandidatePicker({
       disposed = true;
       clearTimeout(timer);
     };
-  }, [api, path, queryKey, source, search, page, retry, disabled]);
-  const selected = known.find((p) => p.id === value);
-  const items = [
-    { value: 'none', label: t('recruitment.recipient') },
-    ...(selected && !current.some((p) => p.id === value)
-      ? [{ value: selected.id, label: selected.name }]
-      : []),
-    ...current.map((p) => ({ value: p.id, label: p.name })),
-  ];
+  }, [api, path, queryKey, source, search, retry, disabled]);
+  const selected =
+    remembered?.id === value ? remembered : known.find((p) => p.id === value);
+  const items =
+    selected && !current.some((p) => p.id === value)
+      ? [selected, ...current].slice(0, 50)
+      : current;
   return (
     <div className='flex flex-col gap-2'>
-      <Input
-        value={search}
-        disabled={disabled}
-        aria-label={t('recruitment.recipientSearch')}
-        onChange={(event) => {
-          setSearch(event.target.value);
-          setPage(0);
-        }}
-      />
-      <Choice
-        id={id}
-        label={t('recruitment.recipient')}
-        value={value || 'none'}
+      <Combobox
         items={items}
-        renderLabel={(item) =>
-          item.value === 'none' ? item.label : <UserName name={item.label} />
-        }
-        disabled={disabled || loading}
-        onChange={(person) => onChange(person === 'none' ? '' : person)}
-      />
-      {!!error && (
-        <ErrorState error={error} retry={() => setRetry((n) => n + 1)} />
-      )}{' '}
-      {next !== null && (
-        <Button
-          variant='outline'
-          type='button'
-          disabled={disabled || loading}
-          onClick={() => setPage(next)}
-        >
-          {t('recruitment.moreCandidates')}
-        </Button>
-      )}
+        filter={null}
+        value={items.find((person) => person.id === value) ?? null}
+        itemToStringLabel={(person: Person) => person.name}
+        isItemEqualToValue={(a: Person, b: Person) => a.id === b.id}
+        disabled={disabled}
+        onValueChange={(person: Person | null) => {
+          setRemembered(person);
+          onChange(person?.id ?? '');
+          if (person) {
+            setSearch('');
+            setPeople([]);
+            setLoading(false);
+          }
+        }}
+        onInputValueChange={(text, details) => {
+          if (
+            details.reason === 'input-change' ||
+            (details.reason === 'input-clear' && !!value)
+          ) {
+            if (text === search) return;
+            setSearch(text);
+            setPeople([]);
+            setError(undefined);
+            setLoading(!!text.trim());
+          }
+        }}
+      >
+        <ComboboxInput
+          id={id}
+          placeholder={t('recruitment.recipientSearch')}
+          showClear={!!value && !disabled}
+        />
+        <ComboboxContent>
+          <ComboboxEmpty>
+            {t(loading ? 'userPicker.searching' : 'recruitment.noCandidates')}
+          </ComboboxEmpty>
+          <ComboboxList>
+            {(person: Person) => (
+              <ComboboxItem key={person.id} value={person}>
+                <UserName name={person.name} />
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+      {!!error &&
+        (error instanceof ApiClientError && error.status === 401 ? (
+          <SessionExpiredAlert />
+        ) : (
+          <Alert variant='destructive'>
+            <AlertDescription>
+              {t(
+                error instanceof ApiClientError && error.status === 403
+                  ? 'recruitment.noAccess'
+                  : 'recruitment.candidatesFailed',
+              )}
+            </AlertDescription>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={disabled || loading}
+              onClick={() => {
+                setSearch(failedSearch);
+                setLoading(true);
+                setRetry((n) => n + 1);
+              }}
+            >
+              {t('recruitment.retry')}
+            </Button>
+          </Alert>
+        ))}
     </div>
   );
 }

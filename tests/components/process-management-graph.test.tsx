@@ -15,6 +15,8 @@ vi.mock('../../client/components/flow-diagram.js', () => ({
           key={node.id}
           data-visited={node.visited}
           data-current={node.highlighted}
+          className={node.className}
+          data-height={node.height}
           onClick={() => onNodeClick?.(node)}
         >
           {node.label}
@@ -161,4 +163,33 @@ it('opens settings only for explicitly configured definition nodes', async () =>
   );
   await userEvent.click(screen.getByRole('button', { name: 'Manager' }));
   expect(configure).toHaveBeenCalledOnce();
+});
+
+it('distinguishes an actual termination outcome from normal process nodes', () => {
+  render(
+    <TestI18nProvider runtime={runtime}>
+      <ProcessGraph
+        states={[...states, { name: 'terminated', final: true }]}
+        edges={edges}
+        initial='draft'
+        current='terminated'
+        history={[
+          { from: 'draft', to: 'manager', name: 'submit' },
+          { from: 'manager', to: 'terminated', name: 'terminate' },
+        ]}
+      />
+    </TestI18nProvider>,
+  );
+  const terminated = screen.getByRole('button', { name: 'Terminated' });
+  expect(terminated).toHaveClass(
+    'border-dashed',
+    'rounded-full',
+    'text-destructive',
+  );
+  expect(terminated).toHaveAttribute('data-current', 'true');
+  expect(terminated).toHaveAttribute('data-height', '112');
+  expect(screen.getByText('manager → terminated: Terminate')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Manager' })).not.toHaveClass(
+    'text-destructive',
+  );
 });

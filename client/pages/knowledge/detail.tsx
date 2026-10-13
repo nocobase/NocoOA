@@ -10,6 +10,8 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
+import { MarkdownView } from '#components/markdown-view';
 import { RouteChildPage } from '#components/route-child-page';
 import { BackButton } from '#components/back-button';
 import { Badge } from '#components/ui/badge';
@@ -38,27 +40,36 @@ export default function KnowledgeDetail() {
       <RouteChildPage>
         <PageContainer className='max-w-4xl'>
           <BackButton />
-          <PageHeader title={d?.document.title ?? t('knowledge.detail')} />
-          <div className='flex flex-wrap gap-2'>
-            <Button variant='outline' onClick={r.reload} disabled={r.loading}>
-              {t('knowledge.refresh')}
-            </Button>
-            {d &&
-            manage.can &&
-            !manage.isPending &&
-            !manage.error &&
-            !r.loading &&
-            !r.error ? (
-              <Button nativeButton={false} render={<Link to={link('edit')} />}>
-                {t('knowledge.edit')}
-              </Button>
-            ) : null}
-          </div>
+          <PageHeader
+            title={d?.document.title ?? t('knowledge.detail')}
+            actions={
+              <>
+                {d &&
+                manage.can &&
+                !manage.isPending &&
+                !manage.error &&
+                !r.loading &&
+                !r.error ? (
+                  <Button
+                    nativeButton={false}
+                    render={<Link to={link('edit')} />}
+                  >
+                    {t('knowledge.edit')}
+                  </Button>
+                ) : null}
+                <ApplicationRefreshButton
+                  label={t('knowledge.refresh')}
+                  loading={r.loading}
+                  onClick={r.reload}
+                />
+              </>
+            }
+          />
           {r.error ? <KnowledgeError error={r.error} retry={r.reload} /> : null}
           {r.loading && !d ? <KnowledgeSkeleton /> : null}
           {d ? (
             <>
-              <dl className='grid grid-cols-2 gap-4'>
+              <dl className='grid gap-4 text-sm sm:grid-cols-2 [&>div]:min-w-0 [&_dt]:text-muted-foreground [&_dd]:break-words'>
                 <div>
                   <dt>{t('knowledge.owner')}</dt>
                   <dd>
@@ -79,7 +90,7 @@ export default function KnowledgeDetail() {
                 </div>
               </dl>
               <section className='flex flex-col gap-3'>
-                <h2 className='text-lg font-semibold'>
+                <h2 className='text-base font-medium'>
                   {t('knowledge.content')}
                 </h2>
                 {v ? (
@@ -100,9 +111,7 @@ export default function KnowledgeDetail() {
                   </Badge>
                 ) : null}
                 {v?.kind === 'markdown' ? (
-                  <pre className='whitespace-pre-wrap break-words font-sans'>
-                    {v.markdown}
-                  </pre>
+                  <MarkdownView content={v.markdown ?? ''} />
                 ) : v ? (
                   <>
                     <p>{t('knowledge.fileContent')}</p>
@@ -128,7 +137,7 @@ export default function KnowledgeDetail() {
                 )}
               </section>
               <section>
-                <h2 className='mb-3 text-lg font-semibold'>
+                <h2 className='mb-3 text-base font-medium'>
                   {t('knowledge.history')}
                 </h2>
                 <DataTable

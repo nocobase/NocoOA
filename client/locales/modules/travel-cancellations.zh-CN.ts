@@ -1,5 +1,15 @@
 export default {
   travelCancellation: {
+    businessErrors: {
+      TRAVEL_CANCELLATION_REASON_REQUIRED: '请填写取消出差的原因。',
+      TRAVEL_CANCELLATION_ALREADY_PENDING:
+        '该出差已有待审批的取消申请，请查看现有申请。',
+      TRAVEL_CANCELLATION_BASELINE_CHANGED:
+        '原出差单已变化，请刷新并修订取消申请后再提交。',
+      TRAVEL_CANCELLATION_INVALID_SOURCE:
+        '原出差单已不可取消，请重新选择有效的已批准出差单。',
+    },
+
     retryUnbooking: '重新安排退订',
     bookingInformation: '退订订单与退款安排',
     unbookingHint:

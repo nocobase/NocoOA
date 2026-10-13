@@ -165,6 +165,23 @@ describe('multi-business approval center', () => {
     expect(summary.data).toHaveLength(1);
     expect(summary.meta.attention.drafts).toHaveLength(2);
     expect(summary.meta.attention.revisions).toEqual([]);
+    expect(summary.meta.attention.submitted).toEqual([]);
+    expect(
+      summary.meta.attention.drafts.every(
+        (row: { title?: string }) => row.title === 'Center fixture',
+      ),
+    ).toBe(true);
+    const drafts = await (
+      await session.fetch(
+        '/approvalCenter?view=mine&category=drafts&pageSize=1',
+      )
+    ).json();
+    expect(drafts.meta.total).toBe(result.meta.counts.drafts);
+    expect(drafts.data).toHaveLength(1);
+    const submitted = await (
+      await session.fetch('/approvalCenter?view=mine&category=submitted')
+    ).json();
+    expect(submitted.meta.total).toBe(0);
     expect(summary.meta.counts).toEqual(result.meta.counts);
     const hiddenSummary = await (
       await (
@@ -222,6 +239,7 @@ describe('multi-business approval center', () => {
     expect(generalRows.data).toHaveLength(1);
     expect(generalRows.data[0]).toMatchObject({
       kind: 'oa.general',
+      title: 'General fixture',
       startDate: null,
       endDate: null,
       amount: null,
@@ -494,6 +512,7 @@ describe('multi-business approval center', () => {
       expect.objectContaining({
         id: createdReimbursement.id,
         kind: 'oa.reimbursement',
+        title: 'Center reimbursement',
         amount: 0,
         unit: 'cents',
       }),
@@ -597,6 +616,7 @@ describe('multi-business approval center', () => {
       expect.objectContaining({
         id: purchased.id,
         kind: 'oa.purchase',
+        title: 'Center purchase',
         amount: 1234,
         unit: 'cents',
         startDate: null,
@@ -610,6 +630,49 @@ describe('multi-business approval center', () => {
     expect([200, 403]).toContain(foreignPurchase.status);
     if (foreignPurchase.status === 200)
       expect((await foreignPurchase.json()).data).toEqual([]);
+    // Isolated fixture states verify full-set home summaries and category/count agreement.
+    await testApp.database.repository('reimbursementRequests').updateOne({
+      filter: { id: createdReimbursement.id },
+      values: { status: 'head' },
+    });
+    await testApp.database.repository('purchaseRequests').updateOne({
+      filter: { id: purchased.id },
+      values: { status: 'revision' },
+    });
+    const home = await (
+      await session.fetch(
+        '/approvalCenter?view=mine&homeSummary=true&pageSize=1',
+      )
+    ).json();
+    expect(home.data).toHaveLength(1);
+    expect(home.meta.attention.submitted).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: createdReimbursement.id }),
+        expect.objectContaining({ id: purchased.id }),
+      ]),
+    );
+    for (const category of ['drafts', 'revisions', 'inProgress']) {
+      const categoryResult = await (
+        await session.fetch(
+          `/approvalCenter?view=mine&category=${category}&pageSize=1`,
+        )
+      ).json();
+      expect(categoryResult.meta.total).toBe(home.meta.counts[category]);
+      expect(categoryResult.meta.counts[category]).toBe(
+        home.meta.counts[category],
+      );
+    }
+    const searchable = await (
+      await session.fetch(
+        '/approvalCenter?view=mine&search=Center%20reimbursement',
+      )
+    ).json();
+    expect(searchable.data).toEqual([
+      expect.objectContaining({ id: createdReimbursement.id }),
+    ]);
+    expect(
+      (await session.fetch('/approvalCenter?category=invalid')).status,
+    ).toBe(400);
     const document = await testApp.application.container
       .resolve(apiDocsToken)
       .getDocument();
@@ -617,7 +680,7 @@ describe('multi-business approval center', () => {
       'listApprovalCenter',
     );
   });
-  test('projects an owned departure through its public service without exposing its reason', async ({
+  test('projects an owned departure through its public service with a concise authorized summary', async ({
     testApp,
   }) => {
     const owner = await createEmployee(testApp, 'Departure center owner');

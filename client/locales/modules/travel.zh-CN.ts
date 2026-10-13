@@ -1,5 +1,18 @@
 export default {
   travel: {
+    businessErrors: {
+      TRAVEL_ITINERARY_REQUIRED:
+        '境外出差须提供行程附件，请先上传或选择附件再提交。',
+      TRAVEL_OVERLAP: '出差时间与已批准的出差重叠，请调整时间。',
+      TRAVEL_COMPANIONS_INVALID: '同行人不能重复，也不能包含申请人本人。',
+      TRAVEL_COMPANION_INACTIVE: '所选出行人员已失效，请重新选择有效在职员工。',
+      TRAVEL_DEPARTMENT_REQUIRED:
+        '申请人没有有效主部门，请联系人力资源完善员工档案。',
+      TRAVEL_INVALID_DATE: '出差结束时间须晚于开始时间，请检查起止日期和时间。',
+      TRAVEL_INVALID_INPUT:
+        '请填写目的地和申请原因，并检查各项出差费用是否为有效非负金额。',
+    },
+
     requestLoan: '申请关联借款',
     reviseTrip: '修订行程并重新审批',
     revisionWarning:
@@ -62,6 +75,7 @@ export default {
     configuration: '当前审批时钟配置不受支持。',
     invalid: '请检查申请字段，必要时重新加载最新记录。',
     stages: {
+      completed: '已完成',
       manager: '直属上级',
       head: '部门负责人',
       finance: '财务',

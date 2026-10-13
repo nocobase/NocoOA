@@ -17,6 +17,7 @@ export default {
     creator: 'Creator',
     assignee: 'Assignee',
     status: 'Status',
+    dueAtFuture: 'Choose a due date and time later than now',
     dueAt: 'Due at',
     overdue: 'Overdue',
     forced: 'Administratively completed',

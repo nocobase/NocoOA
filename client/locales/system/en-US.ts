@@ -11,10 +11,12 @@ const systemEnUS = {
   ...deviceApprovalEnUS,
   // The UI Library block of the `/inbox` page; the keys below may reword it.
   ...inboxEnUS,
+  'inbox.title': 'Messages',
+  'inbox.loadFailed': 'Unable to load messages',
   // The UI Library component of the header's inbox button.
-  'inboxButton.title': 'Inbox',
-  'inboxButton.pending': 'Inbox, {{count}} waiting',
-  'inboxButton.unread': 'Inbox, {{count}} unread',
+  'inboxButton.title': 'Messages',
+  'inboxButton.pending': 'Messages, {{count}} waiting',
+  'inboxButton.unread': 'Messages, {{count}} unread',
   'inboxButton.pendingHint':
     '{{count}} waiting for you; it goes down once they are handled.',
   'inboxButton.unreadHint': '{{count}} unread; it goes down as you read them.',
@@ -78,9 +80,10 @@ const systemEnUS = {
   'navigation.brandHome': 'NocoBase home',
   'navigation.brandApps': 'NocoBase applications',
   'routeOverlay.close': 'Close',
-  'status.deniedDescription': 'You do not have permission to access {{label}}.',
+  'status.backHome': 'Back to workbench',
+  'status.deniedDescription': 'You do not have permission to access this page.',
   'status.routeFailedDescription':
-    'Route {{label}} from {{packageName}} could not be loaded.',
+    'This page could not be loaded. Please try again.',
   shell: {
     buildFreely: 'AI builds freely.',
     reliability: '<brand>NocoBase</brand> keeps it reliable.',
@@ -318,6 +321,8 @@ const systemEnUS = {
     back: 'Back',
   },
   dataTable: {
+    emptyDescription:
+      'No records are available in the current scope. Try another scope or check again later.',
     noResults: 'No results.',
     sortAscending: 'Asc',
     sortDescending: 'Desc',

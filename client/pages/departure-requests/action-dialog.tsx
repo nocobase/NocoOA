@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useOutletContext, useParams } from 'react-router';
 import { z } from 'zod';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { ApprovalRecipientPicker } from '#components/approval-recipient-picker';
 import { Button } from '#components/ui/button';
@@ -135,13 +135,13 @@ export default function DepartureActionDialog() {
       : t('departureRequests.title'),
     label = t(`departureRequests.actionForm.labels.${actionName}`);
   return (
-    <RouteDialog
+    <RouteDrawer
       className={
         ['transfer', 'addSigner', 'cc', 'appoint', 'reassign'].includes(
           actionName,
         )
           ? undefined
-          : 'sm:max-w-md'
+          : 'sm:max-w-2xl'
       }
       title={t('departureRequests.actionForm.title', {
         action: label,
@@ -220,7 +220,7 @@ export default function DepartureActionDialog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function ActionFooter({

@@ -1,5 +1,14 @@
 export default {
   access: {
+    clearModuleFilters: '清除筛选',
+    noModuleMatches: '当前模块没有匹配的权限',
+
+    businessModules: '业务模块',
+    allModules: '全部',
+    otherModules: '其他',
+    noModulePermissions: '此模块没有已配置的权限',
+    moduleCount: '{{module}}：已配置 {{configured}} / 共 {{total}} 项',
+
     actionsFor: '“{{name}}”的操作',
     configuredScopes: '配置的范围',
 

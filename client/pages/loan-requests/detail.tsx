@@ -362,7 +362,7 @@ export default function LoanRequestDetailPage() {
       }
       beforeClose={() => !pending}
     >
-      <div className='space-y-6'>
+      <div className='flex flex-col gap-6'>
         {resource.error ? (
           <ErrorState error={resource.error} retry={resource.reload} />
         ) : null}

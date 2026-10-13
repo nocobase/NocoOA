@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
@@ -30,14 +31,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#components/ui/dropdown-menu';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#components/ui/empty';
 import {
   Select,
   SelectContent,
@@ -320,23 +313,6 @@ export default function ImportPage(): ReactElement {
     );
   } else if (!body) {
     content = <TableSkeleton columns={6} />;
-  } else if (empty) {
-    content = (
-      <Empty className='min-h-48 border border-dashed'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <FileSpreadsheetIcon />
-          </EmptyMedia>
-          <EmptyTitle>{t('import.empty.title')}</EmptyTitle>
-          <EmptyDescription>
-            {canImport
-              ? t('import.empty.description')
-              : t('import.empty.readOnly')}
-          </EmptyDescription>
-        </EmptyHeader>
-        {canImport ? <EmptyContent>{newImport}</EmptyContent> : null}
-      </Empty>
-    );
   } else {
     content = (
       <DataTableServer
@@ -365,12 +341,26 @@ export default function ImportPage(): ReactElement {
         }
         pageSizeOptions={PAGE_SIZE_OPTIONS}
         emptyMessage={
-          <div className='flex flex-col items-center gap-2'>
-            <span>{t('import.noResults')}</span>
-            <Button variant='link' size='sm' onClick={clearFilters}>
-              {t('import.actions.clearFilters')}
-            </Button>
-          </div>
+          <ApplicationTableEmpty
+            title={!empty ? t('import.noResults') : t('import.empty.title')}
+            description={
+              !empty
+                ? undefined
+                : t(
+                    canImport
+                      ? 'import.empty.description'
+                      : 'import.empty.readOnly',
+                  )
+            }
+            clearFilters={
+              !empty
+                ? {
+                    label: t('import.actions.clearFilters'),
+                    onClick: clearFilters,
+                  }
+                : undefined
+            }
+          />
         }
       />
     );
@@ -405,8 +395,7 @@ export default function ImportPage(): ReactElement {
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            {/* The primary action sits in the empty state while there is no history (L7). */}
-            {canImport && body && !empty ? newImport : null}
+            {canImport ? newImport : null}
             {/* Refresh is the last header action (R4). */}
             <Tooltip>
               <TooltipTrigger

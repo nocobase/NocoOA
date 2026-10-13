@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Alert, AlertDescription } from '#components/ui/alert';
@@ -9,6 +10,7 @@ export function ErrorState({
   error: unknown;
   retry: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'leaveCancellations');
   const { t } = useTranslation();
   const reasons: Record<string, string> = {
     CANCELLATION_ORIGINAL_INVALID: 'invalidOriginal',
@@ -21,10 +23,12 @@ export function ErrorState({
   };
   const key =
     error instanceof ApiClientError ? reasons[error.reason ?? ''] : undefined;
-  if (key)
+  if (key || businessMessage)
     return (
       <Alert variant='destructive'>
-        <AlertDescription>{t(`leaveCancellations.${key}`)}</AlertDescription>
+        <AlertDescription>
+          {businessMessage ?? t(`leaveCancellations.${key}`)}
+        </AlertDescription>
       </Alert>
     );
   return <SharedError error={error} retry={retry} />;

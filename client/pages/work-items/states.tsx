@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { SessionExpiredAlert } from '#components/session-expired-alert';
@@ -8,11 +9,14 @@ export function Failure({
   error,
   retry,
   denied,
+  module = 'workItems',
 }: {
   error?: unknown;
   retry?: () => void;
   denied?: boolean;
+  module?: string;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, module);
   const { t } = useTranslation();
   if (error instanceof ApiClientError && error.status === 401)
     return <SessionExpiredAlert />;
@@ -20,9 +24,10 @@ export function Failure({
   return (
     <Alert variant='destructive'>
       <AlertDescription>
-        {t(
-          `workItems.${denied || status === 403 ? 'denied' : status === 404 ? 'notFound' : status === 409 ? 'conflict' : 'failed'}`,
-        )}
+        {businessMessage ??
+          t(
+            `workItems.${denied || status === 403 ? 'denied' : status === 404 ? 'notFound' : status === 409 ? 'conflict' : 'failed'}`,
+          )}
       </AlertDescription>
       {!denied && ![401, 403, 404, 409].includes(status) && retry ? (
         <Button variant='outline' onClick={retry}>

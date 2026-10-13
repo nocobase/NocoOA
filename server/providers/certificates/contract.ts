@@ -38,6 +38,7 @@ export interface CertificateRequest extends LifecycleRecord {
 export interface CertificateCenterItem {
   id: string;
   kind: typeof CERTIFICATE_KIND;
+  title?: string;
   number: string | null;
   applicantId: string;
   applicant: { id: string; name: string };

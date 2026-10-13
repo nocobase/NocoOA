@@ -103,6 +103,9 @@ it("lists the plugin's messages as notifications and marks one read when it is o
     </Frame>,
   );
   expect(
+    await screen.findByRole('heading', { name: 'Messages', level: 1 }),
+  ).toBeVisible();
+  expect(
     await screen.findByRole('heading', { name: /Notifications/u }),
   ).toBeInTheDocument();
   expect(screen.getByText('Backup finished')).toBeInTheDocument();

@@ -184,11 +184,22 @@ it('keeps the new action and table headers on an empty list, translates filters 
     ),
   );
 });
-it('shows text safely and hides stale edit and preview actions during a failed refresh', async () => {
+it('renders Markdown safely and hides stale edit and preview actions during a failed refresh', async () => {
   let fail = false;
   api.request.mockImplementation(async () => {
     if (fail) throw failure(500);
-    return { data: detail };
+    return {
+      data: {
+        ...detail,
+        versions: [
+          {
+            ...detail.versions[0],
+            markdown:
+              '## Safety instructions\n\n- Check exits\n- Read the guide\n\n[Guide](https://example.com/guide)\n\n[Unsafe](javascript:alert%281%29)\n\n<script>private draft</script>',
+          },
+        ],
+      },
+    };
   });
   mount('/knowledge/doc-1');
   expect(
@@ -196,6 +207,18 @@ it('shows text safely and hides stale edit and preview actions during a failed r
   ).toBeInTheDocument();
   expect(
     screen.getByText('<script>private draft</script>').querySelector('script'),
+  ).toBeNull();
+  expect(
+    screen.getByRole('heading', { name: 'Safety instructions', level: 2 }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Check exits').closest('li')).not.toBeNull();
+  expect(screen.getByRole('link', { name: 'Guide' })).toHaveAttribute(
+    'href',
+    'https://example.com/guide',
+  );
+  expect(screen.getByText('Unsafe').closest('a')).toHaveAttribute('href', '');
+  expect(
+    document.querySelector('[data-slot="markdown-view"] script'),
   ).toBeNull();
   expect(
     screen.getByRole('button', { name: 'Publish a new version' }),

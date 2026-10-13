@@ -146,6 +146,10 @@ it('validates a node rule, saves through the existing service and preserves the 
   const { router } = show();
   const input = await screen.findByLabelText(/New value/);
   expect(input).toHaveValue('3');
+  expect(screen.getByRole('dialog')).toHaveAttribute(
+    'data-presentation',
+    'dialog',
+  );
   await userEvent.clear(input);
   await userEvent.type(input, '2.3');
   await userEvent.click(

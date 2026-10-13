@@ -1,3 +1,5 @@
+import { RouteFormPage } from '../../client/components/route-form-page';
+import { useRouteFormCloseGuard } from '../../client/hooks/use-route-form-close-guard';
 import {
   act,
   fireEvent,
@@ -350,4 +352,49 @@ describe('route overlay interactions', () => {
       log.mockRestore();
     }
   });
+});
+
+it('delegates a form drawer close to its mounted form and retains the source query', async () => {
+  let resolve: (allowed: boolean) => void;
+  const guard = vi.fn(
+    () =>
+      new Promise<boolean>((done) => {
+        resolve = done;
+      }),
+  );
+  function Form() {
+    useRouteFormCloseGuard(guard);
+    return <input aria-label='Unsaved reason' defaultValue='Keep this' />;
+  }
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/requests',
+        element: <Outlet />,
+        children: [
+          {
+            path: 'new',
+            element: (
+              <RouteFormPage title='New request'>
+                <Form />
+              </RouteFormPage>
+            ),
+          },
+        ],
+      },
+    ],
+    { initialEntries: ['/requests/new?status=draft#filters'] },
+  );
+  render(<RouterProvider router={router} />, { wrapper: I18n });
+  fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(guard).toHaveBeenCalledTimes(1));
+  await act(async () => resolve(false));
+  expect(router.state.location.pathname).toBe('/requests/new');
+  expect(screen.getByLabelText('Unsaved reason')).toHaveValue('Keep this');
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(guard).toHaveBeenCalledTimes(2));
+  await act(async () => resolve(true));
+  await waitFor(() => expect(router.state.location.pathname).toBe('/requests'));
+  expect(router.state.location.search).toBe('?status=draft');
+  expect(router.state.location.hash).toBe('#filters');
 });

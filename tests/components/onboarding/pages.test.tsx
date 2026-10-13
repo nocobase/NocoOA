@@ -23,6 +23,7 @@ import List from '../../../client/pages/onboarding/index.js';
 import Detail from '../../../client/pages/onboarding/detail.js';
 import Form from '../../../client/pages/onboarding/form.js';
 import Action from '../../../client/pages/onboarding/action.js';
+import { AttachmentEditor } from '../../../client/pages/onboarding/attachments.js';
 const { api, reload, grants, identity } = vi.hoisted(() => ({
   api: { request: vi.fn() },
   reload: vi.fn(),
@@ -530,4 +531,25 @@ it('cancellation requires a named destructive confirmation before its current-ve
       }),
     ),
   );
+});
+
+it('explains unsupported onboarding attachments without sending an upload', () => {
+  render(
+    <TestI18nProvider runtime={runtime}>
+      <AttachmentEditor
+        id='o1'
+        taskId='task'
+        ids={[]}
+        onChange={vi.fn()}
+        disabled={false}
+        onBusy={vi.fn()}
+      />
+    </TestI18nProvider>,
+  );
+  fireEvent.change(screen.getByLabelText('Upload attachment'), {
+    target: { files: [new File(['unsupported'], 'evidence.exe')] },
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent('20');
+  expect(screen.getByRole('alert')).toHaveTextContent('PDF');
+  expect(api.request).not.toHaveBeenCalled();
 });

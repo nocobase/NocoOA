@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import type { ReactNode } from 'react';
@@ -36,6 +37,7 @@ export function ErrorState({
   error: unknown;
   retry?: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'contracts');
   const { t } = useTranslation();
   if (error instanceof ApiClientError && error.status === 401)
     return <SessionExpiredAlert />;
@@ -55,14 +57,21 @@ export function ErrorState({
             : 'failed';
   return (
     <Alert variant='destructive'>
-      <AlertDescription>{t(`contracts.${key}`)}</AlertDescription>
-      {retry && (key === 'failed' || key === 'conflict') && (
-        <AlertAction>
-          <Button variant='outline' onClick={retry}>
-            {t(key === 'conflict' ? 'contracts.loadLatest' : 'contracts.retry')}
-          </Button>
-        </AlertAction>
-      )}
+      <AlertDescription>
+        {businessMessage ?? t(`contracts.${key}`)}
+      </AlertDescription>
+      {retry &&
+        (!businessMessage ||
+          (error instanceof ApiClientError && error.status === 409)) &&
+        (key === 'failed' || key === 'conflict') && (
+          <AlertAction>
+            <Button variant='outline' onClick={retry}>
+              {t(
+                key === 'conflict' ? 'contracts.loadLatest' : 'contracts.retry',
+              )}
+            </Button>
+          </AlertAction>
+        )}
     </Alert>
   );
 }

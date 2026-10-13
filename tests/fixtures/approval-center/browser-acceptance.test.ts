@@ -148,10 +148,11 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
       ] as const) {
         const source = `${h.origin}${h.basePath}/approvals/mine?kind=${kind}#source`;
         await page.goto(source);
-        await browserExpect(
-          page.getByRole('link', { name: 'Draft', exact: true }),
-        ).toBeVisible({ timeout: 30000 });
-        await page.getByRole('link', { name: 'Draft', exact: true }).click();
+        const draftLink = page
+          .locator(`a[href*="/mine/${route}/${id}"]`)
+          .first();
+        await browserExpect(draftLink).toBeVisible({ timeout: 30000 });
+        await draftLink.click();
         await browserExpect(page).toHaveURL(
           new RegExp(`/approvals/mine/${route}/${id}\\?kind=${kind}#source`),
         );
@@ -160,7 +161,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
           path: `${h.screenshotsDir}/${route}-detail.png`,
           fullPage: true,
         });
-        await page.getByRole('button', { name: 'Close', exact: true }).click();
+        await page.locator('[data-slot="dialog-close"]').last().click();
         await browserExpect(page).toHaveURL(source);
         await browserExpect(page.getByRole('dialog')).toHaveCount(0);
       }
@@ -448,7 +449,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
         'Approve',
         `/recruitmentRequests/${recruitment.id}/actions`,
       );
-      await hrPage.getByRole('button', { name: 'Close', exact: true }).click();
+      await hrPage.locator('[data-slot="dialog-close"]').last().click();
       await browserExpect(hrPage).toHaveURL(recruitmentSource);
       await browserExpect(
         hrPage.locator(`a[href*="/todo/recruitment/${recruitment.id}"]`),
@@ -484,9 +485,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
         .getByRole('button', { name: 'Confirm action', exact: true })
         .click();
       expect((await sealApprove).status()).toBe(200);
-      await headPage
-        .getByRole('button', { name: 'Close', exact: true })
-        .click();
+      await headPage.locator('[data-slot="dialog-close"]').last().click();
       const sealSource = await openTodo(
         keeperPage,
         'oa.sealRequest',
@@ -502,9 +501,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
         seal.id,
       );
       await sealAction('Claim');
-      await keeperPage
-        .getByRole('button', { name: 'Close', exact: true })
-        .click();
+      await keeperPage.locator('[data-slot="dialog-close"]').last().click();
       await browserExpect(keeperPage).toHaveURL(sealSource);
       await openTodo(headPage, 'oa.vehicleRequest', 'vehicle', vehicleId);
       await headPage
@@ -521,9 +518,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
         .getByRole('button', { name: 'Confirm', exact: true })
         .click();
       expect((await vehicleApprove).status()).toBe(200);
-      await headPage
-        .getByRole('button', { name: 'Close', exact: true })
-        .click();
+      await headPage.locator('[data-slot="dialog-close"]').last().click();
       const dispatchSource = await openTodo(
         dispatchPage,
         'oa.vehicleRequest',
@@ -569,9 +564,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
           dispatchPage.locator('#vehicle-action-form'),
         ).toHaveCount(0);
       }
-      await dispatchPage
-        .getByRole('button', { name: 'Close', exact: true })
-        .click();
+      await dispatchPage.locator('[data-slot="dialog-close"]').last().click();
       await browserExpect(dispatchPage).toHaveURL(dispatchSource);
       await browserExpect(
         dispatchPage.locator(`a[href*="/todo/vehicle/${vehicleId}"]`),
@@ -644,9 +637,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
             await browserExpect(link).toBeVisible();
             await link.click();
             await browserExpect(page.getByRole('dialog')).toBeVisible();
-            await page
-              .getByRole('button', { name: 'Close', exact: true })
-              .click();
+            await page.locator('[data-slot="dialog-close"]').last().click();
             await browserExpect(page).toHaveURL(source);
           } else await browserExpect(link).toHaveCount(0);
         }
@@ -694,7 +685,7 @@ it.runIf(process.env.OA_CENTER_BROWSER === '1')(
       );
       await page.goto(`${base}/approvals/mine?kind=oa.recruitment`);
       const search = page.getByRole('textbox', {
-        name: 'Search by reference or applicant',
+        name: 'Search by reference, title or initiator',
         exact: true,
       });
       await search.focus();

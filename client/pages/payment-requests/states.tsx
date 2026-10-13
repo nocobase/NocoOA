@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Alert, AlertDescription, AlertAction } from '#components/ui/alert';
@@ -10,6 +11,7 @@ export function ErrorState({
   error: unknown;
   retry: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'paymentRequests');
   const { t } = useTranslation();
   if (error instanceof ApiClientError && error.status === 401)
     return <SessionExpiredAlert />;
@@ -26,8 +28,11 @@ export function ErrorState({
             : 'failed';
   return (
     <Alert variant='destructive' tabIndex={-1}>
-      <AlertDescription>{t(`paymentRequests.errors.${key}`)}</AlertDescription>
-      {['failed', 'conflict'].includes(key) ? (
+      <AlertDescription>
+        {businessMessage ?? t(`paymentRequests.errors.${key}`)}
+      </AlertDescription>
+      {(!businessMessage || status === 409) &&
+      ['failed', 'conflict'].includes(key) ? (
         <AlertAction>
           <Button variant='outline' onClick={retry}>
             {t(key === 'conflict' ? 'approvals.loadLatest' : 'approvals.retry')}

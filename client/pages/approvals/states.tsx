@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Alert, AlertDescription, AlertAction } from '#components/ui/alert';
@@ -43,6 +44,7 @@ export function ErrorState({
   retry: () => void;
   context?: 'leave' | 'query';
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'approvals');
   const { t } = useTranslation();
   if (error instanceof ApiClientError && error.status === 401)
     return <SessionExpiredAlert />;
@@ -50,16 +52,19 @@ export function ErrorState({
   return (
     <Alert variant='destructive'>
       <AlertDescription>
-        {t(
-          key === 'balanceLimit' ||
-            key === 'balanceInsufficient' ||
-            key.startsWith('attachment') ||
-            key === 'domainInvalid'
-            ? `approvals.${key}`
-            : `approvals.error.${key}`,
-        )}
+        {businessMessage ??
+          t(
+            key === 'balanceLimit' ||
+              key === 'balanceInsufficient' ||
+              key.startsWith('attachment') ||
+              key === 'domainInvalid'
+              ? `approvals.${key}`
+              : `approvals.error.${key}`,
+          )}
       </AlertDescription>
-      {key === 'failed' || key === 'conflict' ? (
+      {(!businessMessage ||
+        (error instanceof ApiClientError && error.status === 409)) &&
+      (key === 'failed' || key === 'conflict') ? (
         <AlertAction>
           <Button variant='outline' onClick={retry}>
             {t(key === 'conflict' ? 'approvals.loadLatest' : 'approvals.retry')}

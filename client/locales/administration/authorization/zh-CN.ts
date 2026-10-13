@@ -150,6 +150,13 @@ const zhCN: AuthorizationResource = {
     who: '对象',
   },
   permissionWorkspace: {
+    businessModules: '业务模块',
+    allModules: '全部',
+    otherModules: '其他',
+    clearFilters: '清除筛选',
+    noModuleMatches: '当前模块没有匹配的权限',
+    moduleCount: '{{module}}：已配置 {{configured}} / 共 {{total}} 项',
+
     pageAccessHint: '页面权限控制能否进入页面，数据操作由业务权限控制。',
     specifyScope: '指定{{scope}}的范围',
     inheritScope: '未指定时，仍遵循已配置的默认数据范围、共享及限制规则。',

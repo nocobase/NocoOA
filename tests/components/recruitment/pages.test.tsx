@@ -124,6 +124,8 @@ function serve(custom?: (r: Request) => unknown) {
         ],
         meta: { total: 1 },
       };
+    if (r.path === 'recruitmentRequests/createOptions')
+      return { data: { canCreate: true } };
     if (r.path === 'recruitmentRequests/formOptions')
       return {
         data: {
@@ -226,6 +228,18 @@ it('ordinary detail with no salary grant never requests private amounts', async 
       ([r]) => !String((r as Request).path).endsWith('/salary'),
     ),
   ).toBe(true);
+});
+it('does not fetch reviewer form options without a current approve offer', async () => {
+  grants.add('reviewEdit');
+  serve();
+  show('/detail/r1');
+  expect(await screen.findByText('Growth')).toBeVisible();
+  expect(
+    api.request.mock.calls.some(
+      ([request]) =>
+        (request as Request).path === 'recruitmentRequests/formOptions',
+    ),
+  ).toBe(false);
 });
 it('independent salary denial has no retry and exposes no retained amount', async () => {
   grants.add('viewSalary');
@@ -571,4 +585,176 @@ it('annual headcount renders a department, position and year instead of the acco
   expect(
     await screen.findByText('Development / Engineer / 2026'),
   ).toBeVisible();
+});
+
+it('hides creation when submit is granted but the user cannot create for any department', async () => {
+  grants.add('submit');
+  serve((r) =>
+    r.path === 'recruitmentRequests/createOptions'
+      ? { data: { canCreate: false } }
+      : undefined,
+  );
+  show('/list');
+  expect(await screen.findByRole('link', { name: 'Engineer' })).toBeVisible();
+  await waitFor(() =>
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'recruitmentRequests/createOptions' }),
+    ),
+  );
+  expect(
+    screen.queryByRole('button', { name: 'New recruitment request' }),
+  ).not.toBeInTheDocument();
+});
+
+it('hides creation until eligibility resolves and after an authorization revision revokes it', async () => {
+  grants.add('submit');
+  let resolve!: (value: unknown) => void;
+  serve((r) =>
+    r.path === 'recruitmentRequests/createOptions'
+      ? new Promise((done) => {
+          resolve = done;
+        })
+      : undefined,
+  );
+  show('/list');
+  expect(await screen.findByRole('link', { name: 'Engineer' })).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: 'New recruitment request' }),
+  ).not.toBeInTheDocument();
+  await act(async () => {
+    resolve({ data: { canCreate: true } });
+  });
+  expect(
+    await screen.findByRole('button', { name: 'New recruitment request' }),
+  ).toBeVisible();
+  await act(async () => {
+    identity.revision++;
+    identity.listeners.forEach((listener) => listener());
+  });
+  expect(
+    screen.queryByRole('button', { name: 'New recruitment request' }),
+  ).not.toBeInTheDocument();
+  await act(async () => {
+    resolve({ data: { canCreate: false } });
+  });
+  expect(
+    screen.queryByRole('button', { name: 'New recruitment request' }),
+  ).not.toBeInTheDocument();
+});
+
+it('reassignment uses one searchable recipient control and submits the selected user', async () => {
+  const offered = {
+    ...detail,
+    taskActions: [
+      {
+        task: { id: 'task1' },
+        actions: [
+          { name: 'reassign', options: {}, batch: false, contentHash: false },
+        ],
+      },
+    ],
+  };
+  serve((r) =>
+    r.path.endsWith('/candidates')
+      ? {
+          data: {
+            people: [{ id: 'replacement', name: 'Replacement reviewer' }],
+            nextOffset: null,
+          },
+        }
+      : { data: offered },
+  );
+  show('/action/r1/reassign/task1');
+  const picker = await screen.findByRole('combobox');
+  expect(picker).toHaveAttribute('placeholder', 'Search eligible recipients');
+  await userEvent.type(picker, 'R');
+  await userEvent.click(
+    await screen.findByRole('option', { name: 'Replacement reviewer' }),
+  );
+  await userEvent.type(
+    screen.getByRole('textbox', { name: 'Reason for this operation *' }),
+    'Cover absence',
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Reassign' }));
+  const dialog = await screen.findByRole('alertdialog');
+  await userEvent.click(dialog.querySelector('button:last-child')!);
+  await waitFor(() =>
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        json: expect.objectContaining({
+          action: 'reassign',
+          input: { to: 'replacement', override: false },
+        }),
+      }),
+    ),
+  );
+});
+
+it('recipient request failures show a relevant message with retry rather than staffing validation', async () => {
+  const offered = {
+    ...detail,
+    taskActions: [
+      {
+        task: { id: 'task1' },
+        actions: [
+          { name: 'reassign', options: {}, batch: false, contentHash: false },
+        ],
+      },
+    ],
+  };
+  serve((r) =>
+    r.path.endsWith('/candidates')
+      ? Promise.reject(
+          new ApiClientError('Bad request', {
+            status: 400,
+            method: 'GET',
+            url: r.path,
+          }),
+        )
+      : { data: offered },
+  );
+  show('/action/r1/reassign/task1');
+  await userEvent.type(await screen.findByRole('combobox'), 'R');
+  expect(
+    await screen.findByText(
+      'Could not load recipients. Retry, or refresh the approval details and try again.',
+    ),
+  ).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
+  expect(screen.queryByText(/initialized headcount/)).not.toBeInTheDocument();
+});
+
+it('identifies the invalid recruitment quantity and keeps the proposal for correction', async () => {
+  serve();
+  show('/form/r1/review-edit');
+  const quantity = await screen.findByRole('spinbutton', {
+    name: 'Quantity *',
+  });
+  fireEvent.change(quantity, { target: { value: '0' } });
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Reason for this operation *' }),
+    { target: { value: 'Revised staffing' } },
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Save recruitment request' }),
+  );
+  expect(
+    await screen.findByText(
+      'Enter a positive whole number of recruits within the supported range.',
+    ),
+  ).toBeVisible();
+  expect(quantity).toHaveFocus();
+  expect(api.request.mock.calls.some(([call]) => call.method === 'POST')).toBe(
+    false,
+  );
+  fireEvent.change(quantity, { target: { value: '3' } });
+  expect(
+    screen.queryByText(
+      'Enter a positive whole number of recruits within the supported range.',
+    ),
+  ).toBeNull();
+  expect(
+    screen.getByRole('textbox', { name: 'Reason for this operation *' }),
+  ).toHaveValue('Revised staffing');
 });

@@ -83,6 +83,12 @@ export default {
       searchPeople: 'Search eligible people',
     },
     errors: {
+      category: 'Select an active supplier category.',
+      evidence: 'Upload or select at least one qualification evidence file.',
+      expiry:
+        'Select an expiry date later than today in the company time zone.',
+      qualificationFacts:
+        'Complete the supplier name, active category and qualification evidence, and select an expiry date later than today in the company time zone.',
       missingReturned: '{{name}} is unavailable. Returned to the source.',
       missingUnnamed: 'The application is unavailable. Returned to the source.',
       forbidden: 'Access unavailable. Contact an administrator.',

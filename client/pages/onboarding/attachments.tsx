@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from '#components/ui/alert';
 import { useEffect, useRef, useState } from 'react';
 import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -63,7 +64,7 @@ export function Attachments({
   }, [api, id, taskId, key]);
   if (!ids.length) return <span>—</span>;
   if (r?.key !== key) return <Loading />;
-  if (r.error) return <Failure error={r.error} />;
+  if (r.error) return <Failure module='onboarding' error={r.error} />;
   return (
     <FileList files={r.files ?? []} onError={(error) => setR({ key, error })} />
   );
@@ -88,6 +89,7 @@ export function AttachmentEditor({
     { t } = useTranslation(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(),
+    [validation, setValidation] = useState(false),
     lockedRef = useRef(false),
     controllerRef = useRef(new AbortController());
   useEffect(() => {
@@ -105,9 +107,10 @@ export function AttachmentEditor({
         file.name.split('.').at(-1)?.toLowerCase() ?? '',
       )
     ) {
-      setError(new Error('file'));
+      setValidation(true);
       return;
     }
+    setValidation(false);
     lockedRef.current = true;
     setBusy(true);
     onBusy(true);
@@ -157,7 +160,12 @@ export function AttachmentEditor({
         }}
       />
       {busy ? <p role='status'>{t('onboarding.uploading')}</p> : null}
-      {error ? <Failure error={error} /> : null}
+      {validation && (
+        <Alert variant='destructive'>
+          <AlertDescription>{t('onboarding.fileLimit')}</AlertDescription>
+        </Alert>
+      )}
+      {error ? <Failure module='onboarding' error={error} /> : null}
       {id ? <Attachments id={id} taskId={taskId} ids={ids} /> : null}
       {ids.map((fileId, index) => (
         <Button

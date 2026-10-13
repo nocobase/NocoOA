@@ -1,5 +1,14 @@
 export default {
   training: {
+    businessErrors: {
+      TRAINING_INVALID_INPUT:
+        'Complete the training name, institution and reason, and enter valid nonnegative costs.',
+      TRAINING_INVALID_DATE:
+        'The training end must be later than its start. Check the dates and times.',
+      TRAINING_DEPARTMENT_REQUIRED:
+        'The applicant needs an active primary department. Ask HR to update the employee record.',
+    },
+
     cc: 'Add copy recipient',
     authz: {
       resource: 'Training and learning',

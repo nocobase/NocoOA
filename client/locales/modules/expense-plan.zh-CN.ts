@@ -1,5 +1,14 @@
 export default {
   expensePlans: {
+    businessErrors: {
+      EXPENSE_PLAN_DEPARTMENT_REQUIRED:
+        '申请人没有有效主部门，请联系人力资源完善员工档案。',
+      EXPENSE_PLAN_INVALID_DATE: '请选择有效的预计费用日期。',
+      EXPENSE_PLAN_INVALID_DICTIONARY: '请选择已启用的事项类型和预算科目。',
+      EXPENSE_PLAN_INVALID_INPUT:
+        '请填写参与人员和费用原因，并输入大于零的金额。',
+    },
+
     new: '新建费用事前申请',
     edit: '修改费用事前申请',
     formDescription: '在费用发生前申请招待、团建或活动额度。',

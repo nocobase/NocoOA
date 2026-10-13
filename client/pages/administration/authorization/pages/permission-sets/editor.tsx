@@ -19,6 +19,8 @@ import { SelectionMark } from '../../components/selection-marks.js';
 import { ResourceTypeList } from './resource-tree.js';
 import { ModulePermissions } from './module-permissions.js';
 import { resourceRows } from './resource-groups.js';
+import { permissionModules } from './permission-modules.js';
+import { PermissionModuleTabs } from './module-tabs.js';
 import type { Draft, GrantDraft } from './types.js';
 
 export function PermissionSetEditor({
@@ -82,8 +84,13 @@ export function PermissionSetEditor({
           }))
       : []),
   ];
+  const modules = permissionModules(entry?.groups ?? [], resources, t);
+  const module =
+    modules.find((item) => item.value === params.get('permissionGroup')) ??
+    modules[0];
+  const moduleResources = module?.resources ?? resources;
   const query = search.trim().toLowerCase();
-  const visible = resources.filter(
+  const visible = moduleResources.filter(
     (item) =>
       (!configuredOnly ||
         Boolean(
@@ -191,9 +198,9 @@ export function PermissionSetEditor({
             <>
               <div
                 ref={configurationRef}
-                className='relative isolate flex min-h-0 flex-1 overflow-hidden'
+                className='relative isolate flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row'
               >
-                <aside className='w-44 shrink-0 overflow-auto border-r bg-muted/15 xl:w-52'>
+                <aside className='max-h-40 shrink-0 overflow-auto border-b bg-muted/15 sm:max-h-none sm:w-44 sm:border-b-0 sm:border-r xl:w-52'>
                   <ResourceTypeList
                     label={t('permissionSets.picker.resourceTypes')}
                     entries={entries}
@@ -204,6 +211,7 @@ export function PermissionSetEditor({
                         (previous) => {
                           const next = new URLSearchParams(previous);
                           next.set('section', value);
+                          next.delete('permissionGroup');
                           return next;
                         },
                         { replace: true },
@@ -221,7 +229,24 @@ export function PermissionSetEditor({
                   {emptySection ? (
                     <PermissionDevelopmentHint section={emptySection} />
                   ) : (
-                    <>
+                    <PermissionModuleTabs
+                      modules={modules}
+                      selected={module?.value ?? ''}
+                      grants={draft.grants}
+                      busy={busy}
+                      onSelect={(value) => {
+                        setParams(
+                          (previous) => {
+                            const next = new URLSearchParams(previous);
+                            next.set('section', entry?.value ?? '');
+                            next.set('permissionGroup', value);
+                            return next;
+                          },
+                          { replace: true },
+                        );
+                        setLimit(80);
+                      }}
+                    >
                       <div className='flex shrink-0 flex-wrap items-center gap-3 border-b p-3'>
                         <Input
                           className='min-w-32 flex-1'
@@ -240,12 +265,26 @@ export function PermissionSetEditor({
                         <label className='flex items-center gap-2 text-xs text-muted-foreground'>
                           <Checkbox
                             checked={configuredOnly}
-                            onCheckedChange={(checked) =>
-                              setConfiguredOnly(checked)
-                            }
+                            onCheckedChange={(checked) => {
+                              setConfiguredOnly(checked);
+                              setLimit(80);
+                            }}
                           />
                           {t('permissionWorkspace.configuredOnly')}
                         </label>
+                        {query || configuredOnly ? (
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            onClick={() => {
+                              setSearch('');
+                              setConfiguredOnly(false);
+                              setLimit(80);
+                            }}
+                          >
+                            {t('permissionWorkspace.clearFilters')}
+                          </Button>
+                        ) : null}
                       </div>
                       <div className='flex shrink-0 items-center justify-between gap-3 px-4 py-2'>
                         <p className='text-xs text-muted-foreground'>
@@ -256,46 +295,59 @@ export function PermissionSetEditor({
                           )}
                         </p>
                       </div>
-                      <div className='min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]'>
-                        {
-                          <ModulePermissions
-                            container={configurationRef}
-                            pages={pages}
-                            label={entry?.label ?? ''}
-                            rows={rows.slice(0, limit)}
-                            items={visible}
-                            actions={actions}
-                            draft={draft}
-                            disabled={busy || readOnly}
-                            filtered={Boolean(query) || configuredOnly}
-                            collapsed={query ? new Set() : collapsed}
-                            onCollapse={(id) =>
-                              setCollapsed((previous) => {
-                                const next = new Set(previous);
-                                if (next.has(id)) next.delete(id);
-                                else next.add(id);
-                                return next;
-                              })
-                            }
-                            onChange={onChange}
-                            onToggle={choose}
-                          />
-                        }
-                        {!visible.length ? (
-                          <p className='p-6 text-sm text-muted-foreground'>
-                            {t('permissionSets.picker.noResources')}
-                          </p>
-                        ) : null}
-                        {rows.length > limit ? (
-                          <Button
-                            className='m-3'
-                            type='button'
-                            variant='outline'
-                            onClick={() => setLimit(limit + 80)}
-                          >
-                            {t('permissionWorkspace.showMore')}
-                          </Button>
-                        ) : null}
+                      <div
+                        key={`${entry?.value ?? ''}:${module?.value ?? ''}`}
+                        className='min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]'
+                      >
+                        <div className={pages ? '' : 'min-w-96'}>
+                          {
+                            <ModulePermissions
+                              container={configurationRef}
+                              pages={pages}
+                              label={entry?.label ?? ''}
+                              rows={rows.slice(0, limit)}
+                              items={visible}
+                              actions={actions}
+                              draft={draft}
+                              disabled={busy || readOnly}
+                              filtered={
+                                Boolean(query) ||
+                                configuredOnly ||
+                                Boolean(module && module.value !== 'all')
+                              }
+                              collapsed={query ? new Set() : collapsed}
+                              onCollapse={(id) =>
+                                setCollapsed((previous) => {
+                                  const next = new Set(previous);
+                                  if (next.has(id)) next.delete(id);
+                                  else next.add(id);
+                                  return next;
+                                })
+                              }
+                              onChange={onChange}
+                              onToggle={choose}
+                            />
+                          }
+                          {!visible.length ? (
+                            <p className='p-6 text-sm text-muted-foreground'>
+                              {t(
+                                query || configuredOnly
+                                  ? 'permissionWorkspace.noModuleMatches'
+                                  : 'permissionSets.picker.noResources',
+                              )}
+                            </p>
+                          ) : null}
+                          {rows.length > limit ? (
+                            <Button
+                              className='m-3'
+                              type='button'
+                              variant='outline'
+                              onClick={() => setLimit(limit + 80)}
+                            >
+                              {t('permissionWorkspace.showMore')}
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                       <div className='shrink-0 border-t p-3'>
                         {
@@ -327,7 +379,7 @@ export function PermissionSetEditor({
                           </div>
                         }
                       </div>
-                    </>
+                    </PermissionModuleTabs>
                   )}
                 </section>
               </div>

@@ -82,7 +82,7 @@ export function DepartureFacts({
   ];
   return (
     <div className='flex flex-col gap-6'>
-      <dl className='grid gap-4 sm:grid-cols-[10rem_1fr]'>
+      <dl className='grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]'>
         {values.map(([label, value]) => (
           <div key={label} className='contents'>
             <dt className='text-muted-foreground'>{label}</dt>
@@ -126,7 +126,7 @@ export function DepartureFacts({
                   {t(`departureRequests.workStates.${item.status}`)}
                 </StatusBadge>
               </div>
-              <dl className='grid gap-2 sm:grid-cols-[10rem_1fr]'>
+              <dl className='grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)]'>
                 {[
                   [
                     t('departureRequests.manager'),

@@ -153,6 +153,8 @@ export function approvalStateLabel(
   if (['cashier', 'paid', 'forcedPaid'].includes(state))
     return t(`reimbursementRequests.statuses.${state}`);
   if (state === 'unbooking') return t('travelCancellation.stages.unbooking');
+  if (kind === 'oa.travel' && state === 'completed')
+    return t('travel.stages.completed');
   if (state === 'booking') return t('travel.stages.booking');
   return ['finance', 'cfo', 'gm', 'executive'].includes(state)
     ? t(

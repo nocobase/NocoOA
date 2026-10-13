@@ -59,6 +59,7 @@ function Form() {
     return (
       <RouteDrawer title={t('onboarding.new')}>
         <Failure
+          module='onboarding'
           denied={
             (!grant.can && !grant.error) ||
             (!salary.can && !salary.error) ||

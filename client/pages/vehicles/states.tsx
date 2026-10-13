@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { errorKey } from './errors.js';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -22,15 +23,18 @@ export function VehicleError({
   error: unknown;
   retry: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'vehicles');
   const { t } = useTranslation();
   if (error instanceof ApiClientError && error.status === 401)
     return <SessionExpiredAlert />;
   return (
     <Alert variant='destructive'>
       <AlertDescription>
-        {t(`vehicles.errors.${errorKey(error)}`)}
+        {businessMessage ?? t(`vehicles.errors.${errorKey(error)}`)}
       </AlertDescription>
-      {!(
+      {(!businessMessage ||
+        (error instanceof ApiClientError && error.status === 409)) &&
+      !(
         error instanceof ApiClientError && [403, 404].includes(error.status)
       ) ? (
         <AlertAction>

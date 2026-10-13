@@ -28,7 +28,11 @@ it.runIf(process.env.OA_NONAPPROVAL_CENTER_BROWSER === '1')(
         ).toBeVisible({ timeout: 30000 });
         await page.getByRole('link', { name: title, exact: true }).click();
         await browserExpect(page.getByRole('dialog')).toBeVisible();
-        await page.getByRole('button', { name: 'Close', exact: true }).click();
+        await page
+          .getByRole('dialog')
+          .locator('[data-slot="dialog-close"]')
+          .last()
+          .click();
         await browserExpect(page).toHaveURL(source);
       }
       await page.goto(`${base}/#home-source`);
@@ -56,7 +60,11 @@ it.runIf(process.env.OA_NONAPPROVAL_CENTER_BROWSER === '1')(
           .toBe('auto');
         await target.click();
         await browserExpect(page.getByRole('dialog')).toBeVisible();
-        await page.getByRole('button', { name: 'Close', exact: true }).click();
+        await page
+          .getByRole('dialog')
+          .locator('[data-slot="dialog-close"]')
+          .last()
+          .click();
         await browserExpect(page).toHaveURL(`${base}#home-source`);
         await browserExpect(page.getByRole('dialog')).toHaveCount(0);
       }
@@ -117,7 +125,11 @@ it.runIf(process.env.OA_NONAPPROVAL_CENTER_BROWSER === '1')(
       await browserExpect(page).toHaveURL(
         `${base}/approvals/todo/workItem/${f.item.id}?kind=oa.workItem#source`,
       );
-      await page.getByRole('button', { name: 'Close', exact: true }).click();
+      await page
+        .getByRole('dialog')
+        .locator('[data-slot="dialog-close"]')
+        .last()
+        .click();
       await browserExpect(
         page.getByRole('link', { name: 'Center ordinary duty', exact: true }),
       ).toHaveCount(0);
@@ -149,7 +161,11 @@ it.runIf(process.env.OA_NONAPPROVAL_CENTER_BROWSER === '1')(
       await browserExpect(page).toHaveURL(
         `${base}/approvals/todo/announcement/${f.published.id}?kind=oa.announcementReceipt#source`,
       );
-      await page.getByRole('button', { name: 'Close', exact: true }).click();
+      await page
+        .getByRole('dialog')
+        .locator('[data-slot="dialog-close"]')
+        .last()
+        .click();
       await browserExpect(
         page.getByRole('link', {
           name: 'Center personal receipt',

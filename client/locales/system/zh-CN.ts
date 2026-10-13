@@ -8,10 +8,12 @@ const systemZhCN: SystemResource = {
   ...deviceApprovalZhCN,
   // The UI Library block of the `/inbox` page; the keys below may reword it.
   ...inboxZhCN,
+  'inbox.title': '消息',
+  'inbox.loadFailed': '无法加载消息',
   // The UI Library component of the header's inbox button.
-  'inboxButton.title': '收件箱',
-  'inboxButton.pending': '收件箱，{{count}} 项待处理',
-  'inboxButton.unread': '收件箱，{{count}} 条未读',
+  'inboxButton.title': '消息',
+  'inboxButton.pending': '消息，{{count}} 项待处理',
+  'inboxButton.unread': '消息，{{count}} 条未读',
   'inboxButton.pendingHint': '{{count}} 项等你处理，处理后减少。',
   'inboxButton.unreadHint': '{{count}} 条未读，阅读后减少。',
   'auth.welcome': '欢迎回来',
@@ -71,9 +73,10 @@ const systemZhCN: SystemResource = {
   'navigation.brandHome': 'NocoBase 首页',
   'navigation.brandApps': 'NocoBase 应用',
   'routeOverlay.close': '关闭',
-  'status.deniedDescription': '你没有访问 {{label}} 的权限。',
-  'status.routeFailedDescription':
-    '无法加载 {{packageName}} 的路由 {{label}}。',
+  'status.backHome': '返回工作台',
+  'status.deniedDescription':
+    '你没有访问此页面的权限，可返回工作台继续处理其他事项。',
+  'status.routeFailedDescription': '页面暂时无法加载，请重试。',
   shell: {
     buildFreely: 'AI 自由构建。',
     reliability: '<brand>NocoBase</brand> 保障可靠。',
@@ -297,6 +300,7 @@ const systemZhCN: SystemResource = {
     back: '返回',
   },
   dataTable: {
+    emptyDescription: '当前范围暂无记录，可切换范围或稍后再查看。',
     noResults: '暂无数据。',
     sortAscending: '升序',
     sortDescending: '降序',

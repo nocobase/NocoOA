@@ -17,6 +17,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import enUS from '../../client/locales/en-US.js';
 import zhCN from '../../client/locales/zh-CN.js';
+import { approvalStateLabel } from '../../client/pages/approvals/business-metadata.js';
 import HomePage from '../../client/pages/home/index.js';
 import { ClientRoute } from '../../client/routing/client-route.js';
 import type {
@@ -77,7 +78,7 @@ function record(
   id: string,
   status: string,
   applicantId = 'alice',
-): LeaveRecord {
+): LeaveRecord & { title: string } {
   return {
     id,
     status,
@@ -85,6 +86,7 @@ function record(
     applicant: { id: applicantId, name: applicantId },
     createdById: 'alice',
     number: `LEA-${id}`,
+    title: `LEA-${id}`,
     leaveType: 'personal',
     startDate: '2026-10-12',
     endDate: '2026-10-13',
@@ -139,6 +141,15 @@ function serve(mine: LeaveRecord[] = [], pending: LeaveRecord[] = []) {
           page: 1,
           pageSize: Number(query.pageSize ?? 20),
           attention: {
+            submitted: selected
+              .filter((r) => r.status !== 'draft')
+              .slice(0, 5)
+              .map((r) => ({
+                ...r,
+                kind: (r as LeaveRecord & { kind?: string }).kind ?? 'oa.leave',
+                amount: r.days,
+                unit: 'days',
+              })),
             drafts: selected
               .filter((r) => r.applicantId === 'alice' && r.status === 'draft')
               .slice(0, 6)
@@ -238,6 +249,7 @@ function metric(label: string) {
     .closest('[data-slot="card"]') as HTMLElement;
 }
 beforeEach(() => {
+  localStorage.clear();
   api.request.mockReset();
   auth.refresh.mockReset();
   Object.assign(permission, {
@@ -250,6 +262,113 @@ beforeEach(() => {
   serve();
 });
 describe('personal workbench', () => {
+  it('localizes completed travel records in both supported languages', async () => {
+    for (const [locale, resources] of [
+      ['en-US', enUS],
+      ['zh-CN', zhCN],
+    ] as const) {
+      const translated = await createTestI18nRuntime({
+        locale,
+        application: { namespace: 'nb3-oa', resources },
+      });
+      expect(
+        approvalStateLabel(
+          'completed',
+          translated.getFixedT('nb3-oa', locale),
+          'oa.travel',
+        ),
+      ).toBe(resources.travel.stages.completed);
+    }
+  });
+  it('restores entry placement and groups eligible actions with preserved overlay location', async () => {
+    const router = open('/?search=mine#requests');
+    await screen.findByText(enUS.workbench.emptyAttention);
+    const entries = card(enUS.workbench.newRequest);
+    expect(
+      card(enUS.workbench.attention).compareDocumentPosition(entries) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    for (const group of Object.values(enUS.workbench.groups)) {
+      expect(
+        within(entries).getByRole('region', { name: group }),
+      ).toBeInTheDocument();
+    }
+    const finance = within(entries).getByRole('region', {
+      name: enUS.workbench.groups.finance,
+    });
+    await userEvent.click(
+      within(finance).getByRole('button', {
+        name: enUS.approvalCenter.kinds.loan,
+      }),
+    );
+    expect(router.state.location.pathname).toBe('/newLoan');
+    expect(router.state.location.search).toBe('?search=mine');
+    expect(router.state.location.hash).toBe('#requests');
+  });
+  it('uses readable summaries and safe draft fallback while keeping a single title link', async () => {
+    serve([
+      {
+        ...record('summary', 'manager'),
+        title: 'Conference travel reimbursement',
+      },
+    ]);
+    open();
+    const title = await screen.findByRole('link', {
+      name: 'Conference travel reimbursement',
+    });
+    expect(title).toHaveAttribute('href', '/leave/summary');
+    expect(screen.queryByRole('link', { name: 'LEA-summary' })).toBeNull();
+    expect(
+      within(card(enUS.workbench.mine)).queryByText('LEA-summary'),
+    ).toBeNull();
+    expect(screen.getByRole('link', { name: 'In progress 1' })).toHaveAttribute(
+      'href',
+      '/approvals/mine?category=inProgress',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Returned or exception 0' }),
+    ).toHaveAttribute('href', '/approvals/mine?category=revisions');
+    expect(
+      screen.getByRole('link', { name: 'Awaiting my action 0' }),
+    ).toHaveAttribute('href', '/approvals/todo');
+  });
+  it('keeps drafts in the center instead of previewing them in my requests', async () => {
+    serve([{ ...record('no-summary', 'draft'), title: '', number: null }]);
+    open();
+    await screen.findByText(enUS.workbench.emptyMine);
+    const mine = within(card(enUS.workbench.mine));
+    expect(mine.queryByRole('tab')).not.toBeInTheDocument();
+    expect(mine.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(
+      mine.getByRole('button', { name: enUS.workbench.viewMine }),
+    ).toHaveAttribute('href', '/approvals/mine');
+    expect(screen.getByRole('link', { name: 'Drafts 1' })).toHaveAttribute(
+      'href',
+      '/approvals/mine?category=drafts',
+    );
+  });
+
+  it('shows all eligible entries regardless of old favorites and filters unavailable types', async () => {
+    localStorage.setItem(
+      'nb3-oa:request-favorites:alice',
+      JSON.stringify(['loan', 'transfer']),
+    );
+    open();
+    await screen.findByText(enUS.workbench.emptyAttention);
+    const entries = within(card(enUS.workbench.newRequest));
+    expect(
+      entries.getByRole('button', { name: enUS.approvalCenter.kinds.loan }),
+    ).toHaveAttribute('href', '/newLoan');
+    expect(
+      entries.getByRole('button', { name: enUS.approvalCenter.kinds.leave }),
+    ).toHaveAttribute('href', '/newLeave');
+    expect(
+      entries.queryByRole('button', {
+        name: enUS.approvalCenter.kinds.transfer,
+      }),
+    ).toBeNull();
+  });
+
   it('bounds creation metadata to two groups and releases the second after a first-group failure', async () => {
     const original = api.request.getMockImplementation()!;
     const first = [
@@ -581,7 +700,6 @@ describe('personal workbench', () => {
     open();
     await screen.findByText(enUS.workbench.emptyMine);
     const creation = within(card(enUS.workbench.newRequest));
-    expect(creation.getAllByRole('button')).toHaveLength(18);
     expect(
       creation.getByRole('button', { name: enUS.seals.title }),
     ).toHaveAttribute('href', '/newSeal');
@@ -662,12 +780,26 @@ describe('personal workbench', () => {
     expect(
       list
         .getAllByRole('listitem')
-        .map((row) => within(row).getByRole('link').textContent),
-    ).toEqual(['LEA-revision', 'LEA-approval', 'LEA-draft']);
+        .map((row) => within(row).getAllByRole('link')[0].textContent),
+    ).toEqual(['LEA-revision', 'LEA-approval']);
+    expect(
+      list
+        .getAllByRole('listitem')
+        .every((row) => within(row).getAllByRole('link').length === 1),
+    ).toBe(true);
+    expect(list.queryByText('alice')).not.toBeInTheDocument();
+    expect(
+      within(card(enUS.workbench.mine)).queryByText('bob'),
+    ).not.toBeInTheDocument();
     expect(list.queryByText('LEA-delegate')).not.toBeInTheDocument();
     expect(
-      within(card(enUS.workbench.mine)).getByText('LEA-delegate'),
-    ).toBeVisible();
+      within(card(enUS.workbench.mine)).queryByText('LEA-delegate'),
+    ).toBeNull();
+    expect(
+      within(card(enUS.workbench.mine)).queryByRole('link', {
+        name: 'LEA-draft',
+      }),
+    ).not.toBeInTheDocument();
   });
   it('opens titled non-approval responsibilities from the workbench', async () => {
     const task = {
@@ -696,26 +828,63 @@ describe('personal workbench', () => {
       'href',
       '/announcement/notice-one?source=nonapproval#work',
     );
-    expect(list.getByText(enUS.workbench.nextWorkItem)).toBeVisible();
-    expect(list.getByText(enUS.workbench.nextAnnouncement)).toBeVisible();
+
+    expect(list.getAllByText('bob')).toHaveLength(2);
+    expect(list.queryByText('alice')).not.toBeInTheDocument();
     expect(list.queryByText(enUS.approvals.draft)).not.toBeInTheDocument();
     expect(
       list.queryByText(enUS.workbench.nextApproval),
     ).not.toBeInTheDocument();
   });
-  it('caps attention and recent summaries and keeps full-list entry points', async () => {
-    serve(Array.from({ length: 12 }, (_, i) => record(String(i), 'draft')));
+  it('shows approval applicants even when self and dates without inventing submission times', async () => {
+    serve(
+      [record('mine-date', 'hr')],
+      [
+        record('self-pending', 'manager'),
+        {
+          ...record('other-pending', 'manager', 'bob'),
+          dueAt: '2026-10-20T10:00:00Z',
+        } as LeaveRecord,
+      ],
+    );
     open();
-    await screen.findAllByText('LEA-0');
+    await screen.findByRole('link', { name: 'LEA-self-pending' });
+    const attention = within(card(enUS.workbench.attention));
+    expect(attention.getByText('alice')).toBeVisible();
+    expect(attention.getByText('bob')).toBeVisible();
+    expect(attention.getAllByText('Applicant:')).toHaveLength(2);
+    expect(attention.getByText(/^Due:/)).toBeVisible();
+    expect(attention.getByText(/^Created:/)).toBeVisible();
+    const mine = within(card(enUS.workbench.mine));
+    expect(mine.queryByText('alice')).toBeNull();
+    expect(mine.getByText(/^Created:/)).toBeVisible();
+  });
+
+  it('keeps eight drafts out of attention and shows submitted work beyond the first page', async () => {
+    serve([
+      ...Array.from({ length: 8 }, (_, i) => record(String(i), 'draft')),
+      record('waiting', 'manager'),
+    ]);
+    open();
+    await screen.findByText(enUS.workbench.emptyAttention);
     expect(
-      within(card(enUS.workbench.attention)).getAllByRole('listitem'),
-    ).toHaveLength(6);
+      within(card(enUS.workbench.attention)).queryAllByRole('listitem'),
+    ).toHaveLength(0);
     expect(
-      within(card(enUS.workbench.mine)).getAllByRole('listitem'),
-    ).toHaveLength(5);
+      within(card(enUS.workbench.mine)).getByRole('link', {
+        name: 'LEA-waiting',
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Drafts 8' })).toHaveAttribute(
+      'href',
+      '/approvals/mine?category=drafts',
+    );
+    const mine = within(card(enUS.workbench.mine));
+    expect(mine.queryByRole('tab')).not.toBeInTheDocument();
+    expect(mine.getAllByRole('listitem')).toHaveLength(1);
     expect(
-      screen.getByRole('button', { name: enUS.workbench.viewPending }),
-    ).toHaveAttribute('href', '/approvals/todo');
+      mine.getByRole('button', { name: enUS.workbench.viewMine }),
+    ).toHaveAttribute('href', '/approvals/mine');
   });
   it.each(['page', 'view'] as const)(
     'does not mount business requests without %s permission',
@@ -758,7 +927,7 @@ describe('personal workbench', () => {
     ).not.toBeInTheDocument();
   });
   it('opens records over the workbench and refreshes all blocks after a child write', async () => {
-    serve([record('one', 'draft')]);
+    serve([record('one', 'manager')]);
     const router = open();
     const row = within(card(enUS.workbench.mine));
     await waitFor(() =>
@@ -770,7 +939,7 @@ describe('personal workbench', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Saved request' }),
     );
-    await waitFor(() => expect(api.request.mock.calls.length).toBe(before + 2));
+    await waitFor(() => expect(api.request.mock.calls.length).toBe(before + 6));
     expect(
       screen.getByRole('heading', { name: enUS.workbench.title }),
     ).toBeVisible();
@@ -782,7 +951,7 @@ describe('personal workbench', () => {
     );
   });
   it('retains cards while refreshing and disables record navigation', async () => {
-    serve([record('one', 'draft')]);
+    serve([record('one', 'manager')]);
     open();
     await screen.findAllByText('LEA-one');
     let resolve!: (value: unknown) => void;
@@ -796,7 +965,9 @@ describe('personal workbench', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       enUS.workbench.refreshing,
     );
-    expect(within(metric(enUS.workbench.drafts)).getByText('1')).toBeVisible();
+    expect(
+      within(metric(enUS.workbench.inProgress)).getByText('1'),
+    ).toBeVisible();
     expect(
       screen.queryByRole('link', { name: 'LEA-one' }),
     ).not.toBeInTheDocument();
@@ -882,7 +1053,7 @@ describe('personal workbench', () => {
       </TestI18nProvider>,
     );
     expect(screen.getByRole('heading', { name: '工作台' })).toBeVisible();
-    await screen.findAllByText('查看修订要求');
+    await screen.findAllByText('LEA-cn');
     expect(
       within(metric(zhCN.workbench.revision)).getByText('1'),
     ).toBeVisible();

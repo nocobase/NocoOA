@@ -91,14 +91,19 @@ it('requires specific fields and sends bank account as text with audited reason'
   const user = userEvent.setup();
   serve(() => ({ data: row }));
   show('/new');
+  expect(screen.getByLabelText('Code *')).toBeRequired();
+  expect(screen.getByLabelText('Name *')).toBeRequired();
+  expect(screen.getByLabelText('Category *')).toBeRequired();
+  expect(screen.getByLabelText('Reason for this change *')).toBeRequired();
+  expect(screen.getByLabelText('Bank account')).not.toBeRequired();
   await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-  await waitFor(() => expect(screen.getByLabelText('Code')).toHaveFocus());
+  await waitFor(() => expect(screen.getByLabelText('Code *')).toHaveFocus());
   for (const [label, value] of [
-    ['Code', 'NEW'],
-    ['Name', 'New vendor'],
-    ['Category', 'Parts'],
+    ['Code *', 'NEW'],
+    ['Name *', 'New vendor'],
+    ['Category *', 'Parts'],
     ['Bank account', '00001234'],
-    ['Reason for this change', 'New procurement vendor'],
+    ['Reason for this change *', 'New procurement vendor'],
   ])
     await user.type(screen.getByLabelText(label!), value!);
   await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
@@ -115,10 +120,10 @@ it('locks uncertain creation and prevents a second vendor write', async () => {
   });
   show('/new');
   for (const [label, value] of [
-    ['Code', 'NEW'],
-    ['Name', 'New vendor'],
-    ['Category', 'Parts'],
-    ['Reason for this change', 'Setup'],
+    ['Code *', 'NEW'],
+    ['Name *', 'New vendor'],
+    ['Category *', 'Parts'],
+    ['Reason for this change *', 'Setup'],
   ])
     await user.type(screen.getByLabelText(label!), value!);
   await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
@@ -126,7 +131,7 @@ it('locks uncertain creation and prevents a second vendor write', async () => {
   expect(
     screen.getByRole('button', { name: 'Save', exact: true }),
   ).toBeDisabled();
-  expect(screen.getByLabelText('Name')).toBeDisabled();
+  expect(screen.getByLabelText('Name *')).toBeDisabled();
   expect(api.request.mock.calls.filter((c) => c[0].method)).toHaveLength(1);
 });
 it('keeps uncommitted edits when latest unchanged version resolves unknown write and only sends patch fields', async () => {
@@ -138,11 +143,11 @@ it('keeps uncommitted edits when latest unchanged version resolves unknown write
   });
   show('/edit/v1');
   await waitFor(() =>
-    expect(screen.getByLabelText('Name')).toHaveValue('Vendor'),
+    expect(screen.getByLabelText('Name *')).toHaveValue('Vendor'),
   );
-  await user.clear(screen.getByLabelText('Name'));
-  await user.type(screen.getByLabelText('Name'), 'Edited vendor');
-  await user.type(screen.getByLabelText('Reason for this change'), 'Rename');
+  await user.clear(screen.getByLabelText('Name *'));
+  await user.type(screen.getByLabelText('Name *'), 'Edited vendor');
+  await user.type(screen.getByLabelText('Reason for this change *'), 'Rename');
   await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
   await screen.findByText(/result is unknown/i);
   await user.click(screen.getByRole('button', { name: 'Load latest vendor' }));
@@ -151,7 +156,7 @@ it('keeps uncommitted edits when latest unchanged version resolves unknown write
       screen.getByRole('button', { name: 'Save', exact: true }),
     ).toBeEnabled(),
   );
-  expect(screen.getByLabelText('Name')).toHaveValue('Edited vendor');
+  expect(screen.getByLabelText('Name *')).toHaveValue('Edited vendor');
   await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
   await waitFor(() => expect(reload).toHaveBeenCalled());
   expect(

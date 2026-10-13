@@ -2,6 +2,37 @@ import type { LocaleResource } from '@nocobase/i18n';
 import type en from './payment-requests.en-US.js';
 const zh: LocaleResource<typeof en> = {
   paymentRequests: {
+    businessErrors: {
+      PAYMENT_REQUEST_INVALID_INPUT:
+        '请补齐付款原因、收款方、正数金额、发票号及发票附件。',
+      PAYMENT_REQUEST_ACCOUNT_REQUIRED:
+        '请先补齐收款方的银行账户信息，再提交审批。',
+      PAYMENT_REQUEST_ACCOUNT_STALE: '收款账户已变化，请读取最新账户后再更正。',
+      PAYMENT_REQUEST_DEPARTMENT_REQUIRED:
+        '申请人没有有效主部门，请联系人力资源完善员工档案。',
+      PAYMENT_REQUEST_METHOD_INVALID: '请选择已启用的付款方式。',
+      PAYMENT_REQUEST_SOURCE_REQUIRED:
+        '无前置审批付款须填写说明，并取消关联采购订单。',
+      PAYMENT_REQUEST_SOURCE_INVALID:
+        '请选择有效的采购订单或合同，并使用原单据的收款方。',
+      PAYMENT_REQUEST_SOURCE_STALE:
+        '来源单据已变化，请刷新付款单及来源单据后再操作。',
+      PAYMENT_REQUEST_CONTRACT_STALE:
+        '合同已变化，请刷新合同版本并修订付款申请后重新提交。',
+      PAYMENT_REQUEST_VOUCHER_REQUIRED:
+        '请填写付款凭证号，并上传或选择付款凭证附件。',
+      PAYMENT_REQUEST_FORCE_CONFIRMATION_REQUIRED:
+        '强制完成付款前，请准确确认已批准的付款金额。',
+      PAYMENT_REQUEST_HANDLING_REASON_REQUIRED: '请填写无法完成付款的原因。',
+      PAYMENT_REQUEST_ALREADY_PAID: '该付款已结算，请刷新查看已登记的结果。',
+      PAYMENT_REQUEST_CONTRACT_ACTUAL_PAYMENT_REQUIRED:
+        '请先登记合同的实际付款事实，再完成此操作。',
+      PAYMENT_FILE_SIZE: '请选择非空且不超过 5 MiB 的附件。',
+      PAYMENT_FILE_TYPE:
+        '请上传格式与扩展名一致的 PDF、JPEG、PNG 或 WebP 文件。',
+      PAYMENT_ATTACHMENT_INVALID: '请选择上传到本付款申请的有效附件。',
+    },
+
     title: '付款申请',
     description: '查看付款申请、冻结的来源事实与出纳办理进度。',
     new: '新建付款申请',

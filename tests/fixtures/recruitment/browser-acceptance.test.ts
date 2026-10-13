@@ -55,7 +55,7 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
         requestKey: randomUUID(),
         reason: 'Isolated browser setup',
       });
-      const account = await db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         const initial = await c.resolve(headcountServiceToken).create(
           {
             ...command(),
@@ -124,7 +124,10 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
       for (const [label, text] of [
         ['Position', 'Browser Engineer'],
         ['Grade', 'Browser Associate'],
-        ['Capacity account ID', account.id],
+        [
+          'Annual headcount',
+          `Browser Hiring Department / Browser Engineer / ${year}`,
+        ],
       ]) {
         await page.getByRole('combobox', { name: label, exact: false }).click();
         await page.getByRole('option', { name: text, exact: true }).click();
@@ -197,14 +200,16 @@ it.runIf(process.env.OA_BROWSER_ACCEPTANCE === '1')(
       await page.goto(`${base}/recruitment-requests/${id}`);
       await page.locator('a[href$="/action/submit"]').click();
       await page.locator('#recruitment-reason').fill('Submit synthetic draft');
+      const submitResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          response.url().endsWith(`/recruitmentRequests/${id}/transitions`),
+      );
       await page
         .getByRole('button', { name: 'Submit', exact: true })
         .last()
         .click();
-      await page
-        .getByRole('alertdialog')
-        .getByRole('button', { name: 'Submit', exact: true })
-        .click();
+      expect((await submitResponse).status()).toBe(200);
       await page
         .getByText('HRBP', { exact: true })
         .first()

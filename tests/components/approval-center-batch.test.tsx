@@ -132,8 +132,8 @@ it('clears candidate selection when scope changes and never permits action while
   rendered.rerender(view({ scope: 'next-page' }));
   await waitFor(() =>
     expect(
-      screen.getByRole('button', { name: 'Approve selected (0)' }),
-    ).toBeDisabled(),
+      screen.queryByRole('button', { name: 'Approve selected (0)' }),
+    ).not.toBeInTheDocument(),
   );
   rendered.rerender(view({ scope: 'next-page', enabled: false }));
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
@@ -170,8 +170,8 @@ it('drops an in-flight old identity result and does not resurrect it when the ol
   rendered.rerender(view());
   await waitFor(() =>
     expect(
-      screen.getByRole('button', { name: 'Approve selected (0)' }),
-    ).toBeDisabled(),
+      screen.queryByRole('button', { name: 'Approve selected (0)' }),
+    ).not.toBeInTheDocument(),
   );
   resolveWrite({ data: [{ kind: 'oa.leave', id: 'one', status: 'approved' }] });
   await waitFor(() =>
@@ -183,8 +183,8 @@ it('drops an in-flight old identity result and does not resurrect it when the ol
   rendered.rerender(view());
   await waitFor(() =>
     expect(
-      screen.getByRole('button', { name: 'Approve selected (0)' }),
-    ).toBeDisabled(),
+      screen.queryByRole('button', { name: 'Approve selected (0)' }),
+    ).not.toBeInTheDocument(),
   );
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
 });
@@ -295,6 +295,6 @@ it('refreshing the same rows requires fresh candidates while keeping the next ch
   resolveOptions({ data: [candidate] });
   await screen.findByRole('checkbox');
   expect(
-    screen.getByRole('button', { name: 'Approve selected (0)' }),
-  ).toBeDisabled();
+    screen.queryByRole('button', { name: 'Approve selected (0)' }),
+  ).not.toBeInTheDocument();
 });

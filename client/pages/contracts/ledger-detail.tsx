@@ -113,7 +113,7 @@ export default function LedgerDetailPage() {
         </>
       }
     >
-      <div className='space-y-6'>
+      <div className='flex flex-col gap-6'>
         {resource.error ? (
           <ErrorState error={resource.error} retry={resource.reload} />
         ) : null}
@@ -205,14 +205,25 @@ export default function LedgerDetailPage() {
                         'textVersionId',
                         'request',
                       ].map((key) => (
-                        <TableHead key={key}>{t(`contracts.${key}`)}</TableHead>
+                        <TableHead
+                          key={key}
+                          className={
+                            key === 'version' || key === 'amountCents'
+                              ? 'text-right'
+                              : undefined
+                          }
+                        >
+                          {t(`contracts.${key}`)}
+                        </TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.versions.map((version) => (
                       <TableRow key={version.id}>
-                        <TableCell>{version.version ?? '—'}</TableCell>
+                        <TableCell className='text-right tabular-nums'>
+                          {version.version ?? '—'}
+                        </TableCell>
                         <TableCell className='text-right tabular-nums'>
                           {money(version.amountCents, i18n.language)}
                         </TableCell>

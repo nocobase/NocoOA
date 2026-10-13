@@ -77,7 +77,7 @@ export default function WorkCalendarPage(): ReactElement {
     );
   } else {
     settings = (
-      <div className='grid items-start gap-6 lg:grid-cols-2'>
+      <div className='flex flex-col items-stretch gap-6 lg:flex-row [&>*]:min-w-0 [&>*]:flex-1'>
         <WorkHoursCard
           // A new key after a save mounts the form with the saved values as its defaults.
           key={`${workHours.current?.id ?? ''}:${workHours.scheduled.length}`}

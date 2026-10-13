@@ -1,10 +1,9 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { ApiClientError, useApiClient, useToaster } from '@nocobase/app-client';
 import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  BriefcaseBusinessIcon,
-  LayersIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
@@ -45,14 +44,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#components/ui/dropdown-menu';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#components/ui/empty';
 import {
   InputGroup,
   InputGroupAddon,
@@ -371,23 +362,6 @@ export function CatalogPage({
     );
   } else if (!rows || !allRows) {
     content = <TableSkeleton />;
-  } else if (allRows.length === 0) {
-    content = (
-      <Empty className='min-h-48 border border-dashed'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            {kind === 'positions' ? <BriefcaseBusinessIcon /> : <LayersIcon />}
-          </EmptyMedia>
-          <EmptyTitle>{t(`org.${kind}.emptyTitle`)}</EmptyTitle>
-          <EmptyDescription>
-            {canUpdate
-              ? t(`org.${kind}.emptyDescription`)
-              : t('org.common.askAdministrator')}
-          </EmptyDescription>
-        </EmptyHeader>
-        {canUpdate ? <EmptyContent>{createButton}</EmptyContent> : null}
-      </Empty>
-    );
   } else {
     content = (
       <DataTable
@@ -398,12 +372,25 @@ export function CatalogPage({
         pageSize={20}
         initialSorting={[{ id: config.numberField, desc: false }]}
         emptyMessage={
-          <div className='flex flex-col items-center gap-2'>
-            <span>{t('org.common.noResults')}</span>
-            <Button variant='link' size='sm' onClick={clearFilters}>
-              {t('org.common.clearFilters')}
-            </Button>
-          </div>
+          <ApplicationTableEmpty
+            title={
+              hasFilters
+                ? t('org.common.noResults')
+                : t(`org.${kind}.emptyTitle`)
+            }
+            description={
+              hasFilters
+                ? undefined
+                : canUpdate
+                  ? t(`org.${kind}.emptyDescription`)
+                  : t('org.common.askAdministrator')
+            }
+            clearFilters={
+              hasFilters
+                ? { label: t('org.common.clearFilters'), onClick: clearFilters }
+                : undefined
+            }
+          />
         }
       />
     );
@@ -415,12 +402,7 @@ export function CatalogPage({
         title={t(`org.${kind}.title`)}
         description={t(`org.${kind}.description`)}
       />
-      <ApplicationToolbar
-        actions={
-          // Decided from loaded data: none while loading or while the empty state carries it (guideline L7).
-          canUpdate && allRows && allRows.length > 0 ? createButton : null
-        }
-      >
+      <ApplicationToolbar actions={canUpdate ? createButton : null}>
         <InputGroup
           data-slot='application-search'
           className='w-full sm:max-w-xs'

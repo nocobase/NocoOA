@@ -1,5 +1,29 @@
 export default {
   recruitment: {
+    yearInvalid: '请输入 1900 至 9999 之间的整数年度。',
+    businessErrors: {
+      RECRUITMENT_INVALID_QUANTITY: '招聘人数须为支持范围内的正整数。',
+      RECRUITMENT_INVALID_SALARY:
+        '请填写有效薪资区间，最低薪资不能高于最高薪资。',
+      RECRUITMENT_INVALID_REPLACEMENTS:
+        '请按招聘人数选择对应数量的离职中或已离职替补员工。',
+      RECRUITMENT_REPLACEMENT_UNAVAILABLE:
+        '替补来源员工已不符合条件，请刷新并重新选择。',
+      RECRUITMENT_ACCOUNT_MISMATCH: '所选编制须与部门、岗位和年度一致。',
+      RECRUITMENT_YEAR_MISMATCH: '编制年度不匹配，请重新选择对应年度的编制。',
+      RECRUITMENT_DEPARTMENT_UNAVAILABLE: '请选择有效部门。',
+      RECRUITMENT_POSITION_UNAVAILABLE: '请选择所选部门中的有效岗位。',
+      RECRUITMENT_GRADE_UNAVAILABLE: '请选择已启用的职级。',
+      RECRUITMENT_GRADE_SNAPSHOT_MISMATCH:
+        '薪级已变化，请刷新并核对薪资区间后重新提交。',
+      RECRUITMENT_RESERVATION_UNAVAILABLE:
+        '没有可用的编制预占，请刷新编制台账并核对可用人数。',
+      RECRUITMENT_REQUISITION_ALREADY_PUBLISHED:
+        '该招聘单已发布，请刷新查看当前状态。',
+      RECRUITMENT_INVALID_INPUT:
+        '请补齐部门、岗位、职级、编制、预计到岗日期、岗位说明及申请原因。',
+    },
+
     capacityEmpty: '没有匹配的已初始化年度编制，请联系HR创建并核对初始化。',
     capacitySelectTarget: '请先选择部门、岗位和编制年度。',
     capacityLedger: '查看编制台账',
@@ -36,6 +60,11 @@ export default {
     progress: '审批进度',
     timeline: '时间线',
     recipient: '接收人',
+    candidatesFailed:
+      '接收人加载失败，请重试；如仍失败，请刷新审批详情后重新操作。',
+    noCandidates: '没有符合当前审批资格的接收人。',
+    actionInvalid:
+      '请填写操作原因并选择本次操作所需的接收人、退回环节、加签方式或席位。',
     recipientSearch: '搜索符合条件的接收人',
     moreCandidates: '加载更多接收人',
     returnTarget: '退回环节',

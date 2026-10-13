@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { StatusBadge } from '#components/status-badge';
 import { UserName } from '#components/user-name';
 import {
@@ -55,7 +56,12 @@ export default function RecruitmentDetail() {
       detail?.record.lifecycleVersion,
     ),
     review = useRecruitmentResource<{ data: Options }>(
-      ready && reviewGrant.can && !reviewGrant.isPending && !reviewGrant.error
+      ready &&
+        detail &&
+        offersOf(detail).some((offer) => offer.name === 'approve') &&
+        reviewGrant.can &&
+        !reviewGrant.isPending &&
+        !reviewGrant.error
         ? 'recruitmentRequests/formOptions'
         : null,
       { requestId, mode: 'reviewEdit' },
@@ -86,15 +92,7 @@ export default function RecruitmentDetail() {
     <RecordDetailDrawer
       headerStatus={
         detail ? (
-          <StatusBadge
-            tone={
-              ['approved', 'completed', 'issued', 'active'].includes(
-                detail.record.status,
-              )
-                ? 'success'
-                : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(detail.record.status)}>
             {t(`recruitment.status.${detail.record.status}`)}
           </StatusBadge>
         ) : null
@@ -173,7 +171,7 @@ export default function RecruitmentDetail() {
         <Loading />
       ) : detail ? (
         <div className='flex flex-col gap-6'>
-          <dl className='grid grid-cols-[8rem_1fr] gap-3'>
+          <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-3'>
             <dt className='text-muted-foreground'>
               {t('recruitment.fields.applicant')}
             </dt>
@@ -220,7 +218,7 @@ export default function RecruitmentDetail() {
           {salary.error ? (
             <ErrorState error={salary.error} retry={salary.reload} />
           ) : salary.data && !salary.loading ? (
-            <dl className='grid grid-cols-[8rem_1fr] gap-3'>
+            <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-3'>
               {(['minimumCents', 'maximumCents'] as const).map((key) => (
                 <div className='contents' key={key}>
                   <dt>{t(`recruitment.fields.${key}`)}</dt>

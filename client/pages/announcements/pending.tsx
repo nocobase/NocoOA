@@ -35,7 +35,7 @@ export function PendingList({
       ),
       cell: ({ row }) => (
         <Link
-          className='font-medium text-primary hover:underline'
+          className='font-medium text-foreground underline-offset-4 hover:underline'
           to={{
             pathname: `${base}/${row.original.announcementId}`,
             search: location.search,

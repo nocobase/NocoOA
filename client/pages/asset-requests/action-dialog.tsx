@@ -13,7 +13,7 @@ import {
   useResolvedPath,
 } from 'react-router';
 import { useRouteOverlay } from '#components/use-route-overlay';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { Button } from '#components/ui/button';
 import { Spinner } from '#components/ui/spinner';
 import { violationPaths, actionField } from './errors.js';
@@ -353,12 +353,12 @@ function AssetRequestActionContent() {
     'returnIssued',
   ].includes(actionName);
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t('assetRequests.actionTitle', {
         action: t(`assetRequests.actions.${actionName}`),
         name,
       })}
-      className={physical || needsPerson ? undefined : 'sm:max-w-md'}
+      className={physical || needsPerson ? undefined : 'sm:max-w-2xl'}
       beforeClose={() => !command.busy && !frozen}
       footer={
         <>
@@ -645,7 +645,7 @@ function AssetRequestActionContent() {
           </AlertDialog>
         </>
       )}
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 

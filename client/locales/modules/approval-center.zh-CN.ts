@@ -27,6 +27,14 @@ export default {
     period: '申请期间',
     amount: '数量',
     scope: '仅展示你有权查看的业务记录，数量以你的授权范围为准。',
+    category: '申请分类',
+    categories: {
+      all: '全部申请',
+      drafts: '草稿',
+      revisions: '退回与异常',
+      inProgress: '办理中',
+      submitted: '已发起',
+    },
     kinds: {
       workItem: '普通工作事项',
       announcementReceipt: '公告阅读回执',

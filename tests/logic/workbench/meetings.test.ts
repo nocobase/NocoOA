@@ -1,5 +1,9 @@
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
+import {
+  DEFAULT_ADMIN_CREDENTIALS,
+  signIn,
+} from '@nocobase/app-plugin-authentication/testing';
 import { expect, vi } from 'vitest';
 import { databaseManagerToken } from '@nocobase/db';
 import { authorizationToken } from '@nocobase/app-plugin-authorization/server';
@@ -107,7 +111,17 @@ test('today meetings use company calendar, actual participant and scope, complet
     expect(JSON.stringify(body)).not.toContain('Tomorrow');
     expect(body.data.items[0].status).toBe('pendingConfirmation');
   }
-  expect((await outsiderSession.fetch('/workbench/meetings')).status).toBe(403);
+  const unboundSummary = await outsiderSession.fetch('/workbench/meetings');
+  expect(unboundSummary.status).toBe(200);
+  expect(await unboundSummary.json()).toEqual({
+    data: { date, timeZone: calendar.timeZone(), total: 0, items: [] },
+  });
+  const rootSession = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
+  const rootSummary = await rootSession.fetch('/workbench/meetings');
+  expect(rootSummary.status).toBe(200);
+  expect(await rootSummary.json()).toEqual({
+    data: { date, timeZone: calendar.timeZone(), total: 0, items: [] },
+  });
   const original = authz.for.bind(authz);
   const spy = vi.spyOn(authz, 'for').mockImplementation((identity) => {
     const context = original(identity);
@@ -140,6 +154,10 @@ test('today meetings use company calendar, actual participant and scope, complet
     const response = await ownerSession.fetch('/workbench/meetings');
     expect(response.status).toBe(403);
     expect(await response.text()).not.toContain('Owned');
+    // An empty personal summary must not bypass restricted field grants.
+    expect((await outsiderSession.fetch('/workbench/meetings')).status).toBe(
+      403,
+    );
   } finally {
     spy.mockRestore();
   }

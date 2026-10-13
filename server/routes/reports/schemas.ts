@@ -42,8 +42,10 @@ export const ContractListQuery = z.strictObject({
 export const BudgetRow = z.object({
   id: z.string(),
   departmentId: z.string(),
+  departmentName: z.string().nullable(),
   year: z.number().int(),
   subject: z.string(),
+  subjectLabel: z.record(z.string(), z.string()).nullable(),
   allocatedCents: z.number().int(),
   heldCents: z.number().int(),
   usedCents: z.number().int(),
@@ -53,7 +55,9 @@ export const BudgetRow = z.object({
 export const HeadcountRow = z.object({
   id: z.string(),
   departmentId: z.string(),
+  departmentName: z.string().nullable(),
   positionId: z.string(),
+  positionName: z.string().nullable(),
   year: z.number().int(),
   limit: z.number().int(),
   initialized: z.boolean(),
@@ -71,6 +75,7 @@ export const ContractRow = z.object({
   id: z.string(),
   number: z.string().nullable(),
   departmentId: z.string(),
+  departmentName: z.string().nullable(),
   status: z.enum(['activePendingSeal', 'active', 'terminated']),
   amountCents: z.number().int(),
   heldCents: z.number().int(),

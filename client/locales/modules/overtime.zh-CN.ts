@@ -1,5 +1,9 @@
 export default {
   overtime: {
+    businessErrors: {
+      OVERTIME_INVALID_DATE: '请选择有效的加班日期。',
+    },
+
     authz: { resource: '加班申请' },
     navigation: '加班申请',
     description: '申请加班，查看审批进度和结算方式。',

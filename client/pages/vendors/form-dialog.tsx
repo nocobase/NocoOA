@@ -8,6 +8,11 @@ import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { Input } from '#components/ui/input';
 import { Label } from '#components/ui/label';
+import {
+  Field as FormField,
+  FieldError,
+  FieldLabel,
+} from '#components/ui/field';
 import { Textarea } from '#components/ui/textarea';
 import { Switch } from '#components/ui/switch';
 import { Spinner } from '#components/ui/spinner';
@@ -294,7 +299,7 @@ function Form({
       id='vendor-form'
       ref={formRef}
       onSubmit={(e) => void save(e)}
-      className='space-y-4'
+      className='flex flex-col gap-4'
     >
       {error ? (
         <div data-form-error tabIndex={-1}>
@@ -315,15 +320,19 @@ function Form({
       ) : null}
       <fieldset
         disabled={busy || uncertain || refreshing}
-        className='space-y-4'
+        className='flex flex-col gap-4'
       >
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
           {shown.map((k) => (
-            <div key={k} className='space-y-2'>
-              <Label htmlFor={`vendor-${k}`}>{t(`vendors.fields.${k}`)}</Label>
+            <FormField key={k} data-invalid={!!errors[k]}>
+              <FieldLabel htmlFor={`vendor-${k}`}>
+                {t(`vendors.fields.${k}`)}
+                {['code', 'name', 'category'].includes(k) ? ' *' : ''}
+              </FieldLabel>
               <Input
                 id={`vendor-${k}`}
                 name={k}
+                aria-required={['code', 'name', 'category'].includes(k)}
                 value={values[k]}
                 maxLength={
                   k === 'code' || k === 'contactPhone'
@@ -339,14 +348,9 @@ function Form({
                 }
               />
               {errors[k] ? (
-                <p
-                  id={`vendor-${k}-error`}
-                  className='text-sm text-destructive'
-                >
-                  {errors[k]}
-                </p>
+                <FieldError id={`vendor-${k}-error`}>{errors[k]}</FieldError>
               ) : null}
-            </div>
+            </FormField>
           ))}
         </div>
         {row ? (
@@ -364,11 +368,14 @@ function Form({
             ) : null}
           </div>
         ) : null}
-        <div className='space-y-2'>
-          <Label htmlFor='vendor-reason'>{t('vendors.reason')}</Label>
+        <FormField data-invalid={!!errors.reason}>
+          <FieldLabel htmlFor='vendor-reason'>
+            {t('vendors.reason')} *
+          </FieldLabel>
           <Textarea
             id='vendor-reason'
             name='reason'
+            aria-required
             value={reason}
             maxLength={5000}
             aria-invalid={!!errors.reason}
@@ -376,11 +383,9 @@ function Form({
             onChange={(e) => setReason(e.target.value)}
           />
           {errors.reason ? (
-            <p id='vendor-reason-error' className='text-sm text-destructive'>
-              {errors.reason}
-            </p>
+            <FieldError id='vendor-reason-error'>{errors.reason}</FieldError>
           ) : null}
-        </div>
+        </FormField>
       </fieldset>
     </form>
   );

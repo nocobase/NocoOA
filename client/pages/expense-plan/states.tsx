@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Alert, AlertDescription } from '#components/ui/alert';
@@ -9,6 +10,7 @@ export function ErrorState({
   error: unknown;
   retry: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'expensePlans');
   const { t } = useTranslation();
   const key =
     error instanceof ApiClientError
@@ -22,9 +24,11 @@ export function ErrorState({
               ? 'invalid'
               : undefined
       : undefined;
-  return key ? (
+  return key || businessMessage ? (
     <Alert variant='destructive' aria-live='assertive'>
-      <AlertDescription>{t(`expensePlans.errors.${key}`)}</AlertDescription>
+      <AlertDescription>
+        {businessMessage ?? t(`expensePlans.errors.${key}`)}
+      </AlertDescription>
     </Alert>
   ) : (
     <SharedError error={error} retry={retry} />

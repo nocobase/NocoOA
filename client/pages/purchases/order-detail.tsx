@@ -122,7 +122,7 @@ export default function PurchaseOrderDetail() {
         </>
       }
     >
-      <div className='space-y-6'>
+      <div className='flex flex-col gap-6'>
         {resource.error ? (
           <ErrorState error={resource.error} retry={resource.reload} />
         ) : null}
@@ -153,7 +153,7 @@ export default function PurchaseOrderDetail() {
                 </div>
               ))}
             </dl>
-            <div className='space-y-3'>
+            <div className='flex flex-col gap-3'>
               <h2 className='text-base font-semibold'>
                 {t('purchases.items')}
               </h2>

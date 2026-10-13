@@ -260,6 +260,7 @@ test('main center uses vehicle approval and dispatch offers and never projects p
   expect(mine.data[0]).toMatchObject({
     id,
     applicant: { id: owner.userId, name: 'Vehicle center owner' },
+    title: 'Private vehicle purpose',
     startDate: '2027-01-06T01:00:00.000Z',
     amount: null,
     unit: null,
@@ -551,6 +552,14 @@ test('main center recruitment draft and real HRBP pending share safe totals and 
   try {
     // Identity and sorting are readable, but the real summary date is missing.
     expect((await os.fetch(url + '&view=mine')).status).toBe(403);
+    // Optional reason/updatedAt denial must omit summary fields, not hide an otherwise readable record.
+    fields.push('expectedStartDate');
+    const restrictedSummary = await os.fetch(url + '&view=mine');
+    expect(restrictedSummary.status).toBe(200);
+    const restrictedRows = (await restrictedSummary.json()).data;
+    expect(restrictedRows).toHaveLength(1);
+    expect(restrictedRows[0]).not.toHaveProperty('title');
+    expect(restrictedRows[0]).not.toHaveProperty('updatedAt');
   } finally {
     fieldSpy.mockRestore();
   }

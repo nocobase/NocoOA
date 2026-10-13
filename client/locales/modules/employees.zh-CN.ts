@@ -3,6 +3,7 @@ import type { EmployeesLocale } from './employees.en-US.js';
 
 const employeesZhCN: LocaleResource<EmployeesLocale> = {
   employees: {
+    refresh: '刷新',
     personal: {
       title: '个人档案',
       description: '查看你的档案资料；信息有误请联系 HR 修改。',

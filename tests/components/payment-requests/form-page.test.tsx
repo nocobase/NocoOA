@@ -145,10 +145,10 @@ it('creates an empty evidence-owned draft without dropping local inputs or navig
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled(),
   );
-  fireEvent.change(screen.getByLabelText('Payment reason'), {
+  fireEvent.change(screen.getByLabelText('Payment reason *'), {
     target: { value: 'Unsaved reason' },
   });
-  fireEvent.change(screen.getByLabelText('Invoice number'), {
+  fireEvent.change(screen.getByLabelText('Invoice number *'), {
     target: { value: 'Unsaved invoice' },
   });
   fireEvent.change(screen.getByLabelText('Invoice evidence *'), {
@@ -180,8 +180,10 @@ it('creates an empty evidence-owned draft without dropping local inputs or navig
       }),
     }),
   );
-  expect(screen.getByLabelText('Payment reason')).toHaveValue('Unsaved reason');
-  expect(screen.getByLabelText('Invoice number')).toHaveValue(
+  expect(screen.getByLabelText('Payment reason *')).toHaveValue(
+    'Unsaved reason',
+  );
+  expect(screen.getByLabelText('Invoice number *')).toHaveValue(
     'Unsaved invoice',
   );
   expect(navigate).not.toHaveBeenCalled();
@@ -200,12 +202,12 @@ it('locks uncertain creation and replays exactly the same payload and key', asyn
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled(),
   );
-  fireEvent.change(screen.getByLabelText('Payment reason'), {
+  fireEvent.change(screen.getByLabelText('Payment reason *'), {
     target: { value: 'Keep exact' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
   await screen.findByRole('button', { name: 'Reconcile the original request' });
-  expect(screen.getByLabelText('Payment reason')).toBeDisabled();
+  expect(screen.getByLabelText('Payment reason *')).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Choose Bob' })).toBeDisabled();
   const original = api.request.mock.calls.find(
     ([v]) => v.path === 'paymentRequests',
@@ -252,7 +254,7 @@ it('reacts to delayed permission resolution and revokes editing when that permis
   );
   view.rerender(content(false));
   expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
-  expect(screen.getByLabelText('Payment reason')).toBeDisabled();
+  expect(screen.getByLabelText('Payment reason *')).toBeDisabled();
 });
 it('keeps a freshly revoked business offer closed even if the parent retains its former allowed value', async () => {
   let save = true;
@@ -284,7 +286,7 @@ it('keeps a freshly revoked business offer closed even if the parent retains its
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled(),
   );
-  fireEvent.change(screen.getByLabelText('Payment reason'), {
+  fireEvent.change(screen.getByLabelText('Payment reason *'), {
     target: { value: 'Keep edit' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
@@ -292,7 +294,7 @@ it('keeps a freshly revoked business offer closed even if the parent retains its
   fireEvent.click(screen.getByRole('button', { name: 'Load latest' }));
   await screen.findByText(/Latest version loaded/);
   expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
-  expect(screen.getByLabelText('Payment reason')).toHaveValue('Keep edit');
+  expect(screen.getByLabelText('Payment reason *')).toHaveValue('Keep edit');
 });
 
 it('opens a direct new URL after asynchronous useCan resolves and disables it again on permission revocation', async () => {
@@ -349,4 +351,27 @@ it('shows the selected purchase order actual status alongside its monetary facts
     'badge',
   );
   expect(screen.getByText('Order status')).toBeInTheDocument();
+});
+
+it('explains missing submission facts on their fields without writing, while preserving incomplete drafts', async () => {
+  show();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+  await screen.findAllByText('This field is required.');
+  expect(screen.getByLabelText('Payment reason *')).toHaveFocus();
+  expect(screen.getByLabelText('Invoice number *')).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  expect(api.request.mock.calls.some(([call]) => call.method === 'POST')).toBe(
+    false,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(() =>
+    expect(
+      api.request.mock.calls.some(([call]) => call.method === 'POST'),
+    ).toBe(true),
+  );
 });

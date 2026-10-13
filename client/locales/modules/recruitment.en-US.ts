@@ -1,5 +1,33 @@
 export default {
   recruitment: {
+    yearInvalid: 'Enter a whole year between 1900 and 9999.',
+    businessErrors: {
+      RECRUITMENT_INVALID_QUANTITY:
+        'Enter a positive whole number of recruits within the supported range.',
+      RECRUITMENT_INVALID_SALARY:
+        'Enter a valid salary range with the minimum no higher than the maximum.',
+      RECRUITMENT_INVALID_REPLACEMENTS:
+        'Select departing or departed replacements matching the recruitment quantity.',
+      RECRUITMENT_REPLACEMENT_UNAVAILABLE:
+        'A replacement is no longer eligible. Refresh and select an eligible replacement.',
+      RECRUITMENT_ACCOUNT_MISMATCH:
+        'The headcount account must match the department, position and year.',
+      RECRUITMENT_YEAR_MISMATCH:
+        'The headcount year changed. Select the matching annual account.',
+      RECRUITMENT_DEPARTMENT_UNAVAILABLE: 'Select an active department.',
+      RECRUITMENT_POSITION_UNAVAILABLE:
+        'Select an active position in the chosen department.',
+      RECRUITMENT_GRADE_UNAVAILABLE: 'Select an enabled grade.',
+      RECRUITMENT_GRADE_SNAPSHOT_MISMATCH:
+        'The grade changed. Refresh and check the salary range before resubmitting.',
+      RECRUITMENT_RESERVATION_UNAVAILABLE:
+        'No usable headcount reservation is available. Refresh the headcount account and check capacity.',
+      RECRUITMENT_REQUISITION_ALREADY_PUBLISHED:
+        'This recruitment requisition is already published. Refresh to see its status.',
+      RECRUITMENT_INVALID_INPUT:
+        'Complete department, position, grade, headcount, start date, job description and reason.',
+    },
+
     capacityEmpty:
       'No matching initialized annual headcount. Ask HR to create and initialize it.',
     capacitySelectTarget: 'Select a department, position and year first.',
@@ -40,6 +68,11 @@ export default {
     progress: 'Approval progress',
     timeline: 'Timeline',
     recipient: 'Recipient',
+    candidatesFailed:
+      'Could not load recipients. Retry, or refresh the approval details and try again.',
+    noCandidates: 'No recipients meet the current approval requirements.',
+    actionInvalid:
+      'Enter an operation reason and select the recipient, return stage, signer mode or place required for this action.',
     recipientSearch: 'Search eligible recipients',
     moreCandidates: 'Load more recipients',
     returnTarget: 'Return to stage',

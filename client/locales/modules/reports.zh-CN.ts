@@ -1,5 +1,6 @@
 export default {
   reports: {
+    noData: '暂无报表数据',
     title: '报表',
     description: '查看当前授权范围内的报表，并导出对应数据源。',
     invalidFilters: '请输入 1900–9999 年和 1–12 月，或清除筛选。',
@@ -26,6 +27,8 @@ export default {
     capacityNotice:
       '未初始化的编制不可使用；替补阻断需业务处理，不能增加可用名额。',
     states: {
+      activePendingSeal: '生效待用印',
+      active: '生效中',
       uninitialized: '未初始化',
       blocked: '替补阻断',
       ready: '已初始化',
@@ -70,6 +73,9 @@ export default {
       },
     },
     fields: {
+      departmentName: '部门',
+      positionName: '岗位',
+      subjectName: '预算科目',
       month: '开始月份',
       leaveType: '假别',
       approvedRequestCount: '批准申请数',
@@ -85,14 +91,14 @@ export default {
       positionId: '岗位 ID',
       year: '年度',
       subject: '科目',
-      allocatedCents: '额度（分）',
-      heldCents: '预占（分）',
-      usedCents: '已用（分）',
-      availableCents: '可用（分）',
+      allocatedCents: '额度（元）',
+      heldCents: '预占（元）',
+      usedCents: '已用（元）',
+      availableCents: '可用（元）',
       number: '合同编号',
       status: '状态',
-      amountCents: '金额（分）',
-      paidCents: '已付（分）',
+      amountCents: '金额（元）',
+      paidCents: '已付（元）',
       limit: '编制上限',
       initialized: '已初始化',
       used: '已占用',

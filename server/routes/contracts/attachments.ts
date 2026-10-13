@@ -1,3 +1,4 @@
+import { attachmentSelectionFilters } from '../attachment-selection.js';
 import { localizedContractError } from './localization.js';
 import {
   authenticationToken,
@@ -47,20 +48,15 @@ const generated = defineFileRepositoryApiRoutes<Principal>({
       accessPath: '/uploads/contract',
       accessMode: 'stream',
       policy: (p) => ({
-        read:
-          p.ids?.length === 0
-            ? false
-            : {
-                scope: (f) =>
-                  f.and([
-                    f.string('requestId').eq(p.requestId),
-                    f.string('purpose').eq(p.purpose),
-                    ...(p.ids
-                      ? [f.or(p.ids.map((id) => f.string('id').eq(id)))]
-                      : []),
-                  ]),
-                fields: CONTRACT_FILE_FIELDS,
-              },
+        read: {
+          scope: (f) =>
+            f.and([
+              f.string('requestId').eq(p.requestId),
+              f.string('purpose').eq(p.purpose),
+              ...attachmentSelectionFilters(f, p.ids),
+            ]),
+          fields: CONTRACT_FILE_FIELDS,
+        },
         create: p.upload
           ? {
               scope: {

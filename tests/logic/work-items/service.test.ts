@@ -422,3 +422,16 @@ test('administration lock serializes disable before dispatch and disabled accoun
     f.act(open.id, open.version, 'claim', f.one.userId),
   ).rejects.toThrow('ACCESS_DENIED');
 });
+
+test('rejects past and current draft deadlines with a dueAt field violation', async ({
+  testApp,
+}) => {
+  const f = await fixture(testApp);
+  for (const dueAt of ['2029-12-31T23:59:59Z', '2030-01-01T00:00:00Z']) {
+    await expect(f.save({ ...f.input(), dueAt })).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+      field: 'dueAt',
+    });
+  }
+  expect((await f.save()).status).toBe('draft');
+});

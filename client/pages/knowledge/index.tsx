@@ -1,3 +1,5 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { useMemo } from 'react';
@@ -6,7 +8,7 @@ import { Link, Outlet, useLocation } from 'react-router';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import type { ColumnDef } from '@tanstack/react-table';
-import { RefreshCw, Plus, FolderTree } from 'lucide-react';
+import { Plus, FolderTree } from 'lucide-react';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { ApplicationToolbar } from '#components/application-toolbar';
@@ -110,14 +112,11 @@ export default function Knowledge() {
       <ApplicationToolbar
         actions={
           <>
-            <Button
-              variant='outline'
-              disabled={r.loading}
-              onClick={() => r.reload()}
-            >
-              <RefreshCw />
-              {t('knowledge.refresh')}
-            </Button>
+            <ApplicationRefreshButton
+              label={t('knowledge.refresh')}
+              loading={r.loading}
+              onClick={r.reload}
+            />
             {folderView.can && !folderView.isPending && !folderView.error ? (
               <Button
                 variant='outline'
@@ -257,11 +256,27 @@ export default function Knowledge() {
                   p.set('pageSize', String(value.pageSize));
                 });
               }}
-              emptyMessage={t(
-                search.search || folderId
-                  ? 'knowledge.noMatch'
-                  : 'knowledge.empty',
-              )}
+              emptyMessage={
+                <ApplicationTableEmpty
+                  title={t(
+                    search.search || folderId
+                      ? 'knowledge.noMatch'
+                      : 'knowledge.empty',
+                  )}
+                  clearFilters={
+                    search.search || folderId
+                      ? {
+                          label: t('knowledge.clear'),
+                          onClick: () =>
+                            search.clear((p) => {
+                              p.delete('folderId');
+                              p.delete('page');
+                            }),
+                        }
+                      : undefined
+                  }
+                />
+              }
             />
           ) : null}
         </div>

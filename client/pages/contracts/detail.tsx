@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { PrintEntry } from '../template-print/entry.js';
 import { useMissing } from './use-missing.js';
 import { useMemo, useReducer } from 'react';
@@ -115,15 +116,7 @@ export default function RequestDetail() {
     <RecordDetailDrawer
       headerStatus={
         data ? (
-          <StatusBadge
-            tone={
-              data.record.status === 'approved'
-                ? 'success'
-                : data.record.status === 'revision'
-                  ? 'warning'
-                  : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(data.record.status)}>
             {t(`contracts.statuses.${data.record.status}`)}
           </StatusBadge>
         ) : null
@@ -195,7 +188,7 @@ export default function RequestDetail() {
         </>
       }
     >
-      <div className='space-y-6'>
+      <div className='flex flex-col gap-6'>
         {resource.error ? (
           <ErrorState error={resource.error} retry={resource.reload} />
         ) : null}

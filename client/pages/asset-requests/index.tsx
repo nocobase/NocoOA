@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
 import { ApplicationToolbar } from '#components/application-toolbar';
@@ -193,7 +194,7 @@ export default function AssetRequestsPage() {
       header: t('assetRequests.statusLabel'),
       enableSorting: false,
       cell: ({ row }) => (
-        <StatusBadge tone='neutral'>
+        <StatusBadge tone={statusTone(row.original.status)}>
           {row.original.status
             ? t(`assetRequests.statuses.${row.original.status}`)
             : '—'}

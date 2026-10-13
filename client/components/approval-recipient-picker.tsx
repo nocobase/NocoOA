@@ -1,17 +1,15 @@
 import { UserName } from '#components/user-name';
 import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { useEffect, useState } from 'react';
-import { Input } from '#components/ui/input';
-import { Button } from '#components/ui/button';
+import { useEffect, useState, useEffectEvent } from 'react';
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '#components/ui/select';
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '#components/ui/combobox';
 import { ErrorState } from '../pages/approvals/states.js';
 import type { Person } from '../pages/approvals/types.js';
 export function ApprovalRecipientPicker({
@@ -27,13 +25,18 @@ export function ApprovalRecipientPicker({
   focusRef,
   invalid,
   onBlur,
+  searchCandidates,
 }: {
-  focusRef?: (node: HTMLButtonElement | null) => void;
+  searchCandidates?: (
+    search: string,
+    signal: AbortSignal,
+  ) => Promise<{ people: Person[]; nextOffset: number | null }>;
+  focusRef?: (node: HTMLInputElement | null) => void;
   invalid?: boolean;
   onBlur?: () => void;
   id: string;
-  recordId: string;
-  requestPath:
+  recordId?: string;
+  requestPath?:
     | 'leaveRequests'
     | 'overtimeRequests'
     | 'attendanceChangeRequests'
@@ -59,46 +62,59 @@ export function ApprovalRecipientPicker({
   onChange: (value: string) => void;
   disabled: boolean;
 }) {
+  const clearSelection = useEffectEvent(() => onChange(''));
   const api = useApiClient();
   const { t } = useTranslation();
+  const [selected, setSelected] = useState<Person | null>(null);
   const [search, setSearch] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
-  const [offset, setOffset] = useState(0);
-  const [next, setNext] = useState<number | null>(null);
   const [error, setError] = useState<unknown>();
+  const [failedSearch, setFailedSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0);
   const targetTaskId =
     target && 'taskId' in target ? target.taskId : target ? undefined : taskId;
   const targetRunId = target && 'runId' in target ? target.runId : undefined;
   useEffect(() => {
-    if (!targetTaskId && !targetRunId) return;
+    if ((!searchCandidates && !targetTaskId && !targetRunId) || !search.trim())
+      return;
+    const abort = new AbortController();
     let disposed = false;
     const timer = setTimeout(() => {
       setLoading(true);
-      void api
-        .request<{ data: { people: Person[]; nextOffset: number | null } }>({
-          path: `${requestPath}/${encodeURIComponent(recordId)}/candidates`,
-          query: {
-            ...(targetRunId
-              ? { runId: targetRunId }
-              : { taskId: targetTaskId! }),
-            action,
-            search,
-            offset,
-            limit: 20,
-          },
-        })
+      const request = searchCandidates
+        ? searchCandidates(search.trim(), abort.signal).then((data) => ({
+            data,
+          }))
+        : api.request<{
+            data: { people: Person[]; nextOffset: number | null };
+          }>({
+            signal: abort.signal,
+            path: `${requestPath}/${encodeURIComponent(recordId ?? '')}/candidates`,
+            query: {
+              ...(targetRunId
+                ? { runId: targetRunId }
+                : { taskId: targetTaskId! }),
+              action,
+              search: search.trim(),
+              offset: 0,
+              limit: 50,
+            },
+          });
+      void request
         .then(({ data }) => {
           if (disposed) return;
-          setPeople((previous) =>
-            offset ? [...previous, ...data.people] : data.people,
-          );
-          setNext(data.nextOffset);
+          setPeople(data.people.slice(0, 50));
           setError(undefined);
         })
         .catch((reason: unknown) => {
-          if (!disposed) setError(reason);
+          if (!disposed) {
+            setPeople([]);
+            setSelected(null);
+            clearSelection();
+            setFailedSearch(search.trim());
+            setError(reason);
+          }
         })
         .finally(() => {
           if (!disposed) setLoading(false);
@@ -106,78 +122,97 @@ export function ApprovalRecipientPicker({
     }, 300);
     return () => {
       disposed = true;
+      abort.abort();
       clearTimeout(timer);
     };
   }, [
     api,
+    searchCandidates,
     requestPath,
     recordId,
     targetTaskId,
     targetRunId,
     action,
     search,
-    offset,
     retry,
   ]);
   return (
     <div className='flex flex-col gap-2'>
-      <Input
-        aria-label={t('approvals.recipientSearch')}
-        value={search}
+      <Combobox
+        items={
+          selected &&
+          selected.id === value &&
+          !people.some((person) => person.id === value)
+            ? [selected, ...people].slice(0, 50)
+            : people
+        }
+        filter={null}
+        value={
+          people.find((person) => person.id === value) ??
+          (selected?.id === value ? selected : null)
+        }
+        itemToStringLabel={(person: Person) => person.name}
+        isItemEqualToValue={(a: Person, b: Person) => a.id === b.id}
         disabled={disabled}
-        onChange={(event) => {
-          setSearch(event.target.value);
-          setOffset(0);
+        onValueChange={(person: Person | null) => {
+          setSelected(person);
+          onChange(person?.id ?? '');
+          if (person) {
+            setSearch('');
+            setPeople([]);
+            setLoading(false);
+          }
         }}
-      />
-      <Select
-        value={value || null}
-        onValueChange={(person) => onChange(person ?? '')}
-        disabled={disabled || loading}
-        items={people.map((person) => ({
-          value: person.id,
-          label: person.name,
-        }))}
+        onInputValueChange={(text, details) => {
+          if (
+            details.reason === 'input-change' ||
+            (details.reason === 'input-clear' && !!value)
+          ) {
+            if (text === search) return;
+            setSearch(text);
+            setPeople([]);
+            setError(undefined);
+            setLoading(!!text.trim());
+          }
+        }}
       >
-        <SelectTrigger
+        <ComboboxInput
           id={id}
           ref={focusRef}
           onBlur={onBlur}
           aria-invalid={invalid || undefined}
-        >
-          <SelectValue>
-            {value ? (
-              <UserName
-                name={people.find((person) => person.id === value)?.name}
-              />
-            ) : undefined}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {people.map((person) => (
-              <SelectItem key={person.id} value={person.id}>
+          placeholder={t('approvals.recipientSearch')}
+          showClear={!!value && !disabled}
+        />
+        <ComboboxContent>
+          <ComboboxEmpty>
+            {t(
+              !search.trim()
+                ? 'approvals.recipientSearch'
+                : loading
+                  ? 'userPicker.searching'
+                  : 'userPicker.empty',
+            )}
+          </ComboboxEmpty>
+          <ComboboxList>
+            {(person: Person) => (
+              <ComboboxItem key={person.id} value={person}>
                 <UserName name={person.name} />
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
       {error ? (
         <ErrorState
+          context='query'
           error={error}
-          retry={() => setRetry((value) => value + 1)}
+          retry={() => {
+            setSearch(failedSearch);
+            setLoading(true);
+            setRetry((value) => value + 1);
+          }}
         />
-      ) : null}
-      {next !== null ? (
-        <Button
-          type='button'
-          variant='outline'
-          disabled={disabled || loading}
-          onClick={() => setOffset(next)}
-        >
-          {t('approvals.moreRecipients')}
-        </Button>
       ) : null}
     </div>
   );

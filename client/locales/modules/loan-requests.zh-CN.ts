@@ -1,5 +1,15 @@
 export default {
   loanRequests: {
+    businessErrors: {
+      LOAN_REQUEST_DEPARTMENT_REQUIRED:
+        '申请人没有有效主部门，请联系人力资源完善员工档案。',
+      LOAN_REQUEST_INVALID_DATE: '预计还款日期不能早于公司时区的今天。',
+      LOAN_REQUEST_INVALID_TRAVEL: '请选择本人有效的已批准出差单。',
+      LOAN_REQUEST_INVALID_INPUT: '请填写借款原因并输入大于零的金额。',
+      LOAN_REQUEST_NOT_PAID: '该借款尚未实际放款，放款后才能登记还款。',
+      LOAN_REQUEST_REPAYMENT_INPUT_INVALID: '请填写还款收据号和登记原因。',
+    },
+
     loadLatest: '读取最新事实',
     latestFacts:
       '版本 {{version}} · {{amount}} 元 · 归还日 {{date}} · 事由：{{reason}}',
@@ -32,6 +42,7 @@ export default {
     loadingBank: '正在读取银行信息…',
     bankNotSnapshot: '尚未生成付款银行快照。',
     recordCash: '录入现金还款',
+    invalidRepaymentAmount: '归还金额读取异常，请联系财务核查此记录。',
     noRepayments: '暂无归还记录',
     loading: '正在加载…',
     confirmRepayment: '确认还款',

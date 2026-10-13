@@ -3,12 +3,14 @@ import type {
   AppClientRouteComponentModule,
 } from '@nocobase/app-client/plugins';
 import { act, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ClientRoute } from '../../client/routing/client-route.tsx';
 
+const access = vi.hoisted(() => ({ can: true }));
 vi.mock('@nocobase/app-plugin-authorization/client', () => ({
-  useCan: () => ({ can: true, isPending: false }),
+  useCan: () => ({ can: access.can, isPending: false }),
 }));
 
 const route: AppClientRegisteredRoute = {
@@ -77,4 +79,31 @@ describe('client route loading recovery', () => {
     expect(screen.getByText('Recovered page')).toBeVisible();
     expect(screen.queryByText('Unable to load page')).not.toBeInTheDocument();
   });
+});
+
+it('offers a workbench exit without exposing route identifiers when denied', () => {
+  access.can = false;
+  const loader = vi.fn();
+  render(
+    <MemoryRouter>
+      <ClientRoute
+        route={{
+          ...route,
+          name: 'oa-sensitive-internal',
+          authz: {
+            resource: { type: 'composite', id: 'oa.private' },
+            action: 'view',
+          },
+          componentLoader: loader,
+        }}
+      />
+    </MemoryRouter>,
+  );
+  expect(screen.getByText('Access denied')).toBeVisible();
+  expect(screen.queryByText(/oa-sensitive-internal/)).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Back to workbench' }),
+  ).toHaveAttribute('href', '/');
+  expect(loader).not.toHaveBeenCalled();
+  access.can = true;
 });

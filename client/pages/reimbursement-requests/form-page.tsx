@@ -1,3 +1,4 @@
+import { useRouteFormCloseGuard } from '#hooks/use-route-form-close-guard';
 import { UserName } from '#components/user-name';
 import { useRequestFormSubmission } from '#hooks/use-request-form-submission';
 import {
@@ -162,6 +163,7 @@ export function ReimbursementForm({
     [conflict, setConflict] = useState(false),
     [latestRead, setLatestRead] = useState(false),
     [unknown, setUnknown] = useState(false);
+  const cancelRequestedRef = useRef(false);
   const discardRef = useRef(false),
     busyRef = useRef(false),
     savedRef = useRef(false),
@@ -256,6 +258,14 @@ export function ReimbursementForm({
     paymentAccountBlocked =
       optionsReady && options.data?.paymentAccountComplete !== true,
     locked = interactionLocked || !optionsReady || paymentAccountBlocked;
+  useRouteFormCloseGuard(() => {
+    if (busyRef.current || uploading) return false;
+    if (savedRef.current || !dirty) return true;
+    cancelRequestedRef.current = true;
+    setDiscardConfirmed(false);
+    setDiscard(true);
+    return false;
+  });
   useNavigationGuard(() => {
     if (busyRef.current || uploading) return false;
     if (savedRef.current || !dirty) return true;
@@ -283,6 +293,26 @@ export function ReimbursementForm({
     discardRef.current = allow;
     setDiscardConfirmed(allow);
     setDiscard(false);
+    if (cancelRequestedRef.current) {
+      cancelRequestedRef.current = false;
+      if (allow)
+        void navigate(
+          { pathname: '..', search: location.search, hash: location.hash },
+          { relative: 'route' },
+        );
+    }
+  }
+  function cancelForm() {
+    if (busyRef.current || uploading) return;
+    if (dirty && !savedRef.current) {
+      cancelRequestedRef.current = true;
+      setDiscardConfirmed(false);
+      setDiscard(true);
+    } else
+      void navigate(
+        { pathname: '..', search: location.search, hash: location.hash },
+        { relative: 'route' },
+      );
   }
   useEffect(() => {
     if (!dirty && !busy && !uploading) return;
@@ -551,13 +581,23 @@ export function ReimbursementForm({
         title={f(detail ? 'edit' : 'new')}
         description={f('description')}
         actions={
-          <RequestFormButtons
-            revision={record?.status === 'revision'}
-            resource='oa.reimbursement'
-            form='reimbursement-form'
-            busy={busy}
-            disabled={locked || !optionsReady}
-          />
+          <>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={busy || uploading}
+              onClick={cancelForm}
+            >
+              {t('approvals.cancel')}
+            </Button>
+            <RequestFormButtons
+              revision={record?.status === 'revision'}
+              resource='oa.reimbursement'
+              form='reimbursement-form'
+              busy={busy}
+              disabled={locked || !optionsReady}
+            />
+          </>
         }
       />
       <div className='flex max-w-4xl flex-col gap-6'>
@@ -929,7 +969,7 @@ export function ReimbursementForm({
                 {f('addLine')}
               </Button>
             ) : null}
-            <dl className='grid grid-cols-[8rem_1fr] gap-2'>
+            <dl className='grid grid-cols-2 gap-2 sm:grid-cols-[8rem_1fr]'>
               <dt>{f('total')}</dt>
               <dd className='text-right'>
                 {total === null ? '—' : moneyLabel(total, i18n.language)}

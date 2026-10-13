@@ -7,10 +7,10 @@ import {
 } from '@nocobase/app-plugin-approval/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useOutletContext, useParams } from 'react-router';
+import { Link, useLocation, useOutletContext, useParams } from 'react-router';
 import { z } from 'zod';
 import { parseISO } from 'date-fns';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { ApprovalRecipientPicker } from '#components/approval-recipient-picker';
 import { Button } from '#components/ui/button';
@@ -152,7 +152,7 @@ export default function ReimbursementActionDialog() {
   const name = resource.data?.record.number ?? t('approvals.draft'),
     label = t(`reimbursementRequests.actionForm.labels.${actionName}`);
   return (
-    <RouteDialog
+    <RouteDrawer
       className={
         [
           'transfer',
@@ -165,7 +165,7 @@ export default function ReimbursementActionDialog() {
           'forcePayException',
         ].includes(actionName)
           ? undefined
-          : 'sm:max-w-md'
+          : 'sm:max-w-2xl'
       }
       title={t('reimbursementRequests.actionForm.title', {
         action: label,
@@ -240,7 +240,7 @@ export default function ReimbursementActionDialog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function ActionFooter({
@@ -294,6 +294,7 @@ export function ActionForm({
   reload: () => void;
 }) {
   const { t, i18n } = useTranslation(),
+    location = useLocation(),
     api = useApiClient(),
     toaster = useToaster(),
     { close } = useRouteOverlay(),
@@ -346,6 +347,8 @@ export function ActionForm({
       'forceComplete',
       'forcePayException',
       'retryCashAsAdmin',
+      'appoint',
+      'reassign',
       'terminate',
     ].includes(name);
   const modes = useMemo(
@@ -491,6 +494,32 @@ export function ActionForm({
     (action?.task?.stage === 'finance' &&
       ['approve', 'reject', 'returnItem'].includes(name) &&
       !line);
+  const submissionIssues =
+    name === 'submit'
+      ? [
+          ...(!detail.record.reason.trim() ? [f('reasonRequired')] : []),
+          ...(!detail.record.lines.length ? [f('linesRequired')] : []),
+          ...detail.record.lines.flatMap((row, index) =>
+            !row.category ||
+            !row.date ||
+            !Number.isSafeInteger(row.amountCents) ||
+            row.amountCents <= 0 ||
+            !row.invoiceNumber.trim() ||
+            !row.attachmentIds.length
+              ? [
+                  t('reimbursementRequests.actionForm.lineIncomplete', {
+                    number: index + 1,
+                  }),
+                ]
+              : [],
+          ),
+          ...(new Set(detail.record.lines.map((row) => row.id)).size !==
+          detail.record.lines.length
+            ? [f('duplicateLines')]
+            : []),
+        ]
+      : [];
+  const submissionBlocked = submissionIssues.length > 0;
   const locked =
     running ||
     committed ||
@@ -498,13 +527,27 @@ export function ActionForm({
     uncertain ||
     !allowed ||
     unsupported ||
-    !validMoney;
+    !validMoney ||
+    submissionBlocked;
   useEffect(
     () =>
       onBlocked?.(
-        committed || conflict || uncertain || unsupported || !validMoney,
+        committed ||
+          conflict ||
+          uncertain ||
+          unsupported ||
+          !validMoney ||
+          submissionBlocked,
       ),
-    [onBlocked, committed, conflict, uncertain, unsupported, validMoney],
+    [
+      onBlocked,
+      committed,
+      conflict,
+      uncertain,
+      unsupported,
+      validMoney,
+      submissionBlocked,
+    ],
   );
   async function perform(v: Values, replay = false) {
     if (
@@ -552,6 +595,7 @@ export function ActionForm({
     if (!replay && attemptRef.current?.key !== key)
       attemptRef.current = { key, requestId: createRequestId(), body };
     attemptValuesRef.current = v;
+    let requestSucceeded = false;
     try {
       await api.request({
         method: 'POST',
@@ -561,14 +605,15 @@ export function ActionForm({
           requestId: attemptRef.current!.requestId,
         },
       });
+      requestSucceeded = true;
       setCommitted(true);
       setUncertain(false);
       onComplete();
       form.reset(v);
       onDirty(false);
       setConfirm(false);
-      parent.reload();
-      parent.reloadDetail();
+      parent?.reload?.();
+      parent?.reloadDetail?.();
       toaster.show({
         type: 'success',
         title: t('reimbursementRequests.actionForm.completed', {
@@ -579,6 +624,8 @@ export function ActionForm({
       onBusy(false);
       await close();
     } catch (cause) {
+      // A confirmed write must never become an uncertain request because UI cleanup failed.
+      if (requestSucceeded) return;
       setError(cause);
       if (!(cause instanceof ApiClientError) || cause.status >= 500) {
         setUncertain(true);
@@ -721,7 +768,45 @@ export function ActionForm({
       ) : error && !uncertain ? (
         <ErrorState error={error} retry={latest} />
       ) : null}
-      <dl className='grid grid-cols-[8rem_1fr] gap-2'>
+      {name === 'submit' ? (
+        <div className='flex flex-col gap-3'>
+          <p className='text-sm text-muted-foreground'>
+            {f('submitRequirements')}
+          </p>
+          {submissionBlocked ? (
+            <Alert variant='destructive'>
+              <AlertDescription>
+                <ul className='list-disc space-y-1 pl-4'>
+                  {submissionIssues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {!running &&
+          !committed &&
+          !uncertain &&
+          !conflict &&
+          detail.view.available.some(
+            (offer) => offer.name === 'edit' && offer.allowed,
+          ) ? (
+            <Button
+              variant='outline'
+              nativeButton={false}
+              render={
+                <Link
+                  to={{ pathname: '../edit', search: location.search }}
+                  relative='route'
+                />
+              }
+            >
+              {f('editDraft')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      <dl className='grid grid-cols-2 gap-2 sm:grid-cols-[8rem_1fr]'>
         {(['gross', 'offset', 'net'] as const).map((key, index) => (
           <div key={key} className='contents'>
             <dt>{t(`reimbursementRequests.${key}`)}</dt>
@@ -760,19 +845,21 @@ export function ActionForm({
         }}
       >
         <FieldGroup>
-          <Field data-invalid={!!form.formState.errors.comment}>
-            <FieldLabel htmlFor='action-comment'>
-              {f('comment')}
-              {requiredReason ? ' *' : ''}
-            </FieldLabel>
-            <Textarea
-              id='action-comment'
-              {...form.register('comment')}
-              disabled={locked}
-              aria-invalid={!!form.formState.errors.comment}
-            />
-            <FieldError errors={[form.formState.errors.comment]} />
-          </Field>
+          {name !== 'submit' ? (
+            <Field data-invalid={!!form.formState.errors.comment}>
+              <FieldLabel htmlFor='action-comment'>
+                {f('comment')}
+                {requiredReason ? ' *' : ''}
+              </FieldLabel>
+              <Textarea
+                id='action-comment'
+                {...form.register('comment')}
+                disabled={locked}
+                aria-invalid={!!form.formState.errors.comment}
+              />
+              <FieldError errors={[form.formState.errors.comment]} />
+            </Field>
+          ) : null}
           {person && name !== 'assign' && action ? (
             <Controller
               name='to'
@@ -788,6 +875,9 @@ export function ActionForm({
                     action={name}
                     value={field.value}
                     onChange={field.onChange}
+                    focusRef={field.ref}
+                    onBlur={field.onBlur}
+                    invalid={fieldState.invalid}
                     disabled={locked}
                   />
                   <FieldError errors={[fieldState.error]} />

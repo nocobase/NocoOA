@@ -2,6 +2,33 @@ import actionCopy from './reimbursement-actions.en-US.js';
 import formCopy from './reimbursement-forms.en-US.js';
 export default {
   reimbursementRequests: {
+    businessErrors: {
+      REIMBURSEMENT_INVALID_LINE_AMOUNT:
+        'Each expense line must have a positive amount within the supported range.',
+      REIMBURSEMENT_INVALID_LINE_DATE:
+        'Select a valid expense date for each line.',
+      REIMBURSEMENT_VOUCHER_REQUIRED:
+        'Enter the payment voucher number before confirming payment.',
+      REIMBURSEMENT_PAYMENT_CONFIRMATION_REQUIRED:
+        'Enter a reason and confirm the exact reimbursement total, loan offset and cash payment.',
+      REIMBURSEMENT_HANDLING_REASON_REQUIRED:
+        'Enter the reason payment could not be completed.',
+      REIMBURSEMENT_PAYMENT_ACCOUNT_STALE:
+        'The payment account changed. Load the latest account before correcting it.',
+      REIMBURSEMENT_AUTHORIZATION_CHANGED:
+        'The approved allowance changed. Refresh it and check the reimbursement total.',
+      REIMBURSEMENT_INVOICES_CHANGED:
+        'Invoice evidence changed. Refresh the request and reselect available invoices.',
+      REIMBURSEMENT_LOAN_CHANGED:
+        'The loan offset changed. Refresh the loan and confirm the offset amount.',
+      REIMBURSEMENT_TOTAL_TOO_LARGE:
+        'The expense total exceeds the supported amount. Reduce the total or split the request.',
+      REIMBURSEMENT_FILE_SIZE:
+        'Select a nonempty attachment no larger than 5 MiB.',
+      REIMBURSEMENT_FILE_TYPE:
+        'Upload a PDF, JPEG, PNG or WebP file with a matching file type.',
+    },
+
     ...formCopy,
     ...actionCopy,
     title: 'Expense reimbursements',

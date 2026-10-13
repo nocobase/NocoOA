@@ -5,7 +5,7 @@ import { useApiClient, useToaster } from '@nocobase/app-client';
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { Alert, AlertDescription } from '#components/ui/alert';
@@ -30,8 +30,8 @@ export default function RebaseDialog() {
   const parent = useOutletContext<DetailContext>(),
     { t } = useTranslation();
   return (
-    <RouteDialog
-      className='sm:max-w-md'
+    <RouteDrawer
+      className='sm:max-w-2xl'
       beforeClose={() => !busy}
       footer={
         <RebaseFooter
@@ -51,7 +51,7 @@ export default function RebaseDialog() {
         confirm={confirm}
         setConfirm={setConfirm}
       />
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function RebaseFooter({

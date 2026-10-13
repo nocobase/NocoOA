@@ -2,7 +2,7 @@ export default {
   flowDiagram: {
     empty: 'No states to display.',
     loading: 'Laying out diagram…',
-    failed: 'Unable to lay out diagram. Read the process rules below.',
+    failed: 'Unable to lay out diagram. Read the process rules.',
     nodeHelp: 'Process state. Pan and zoom to explore.',
     edgeHelp: 'Process transition',
   },
@@ -273,7 +273,7 @@ export default {
 
     conditional: 'Business conditions apply',
     normalDescription:
-      'Main approval and fulfillment path. See Process rules below for people, operations and conditions at each step.',
+      'Main approval and fulfillment path. See Process rules for people, operations and conditions at each step.',
     transitionUnknown: 'Action: {{name}}',
     transitionNames: {
       edit: 'Edit content',
@@ -335,6 +335,8 @@ export default {
     currentNode: 'Current state',
     visitedNode: 'Visited',
     unvisitedNode: 'Not visited',
+    executionHistory: 'Execution history',
+    terminationOutcome: 'Termination outcome',
     actualPath: 'Actual execution path',
     actualDescription:
       'The complete approval and fulfillment flow with visited nodes, transitions and current state highlighted. Actual returns and historical paths remain visible.',
@@ -358,7 +360,7 @@ export default {
     automatic: 'Automatic transition',
     transitions: 'State transitions',
     definitionDetails: 'Stages and transitions',
-    viewExecutions: 'View executions',
+    viewExecutions: 'View all records',
     back: 'Back',
     manage: 'Management actions',
     appoint: 'Assign',

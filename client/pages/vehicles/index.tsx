@@ -1,9 +1,10 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef } from '@tanstack/react-table';
-import { RefreshCw, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { ApplicationToolbar } from '#components/application-toolbar';
@@ -20,7 +21,9 @@ import {
   SelectGroup,
   SelectItem,
 } from '#components/ui/select';
-import { Badge } from '#components/ui/badge';
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
 import { useUrlSearch } from '#hooks/use-url-search';
 import { TruncatedText } from '../platform/shared/truncated-text.js';
 import { useVehicleResource } from './resource.js';
@@ -234,9 +237,11 @@ export function VehicleList({ garage }: { garage: boolean }) {
       id: 'status',
       header: t('vehicles.fields.status'),
       cell: ({ row }) => (
-        <Badge variant='outline'>
+        <StatusBadge
+          tone={statusTone((row.original as Request | Vehicle).status)}
+        >
           {t(`vehicles.status.${(row.original as Request | Vehicle).status}`)}
-        </Badge>
+        </StatusBadge>
       ),
     });
   const statusValues = garage
@@ -286,16 +291,11 @@ export function VehicleList({ garage }: { garage: boolean }) {
       <ApplicationToolbar
         actions={
           <>
-            <Button
-              variant='outline'
-              size='icon'
-              aria-label={t('vehicles.refresh')}
-              title={t('vehicles.refresh')}
-              disabled={r.loading || o.loading}
+            <ApplicationRefreshButton
+              label={t('vehicles.refresh')}
+              loading={r.loading || o.loading}
               onClick={reload}
-            >
-              <RefreshCw />
-            </Button>
+            />
             {create}
           </>
         }
@@ -367,9 +367,21 @@ export function VehicleList({ garage }: { garage: boolean }) {
       ) : r.data ? (
         <DataTableServer
           getRowId={(row) => row.id}
-          emptyMessage={t(
-            filtered ? 'vehicles.empty.filtered' : 'vehicles.empty.title',
-          )}
+          emptyMessage={
+            <ApplicationTableEmpty
+              title={t(
+                filtered ? 'vehicles.empty.filtered' : 'vehicles.empty.title',
+              )}
+              clearFilters={
+                filtered
+                  ? {
+                      label: t('vehicles.clear'),
+                      onClick: () => search.clear((p) => p.delete('status')),
+                    }
+                  : undefined
+              }
+            />
+          }
           columns={columns}
           rows={r.data.data.items}
           total={r.data.data.total}

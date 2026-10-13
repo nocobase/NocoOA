@@ -1,9 +1,11 @@
+import { ApplicationRefreshButton } from '#components/application-refresh-button';
+import { AvailabilitySearch } from './availability-search';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, RefreshCw, MoreHorizontal, Eye } from 'lucide-react';
+import { Plus, MoreHorizontal, Eye } from 'lucide-react';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { ApplicationToolbar } from '#components/application-toolbar';
@@ -49,9 +51,12 @@ export default function MeetingRooms() {
   const requested = search.searchParams.get('tab') as Tab | null,
     tab: Tab =
       requested &&
-      ['rooms', ...(options.data?.data.modes ?? [])].includes(requested)
+      ['availability', 'rooms', ...(options.data?.data.modes ?? [])].includes(
+        requested,
+      )
         ? requested
-        : 'rooms';
+        : 'availability';
+  const finding = tab === 'availability';
   const rooms = tab === 'rooms',
     page = Math.max(1, Number(search.searchParams.get('page')) || 1),
     pageSize = [10, 20, 50, 100].includes(
@@ -79,7 +84,13 @@ export default function MeetingRooms() {
     filtered =
       !!search.search || (rooms && ['true', 'false'].includes(active ?? ''));
   const r = useMeetingResource<Page<Room | Booking>>(
-    rooms ? 'meetingRooms' : options.data ? 'meetingBookings' : null,
+    finding
+      ? null
+      : rooms
+        ? 'meetingRooms'
+        : options.data
+          ? 'meetingBookings'
+          : null,
     {
       page: String(page),
       pageSize: String(pageSize),
@@ -291,6 +302,9 @@ export default function MeetingRooms() {
         }
       >
         <TabsList className='max-w-full overflow-x-auto'>
+          <TabsTrigger value='availability'>
+            {t('meetingRooms.finder.title')}
+          </TabsTrigger>
           <TabsTrigger value='rooms'>
             {t('meetingRooms.tabs.rooms')}
           </TabsTrigger>
@@ -301,107 +315,114 @@ export default function MeetingRooms() {
           ))}
         </TabsList>
       </Tabs>
-      <ApplicationToolbar
-        actions={
-          <>
-            <Button
-              variant='outline'
-              size='icon'
-              aria-label={t('meetingRooms.refresh')}
-              title={t('meetingRooms.refresh')}
-              disabled={r.loading || options.loading}
-              onClick={refresh}
-            >
-              <RefreshCw />
-            </Button>
-            {create}
-          </>
-        }
-      >
-        <ApplicationSearch
-          id='meeting-search'
-          {...search.inputProps}
-          aria-label={t('meetingRooms.search')}
-          placeholder={t('meetingRooms.searchPlaceholder')}
-          className='w-full sm:max-w-xs'
-        />
-        {rooms ? (
-          <Select
-            items={activeItems}
-            value={active ?? 'all'}
-            onValueChange={(value) =>
-              search.updateParams((p) => {
-                if (value === 'true' || value === 'false')
-                  p.set('active', value);
-                else p.delete('active');
-                p.delete('page');
-              })
-            }
-          >
-            <SelectTrigger aria-label={t('meetingRooms.fields.active')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className='w-auto max-w-[min(var(--container-sm),var(--available-width))] min-w-(--anchor-width) [&_[data-slot=select-item]>:first-child]:whitespace-normal'>
-              <SelectGroup>
-                {activeItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        ) : null}
-        {search.text || filtered ? (
-          <Button
-            variant='outline'
-            onClick={() =>
-              search.clear((p) => {
-                p.delete('active');
-                p.delete('page');
-              })
-            }
-          >
-            {t('meetingRooms.clear')}
-          </Button>
-        ) : null}
-      </ApplicationToolbar>
-      {options.error ? (
-        <MeetingError error={options.error} retry={options.reload} />
-      ) : null}
-      {r.error ? <MeetingError error={r.error} retry={r.reload} /> : null}
-      {!r.data ? (
-        r.loading ? (
-          <ApplicationTableSkeleton columns={columns.length} />
-        ) : null
+      {finding ? (
+        options.data ? (
+          <AvailabilitySearch options={options.data.data} />
+        ) : options.error ? (
+          <MeetingError error={options.error} retry={options.reload} />
+        ) : (
+          <ApplicationTableSkeleton columns={5} />
+        )
       ) : (
-        <DataTableServer
-          rows={r.data.data}
-          columns={columns}
-          total={r.data.meta.total}
-          getRowId={(row) => row.id}
-          pagination={{ pageIndex: page - 1, pageSize }}
-          onPaginationChange={(v) =>
-            search.updateParams((p) => {
-              p.set('page', String(v.pageIndex + 1));
-              p.set('pageSize', String(v.pageSize));
-            })
-          }
-          sorting={[{ id: sort, desc: direction === 'desc' }]}
-          onSortingChange={(v) =>
-            search.updateParams((p) => {
-              p.set('sort', v[0]?.id ?? (rooms ? 'name' : 'startAt'));
-              p.set('direction', v[0]?.desc ? 'desc' : 'asc');
-              p.delete('page');
-            })
-          }
-          pageSizeOptions={[10, 20, 50, 100]}
-          emptyMessage={t(
-            filtered
-              ? 'meetingRooms.empty.filtered'
-              : 'meetingRooms.empty.title',
+        <>
+          <ApplicationToolbar
+            actions={
+              <>
+                <ApplicationRefreshButton
+                  label={t('meetingRooms.refresh')}
+                  loading={r.loading || options.loading}
+                  onClick={refresh}
+                />
+                {create}
+              </>
+            }
+          >
+            <ApplicationSearch
+              id='meeting-search'
+              {...search.inputProps}
+              aria-label={t('meetingRooms.search')}
+              placeholder={t('meetingRooms.searchPlaceholder')}
+              className='w-full sm:max-w-xs'
+            />
+            {rooms ? (
+              <Select
+                items={activeItems}
+                value={active ?? 'all'}
+                onValueChange={(value) =>
+                  search.updateParams((p) => {
+                    if (value === 'true' || value === 'false')
+                      p.set('active', value);
+                    else p.delete('active');
+                    p.delete('page');
+                  })
+                }
+              >
+                <SelectTrigger aria-label={t('meetingRooms.fields.active')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className='w-auto max-w-[min(var(--container-sm),var(--available-width))] min-w-(--anchor-width) [&_[data-slot=select-item]>:first-child]:whitespace-normal'>
+                  <SelectGroup>
+                    {activeItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : null}
+            {search.text || filtered ? (
+              <Button
+                variant='outline'
+                onClick={() =>
+                  search.clear((p) => {
+                    p.delete('active');
+                    p.delete('page');
+                  })
+                }
+              >
+                {t('meetingRooms.clear')}
+              </Button>
+            ) : null}
+          </ApplicationToolbar>
+          {options.error ? (
+            <MeetingError error={options.error} retry={options.reload} />
+          ) : null}
+          {r.error ? <MeetingError error={r.error} retry={r.reload} /> : null}
+          {!r.data ? (
+            r.loading ? (
+              <ApplicationTableSkeleton columns={columns.length} />
+            ) : null
+          ) : (
+            <DataTableServer
+              rows={r.data.data}
+              columns={columns}
+              total={r.data.meta.total}
+              getRowId={(row) => row.id}
+              pagination={{ pageIndex: page - 1, pageSize }}
+              onPaginationChange={(v) =>
+                search.updateParams((p) => {
+                  p.set('page', String(v.pageIndex + 1));
+                  p.set('pageSize', String(v.pageSize));
+                })
+              }
+              sorting={[{ id: sort, desc: direction === 'desc' }]}
+              onSortingChange={(v) =>
+                search.updateParams((p) => {
+                  p.set('sort', v[0]?.id ?? (rooms ? 'name' : 'startAt'));
+                  p.set('direction', v[0]?.desc ? 'desc' : 'asc');
+                  p.delete('page');
+                })
+              }
+              pageSizeOptions={[10, 20, 50, 100]}
+              emptyMessage={t(
+                filtered
+                  ? 'meetingRooms.empty.filtered'
+                  : 'meetingRooms.empty.title',
+              )}
+            />
           )}
-        />
+        </>
       )}
       <Outlet context={{ onSaved: refresh, options: options.data?.data }} />
     </PageContainer>

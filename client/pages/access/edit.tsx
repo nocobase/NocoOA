@@ -1,3 +1,4 @@
+import { useRouteFormCloseGuard } from '#hooks/use-route-form-close-guard';
 import { useCallback, useState, useRef } from 'react';
 import {
   useLocation,
@@ -31,6 +32,8 @@ import { titleText } from '../administration/authorization/i18n.js';
 import { useAuthorizationClient } from '../administration/authorization/use-authorization-client.js';
 import { useCatalog, useLoad } from './hooks.js';
 import { actionRows } from './model.js';
+import { AccessModulePermissions } from './module-permissions.js';
+import { resourceKey } from '../administration/authorization/pages/permission-sets/drafts.js';
 import { Blank, ErrorState, Loading } from './ui.js';
 import type { AuthorizationOptions, DefinitionSnapshot } from './types.js';
 
@@ -138,6 +141,12 @@ function EditorForm({
     }, [client, snapshot, t]),
   );
   const allowLeaveRef = useRef(false);
+  useRouteFormCloseGuard(() => {
+    if (busy) return false;
+    if (allowLeaveRef.current || !changes.length) return true;
+    setDiscard(true);
+    return false;
+  });
   useNavigationGuard(
     () =>
       allowLeaveRef.current ||
@@ -240,119 +249,174 @@ function EditorForm({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
+      {query ? (
+        <Button variant='ghost' onClick={() => setQuery('')}>
+          {t('access.clearModuleFilters')}
+        </Button>
+      ) : null}
       <p className='text-sm text-muted-foreground'>
         {t('access.pageActionHelp')}
       </p>
-      {visible.map(({ resource, module }, index) => {
-        const entries = rows.filter((row) => row.resource === resource);
-        const regular = entries.filter((row) => !row.custom);
-        return (
-          <div
-            key={`${resource.type}:${resource.value}`}
-            className='flex flex-col gap-3'
-          >
-            {visible[index - 1]?.module !== module ? (
-              <h2 className='text-lg font-semibold'>{module}</h2>
+      <AccessModulePermissions
+        options={options}
+        onNavigate={(navigateModule) => {
+          // A module switch keeps this form mounted; only real exits need the dirty guard.
+          const wasAllowed = allowLeaveRef.current;
+          allowLeaveRef.current = true;
+          try {
+            navigateModule();
+          } finally {
+            allowLeaveRef.current = wasAllowed;
+          }
+        }}
+        enabled={
+          new Set(
+            rows
+              .filter((row) => row.enabled)
+              .map((row) => resourceKey(row.resource.type, row.resource.value)),
+          )
+        }
+      >
+        {(keys) => (
+          <div className='flex flex-col gap-4'>
+            {!visible.some(({ resource }) =>
+              keys.has(resourceKey(resource.type, resource.value)),
+            ) ? (
+              <p className='text-sm text-muted-foreground'>
+                {t('access.noModuleMatches')}
+              </p>
             ) : null}
-            <PermissionEditor
-              readOnly={busy || protectedSet}
-              sections={[
-                {
-                  id: `${resource.type}:${resource.value}`,
-                  title: resource.label,
-                  groups: [
-                    {
-                      id: resource.value,
-                      rows: regular.map((row) => {
-                        const scopes = resource.dataScopes?.[row.action] ?? [];
-                        return {
-                          id: row.id,
-                          label: row.label,
-                          enabled: row.enabled,
-                          ...(scopes.length === 1
-                            ? {
-                                levels: scopes[0].options.map((option) => ({
-                                  value: option.value,
-                                  label: option.label,
-                                })),
-                                level: row.scopes[scopes[0].key],
-                              }
-                            : {}),
-                          hint:
-                            scopes.length > 1
-                              ? t('access.multipleScopes')
-                              : undefined,
-                        };
-                      }),
-                    },
-                  ],
-                },
-              ]}
-              labels={{
-                levelFor: (label) => t('access.levelFor', { name: label }),
-              }}
-              onEnabledChange={(id, enabled) => changeRow(id, enabled)}
-              onLevelChange={(id, level) => changeRow(id, undefined, level)}
-            />
-            {regular
-              .filter(
-                (row) =>
-                  row.enabled &&
-                  (resource.dataScopes?.[row.action]?.length ?? 0) > 1,
+            {visible
+              .filter(({ resource }) =>
+                keys.has(resourceKey(resource.type, resource.value)),
               )
-              .map((row) => (
-                <div key={row.id} className='flex flex-col gap-3'>
-                  {resource.dataScopes![row.action].map((scope) => (
-                    <Field key={scope.key}>
-                      <FieldLabel>
-                        {row.label} · {scope.label} *
-                      </FieldLabel>
-                      <Select
-                        items={scope.options}
-                        value={row.scopes[scope.key]}
-                        disabled={busy || protectedSet}
-                        onValueChange={(value) => {
-                          if (value !== null)
-                            setRows((current) =>
-                              current.map((entry) =>
-                                entry.id === row.id
-                                  ? {
-                                      ...entry,
-                                      scopes: {
-                                        ...entry.scopes,
-                                        [scope.key]: value,
-                                      },
-                                    }
-                                  : entry,
-                              ),
-                            );
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className='w-auto max-w-[min(var(--container-sm),var(--available-width))] min-w-(--anchor-width) [&_[data-slot=select-item]>:first-child]:whitespace-normal'>
-                          {scope.options.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
+              .map(({ resource, module }, index) => {
+                const entries = rows.filter((row) => row.resource === resource);
+                const regular = entries.filter((row) => !row.custom);
+                return (
+                  <div
+                    key={`${resource.type}:${resource.value}`}
+                    className='flex flex-col gap-3'
+                  >
+                    {visible.filter(({ resource: item }) =>
+                      keys.has(resourceKey(item.type, item.value)),
+                    )[index - 1]?.module !== module ? (
+                      <h2 className='text-lg font-semibold'>{module}</h2>
+                    ) : null}
+                    <PermissionEditor
+                      readOnly={busy || protectedSet}
+                      sections={[
+                        {
+                          id: `${resource.type}:${resource.value}`,
+                          title: resource.label,
+                          groups: [
+                            {
+                              id: resource.value,
+                              rows: regular.map((row) => {
+                                const scopes =
+                                  resource.dataScopes?.[row.action] ?? [];
+                                return {
+                                  id: row.id,
+                                  label: row.label,
+                                  enabled: row.enabled,
+                                  ...(scopes.length === 1
+                                    ? {
+                                        levels: scopes[0].options.map(
+                                          (option) => ({
+                                            value: option.value,
+                                            label: option.label,
+                                          }),
+                                        ),
+                                        level: row.scopes[scopes[0].key],
+                                      }
+                                    : {}),
+                                  hint:
+                                    scopes.length > 1
+                                      ? t('access.multipleScopes')
+                                      : undefined,
+                                };
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                      labels={{
+                        levelFor: (label) =>
+                          t('access.levelFor', { name: label }),
+                      }}
+                      onEnabledChange={(id, enabled) => changeRow(id, enabled)}
+                      onLevelChange={(id, level) =>
+                        changeRow(id, undefined, level)
+                      }
+                    />
+                    {regular
+                      .filter(
+                        (row) =>
+                          row.enabled &&
+                          (resource.dataScopes?.[row.action]?.length ?? 0) > 1,
+                      )
+                      .map((row) => (
+                        <div key={row.id} className='flex flex-col gap-3'>
+                          {resource.dataScopes![row.action].map((scope) => (
+                            <Field key={scope.key}>
+                              <FieldLabel>
+                                {row.label} · {scope.label} *
+                              </FieldLabel>
+                              <Select
+                                items={scope.options}
+                                value={row.scopes[scope.key]}
+                                disabled={busy || protectedSet}
+                                onValueChange={(value) => {
+                                  if (value !== null)
+                                    setRows((current) =>
+                                      current.map((entry) =>
+                                        entry.id === row.id
+                                          ? {
+                                              ...entry,
+                                              scopes: {
+                                                ...entry.scopes,
+                                                [scope.key]: value,
+                                              },
+                                            }
+                                          : entry,
+                                      ),
+                                    );
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className='w-auto max-w-[min(var(--container-sm),var(--available-width))] min-w-(--anchor-width) [&_[data-slot=select-item]>:first-child]:whitespace-normal'>
+                                  {scope.options.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </Field>
                           ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  ))}
-                </div>
-              ))}
-            {entries
-              .filter((row) => row.custom)
-              .map((row) => (
-                <p key={row.id} className='text-sm text-muted-foreground'>
-                  {row.label} · {t('access.specialReadOnly')}
-                </p>
-              ))}
+                        </div>
+                      ))}
+                    {entries
+                      .filter((row) => row.custom)
+                      .map((row) => (
+                        <p
+                          key={row.id}
+                          className='text-sm text-muted-foreground'
+                        >
+                          {row.label} · {t('access.specialReadOnly')}
+                        </p>
+                      ))}
+                  </div>
+                );
+              })}
           </div>
-        );
-      })}
+        )}
+      </AccessModulePermissions>
       {protectedSet ? (
         <Blank
           title={t('access.protected')}

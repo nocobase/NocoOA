@@ -1,3 +1,4 @@
+import { useBusinessErrorFormatter } from '#hooks/use-business-error-message';
 import { createRequestKey } from '#lib/request-key';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -10,7 +11,7 @@ import {
 } from '@nocobase/app-plugin-approval/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useParams, useOutletContext } from 'react-router';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import {
@@ -75,7 +76,7 @@ export default function RequestAction() {
     setBusy(value);
   };
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t(`vehicles.actions.${operation}`)}
       beforeClose={() => !workingRef.current}
       footer={<Footer busy={busy} ready={ready} />}
@@ -100,7 +101,7 @@ export default function RequestAction() {
           </AlertDescription>
         </Alert>
       )}
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({ busy, ready }: { busy: boolean; ready: boolean }) {
@@ -194,6 +195,7 @@ function Body({
     [required, dispatch, detail.record.needsDriver, usage, t],
   );
   type Values = z.infer<typeof schema>;
+  const businessError = useBusinessErrorFormatter('vehicles');
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -271,7 +273,8 @@ function Body({
           error instanceof ApiClientError && error.status === 401
             ? 'sessionExpired'
             : 'server',
-        message: t(`vehicles.errors.${errorKey(error)}`),
+        message:
+          businessError(error) ?? t(`vehicles.errors.${errorKey(error)}`),
       });
     } finally {
       workingRef.current = false;

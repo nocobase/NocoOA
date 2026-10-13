@@ -53,6 +53,8 @@ auth:
   emailAndPassword:
     enabled: true
     autoSignIn: false
+    # Employee accounts are provisioned by administrators; public registration is closed.
+    disableSignUp: true
   session:
     storeSessionInDatabase: true
 

@@ -1,5 +1,13 @@
 export default {
   supplies: {
+    businessErrors: {
+      SUPPLY_REQUIRED_FIELDS: '请添加至少一项领用品并填写用途。',
+      SUPPLY_ITEM_UNAVAILABLE:
+        '所选领用品已停用或不存在，请重新选择启用的物品。',
+      SUPPLY_CONTENT_CHANGED:
+        '已批准的领用内容已变化，请刷新申请后再登记发放。',
+    },
+
     rowActions: '记录操作',
     number: '申请编号',
     unknownEdit: '保存结果未确认，请先加载最新单据后再修改。',

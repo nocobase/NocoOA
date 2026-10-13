@@ -1,9 +1,21 @@
 export default {
   vehicles: {
+    businessErrors: {
+      VEHICLE_INVALID_INTERVAL: '请填写有效的用车起止时间和正数乘车人数。',
+      VEHICLE_NO_AVAILABLE_CAPACITY:
+        '所选时段没有容量足够的车辆，请调整时间或乘车人数。',
+      VEHICLE_TYPE_INACTIVE: '请选择已启用的车辆类型。',
+      VEHICLE_UNAVAILABLE: '请选择可用且座位数足够的车辆。',
+      VEHICLE_INVALID_USAGE: '请输入有效的非负里程和油耗。',
+      VEHICLE_NOT_DISPATCHED: '该申请尚未实际派车，请在派车后登记用车结果。',
+      VEHICLE_OUTSTANDING_USE: '请完成未结用车记录后再停用该司机。',
+      VEHICLE_CONTENT_CHANGED: '已批准的用车内容已变化，请刷新后再派车。',
+    },
+
     title: '车辆申请',
     garage: '车库',
-    new: '新建申请',
-    edit: '编辑申请',
+    new: '新建车辆申请',
+    edit: '编辑车辆申请',
     newVehicle: '新增车辆',
     editVehicle: '编辑车辆',
     newDriver: '新增司机',

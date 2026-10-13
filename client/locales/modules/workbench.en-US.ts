@@ -1,5 +1,36 @@
 export default {
   workbench: {
+    submitted: 'Submitted',
+    viewSubmitted: 'View all submitted requests',
+    viewDrafts: 'View all drafts',
+    viewRevisions: 'View all returned or exceptional requests',
+    updatedAt: 'Updated: {{date}}',
+    draftWithoutSummary: '{{type}} draft without a summary',
+    requestWithoutSummary: '{{type}} (no summary)',
+    emptyDrafts: 'No drafts',
+    emptyDraftsDescription: 'Requests you have not submitted appear here.',
+
+    createdAt: 'Created: {{date}}',
+    initiator: 'Initiator',
+    openRecord: 'View details',
+    dueAt: 'Due: {{date}}',
+    allRequests: 'All requests',
+    searchRequests: 'Search request types',
+    noMatchingRequests: 'No matching request types.',
+    favoritesHint:
+      'Choose up to 6 favorites, saved for your account in this browser.',
+    favorite: 'Favorite {{name}}',
+    resetFavorites: 'Restore defaults',
+    saveFailed:
+      'Favorites could not be saved in this browser. Your selection lasts until this page closes.',
+    groups: {
+      office: 'Daily office',
+      people: 'Organization and HR',
+      finance: 'Finance and expenses',
+      procurement: 'Procurement and contracts',
+      administration: 'Administration and assets',
+    },
+
     leaveBalances: 'My leave balances',
     todayMeetings: 'Today’s meetings',
     announcementReceipts: 'Announcements to confirm',
@@ -20,11 +51,10 @@ export default {
     drafts: 'Drafts',
     inProgress: 'In progress',
     attention: 'Needs my attention',
-    attentionDescription:
-      'Review returned requests and approvals, then check your drafts.',
+    attentionDescription: 'Pending work and requests that need revision.',
     mine: 'My requests',
-    mineDescription: 'Recent leave requests for you or created by you.',
-    newRequest: 'Start a request',
+    mineDescription: 'Recent requests submitted by you or on your behalf.',
+    newRequest: 'New request',
     newRequestDescription:
       'Choose a request type, complete it and submit for approval.',
     viewPending: 'View all approvals',
@@ -33,10 +63,13 @@ export default {
     emptyAttentionDescription:
       'New items will appear here when they need your attention.',
     emptyMine: 'No requests yet',
-    emptyMineDescription: 'Start a leave request when you need one.',
+    emptyMineDescription: 'Choose a request type to get started.',
     emptyMineRestricted:
       'Contact an administrator if you need permission to start a request.',
     nextRevision: 'Review requested revisions',
+    nextHandling: 'Open the item and complete the current task',
+    nextDispatch: 'Assign a vehicle and driver',
+    nextIssue: 'Review the request and record actual issue',
     nextApproval: 'Review the request and complete approval',
     nextWorkItem: 'View the task and complete your current action',
     nextAnnouncement: 'Read the announcement and confirm receipt',

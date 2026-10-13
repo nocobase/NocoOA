@@ -1266,7 +1266,19 @@ export function createLoanRequestService(d: LoanRequestDependencies) {
               ? record.returnDueDate
               : loan.dueDate,
         },
-        reservations,
+        // PostgreSQL bigint values may be strings. Keep the public DTO in safe
+        // integer cents, and fail rather than round an invalid stored amount.
+        reservations: reservations.map((reservation) => {
+          const raw = reservation.cents;
+          const cents =
+            typeof raw === 'number' ||
+            (typeof raw === 'string' && /^\d+$/.test(raw))
+              ? Number(raw)
+              : NaN;
+          if (!Number.isSafeInteger(cents) || cents <= 0)
+            throw new Error('Invalid stored repayment amount');
+          return { ...reservation, cents };
+        }),
       };
     },
     async cashRepayment(

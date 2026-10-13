@@ -1,3 +1,4 @@
+import { statusTone } from './status-tone.js';
 import { ApprovalProgress } from '#components/approval-progress';
 import { StatusBadge } from '#components/status-badge';
 import { UserName } from '#components/user-name';
@@ -228,15 +229,7 @@ export default function TransferDetail() {
     <RecordDetailDrawer
       headerStatus={
         record ? (
-          <StatusBadge
-            tone={
-              ['approved', 'completed', 'issued', 'active'].includes(
-                record.status,
-              )
-                ? 'success'
-                : 'neutral'
-            }
-          >
+          <StatusBadge tone={statusTone(record.status)}>
             {t(`transfer.status.${record.status}`)}
           </StatusBadge>
         ) : null

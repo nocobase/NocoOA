@@ -102,6 +102,15 @@ test('main registered default-role HTTP uses real scope, frozen hidden value, SD
   );
   expect(submitted.status).toBe(200);
   const detail = (await submitted.json()).data;
+  const emptyPhotos = await ownerSession.fetch('/assetRequestPhotos/findMany', {
+    ...write('POST', { limit: 10 }),
+    headers: {
+      ...write('POST', {}).headers,
+      'x-asset-request-id': id,
+    },
+  });
+  expect(emptyPhotos.status).toBe(200);
+  expect((await emptyPhotos.json()).data).toEqual([]);
   expect(
     detail.record.allocation.map((unit: { id: string }) => unit.id),
   ).toEqual([asset.id]);

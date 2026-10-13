@@ -20,6 +20,7 @@ import Detail from '../../../client/pages/meeting-rooms/booking-detail.js';
 import Action from '../../../client/pages/meeting-rooms/booking-action.js';
 import Form from '../../../client/pages/meeting-rooms/booking-form.js';
 import RoomDetail from '../../../client/pages/meeting-rooms/room-detail.js';
+import { MeetingError } from '../../../client/pages/meeting-rooms/states.js';
 import RoomForm from '../../../client/pages/meeting-rooms/room-form.js';
 const { api, reload, toaster, identity, guard } = vi.hoisted(() => ({
   api: { request: vi.fn() },
@@ -119,6 +120,11 @@ function serve(overrides?: (r: Request) => unknown) {
         },
       };
     if (r.path.endsWith('/availability')) return { data: { busy: [] } };
+    if (r.path === 'meetingRooms/availability-search')
+      return {
+        data: [{ ...room, busy: [] }],
+        meta: { page: 1, pageSize: 20, total: 1 },
+      };
     if (r.path === 'meetingRooms')
       return { data: [room], meta: { page: 1, pageSize: 20, total: 1 } };
     if (r.path.startsWith('meetingRooms/')) return { data: room };
@@ -166,7 +172,7 @@ it('keeps loading distinct from empty and offers one creation CTA after loading'
     resolve = r;
   });
   serve((r) => (r.path === 'meetingRooms' ? pending : undefined));
-  show('/list');
+  show('/list?tab=rooms');
   expect(
     screen.queryByRole('button', { name: 'Book a meeting room' }),
   ).not.toBeInTheDocument();
@@ -449,4 +455,71 @@ it('preserves source query and hash in room reserve and configuration links', as
   expect(
     screen.getByRole('button', { name: 'Book a meeting room', exact: true }),
   ).toHaveAttribute('href', '/room/room-1/reserve?tab=rooms#source');
+});
+
+it.each([403, 404, 500])(
+  'offers retry only for recoverable errors (%s)',
+  (status) => {
+    render(
+      <TestI18nProvider runtime={runtime}>
+        <MeetingError
+          error={
+            new ApiClientError('Error', {
+              status,
+              method: 'GET',
+              url: 'meetingRooms',
+            })
+          }
+          retry={vi.fn()}
+        />
+      </TestI18nProvider>,
+    );
+    const retry = screen.queryByRole('button', { name: 'Retry' });
+    if (status === 500) expect(retry).toBeVisible();
+    else expect(retry).not.toBeInTheDocument();
+  },
+);
+
+it('finds capacity-matched rooms for a URL time range and carries it into reservation', async () => {
+  serve();
+  show(
+    '/list?tab=availability&meetingDate=2035-01-02&meetingStart=09%3A00&meetingEnd=10%3A00&meetingCapacity=5',
+  );
+  await screen.findByText('Boardroom');
+  expect(api.request).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: 'meetingRooms/availability-search',
+      query: expect.objectContaining({
+        capacity: '5',
+        startAt: '2035-01-02T01:00:00.000Z',
+        endAt: '2035-01-02T02:00:00.000Z',
+      }),
+    }),
+  );
+  expect(
+    screen.getByText('Available · admin confirmation'),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Book a meeting room' }),
+  ).toHaveAttribute('href', expect.stringContaining('selectedRoom=room-1'));
+});
+it('never offers a reservation for a conflicting room or a failed availability read', async () => {
+  serve((r) =>
+    r.path === 'meetingRooms/availability-search'
+      ? {
+          data: [
+            {
+              ...room,
+              busy: [{ startAt: booking.startAt, endAt: booking.endAt }],
+            },
+          ],
+          meta: { page: 1, pageSize: 20, total: 1 },
+        }
+      : undefined,
+  );
+  show('/list?tab=availability&meetingDate=2035-01-02');
+  await screen.findByText('Conflict');
+  expect(
+    screen.queryByRole('button', { name: 'Book a meeting room' }),
+  ).not.toBeInTheDocument();
 });

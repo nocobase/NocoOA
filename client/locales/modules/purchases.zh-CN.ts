@@ -1,5 +1,24 @@
 export default {
   purchases: {
+    businessErrors: {
+      PURCHASE_INVALID_ITEMS:
+        '请为每项采购填写名称、单位和正数数量，并检查是否有重复项。',
+      PURCHASE_INVALID_DATE: '请选择有效的预计到货日期。',
+      PURCHASE_INVALID_PRICE:
+        '请填写有效的成交价、选择供应商并附上对应报价凭据。',
+      PURCHASE_INVALID_QUOTES:
+        '不同供应商不能共用同一报价附件，请分别选择凭据。',
+      PURCHASE_QUOTES_REQUIRED:
+        '该金额须提供三家不同供应商的报价，且每家均须附报价附件。',
+      PURCHASE_PRICE_CONFIRMATION_REQUIRED:
+        '请将预计预算修订为确认的报价金额后再提交。',
+      PURCHASE_INVALID_INPUT:
+        '请添加采购明细、填写用途并输入大于零的预计金额。',
+      PURCHASE_DEPARTMENT_REQUIRED:
+        '申请人没有有效主部门，请联系人力资源完善员工档案。',
+      INVALID_RECEIPT: '请选择实际收货日期并填写收货确认原因。',
+    },
+
     discardThenNavigate: '确认放弃未保存的修改？确认后请再次选择要前往的位置。',
     localInputsRetained: '已载入最新版本并保留本地输入，请核对后再次保存。',
     chooseForceMode: '请选择强制处理方式',

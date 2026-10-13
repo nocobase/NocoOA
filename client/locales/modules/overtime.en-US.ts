@@ -1,5 +1,9 @@
 export default {
   overtime: {
+    businessErrors: {
+      OVERTIME_INVALID_DATE: 'Select a valid overtime date.',
+    },
+
     authz: { resource: 'Overtime requests' },
     navigation: 'Overtime requests',
     description: 'Request overtime and follow its approval and settlement.',

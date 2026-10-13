@@ -1,5 +1,14 @@
 export default {
   access: {
+    clearModuleFilters: 'Clear filters',
+    noModuleMatches: 'No permissions match in this module',
+
+    businessModules: 'Business modules',
+    allModules: 'All',
+    otherModules: 'Other',
+    noModulePermissions: 'No permissions configured in this module',
+    moduleCount: '{{module}}: {{configured}} configured / {{total}} resources',
+
     actionsFor: 'Actions for "{{name}}"',
     configuredScopes: 'Configured scopes',
 

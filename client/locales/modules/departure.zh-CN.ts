@@ -1,4 +1,25 @@
 export default {
+  businessErrors: {
+    DEPARTURE_CHECKLIST_REQUIRED: '请先补齐离职交接清单，再继续办理。',
+    DEPARTURE_LAST_WORKING_DAY_REQUIRED: '请确认员工的最后工作日。',
+    DEPARTURE_DATE_PAST: '最后工作日不能早于公司时区的今天。',
+    DEPARTURE_HANDOVER_INVALID: '请选择有效的交接人，且不能选择离职员工本人。',
+    DEPARTURE_HANDOVER_INCOMPLETE: '请完成离职交接事项后再继续办理。',
+    DEPARTURE_ORDINARY_WORK_INCOMPLETE: '请完成普通交接事项后再进行离职结算。',
+    DEPARTURE_LOAN_UNCLEARED: '请先结清该员工的未清借款，再办理离职结算。',
+    DEPARTURE_RECEIPT_REQUIRED: '请填写本交接事项的收据号或清退凭据。',
+    DEPARTURE_SETTLEMENT_NOTE_REQUIRED: '请填写离职结算说明。',
+    DEPARTURE_REASSIGNMENT_INCOMPLETE: '请先完成未结任务的转交，再继续办理。',
+    DEPARTURE_APPLICATION_INCOMPLETE:
+      '请补齐离职类型、申请原因和所需员工信息。',
+    DEPARTURE_TYPE_INVALID: '请选择已启用的离职类型。',
+    DEPARTURE_ALREADY_ACTIVE: '该员工已有进行中的离职申请，请查看现有申请。',
+    DEPARTURE_CANCELLATION_PENDING:
+      '该离职申请正在取消审批中，请先完成取消审批。',
+    DEPARTURE_EXECUTION_BASELINE_CHANGED:
+      '员工或离职事实已变化，请刷新并核实后再执行。',
+  },
+
   authz: {
     cancel: '撤销离职',
     resource: '离职与交接',

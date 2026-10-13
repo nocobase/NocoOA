@@ -19,7 +19,6 @@ import { Button } from '#components/ui/button';
 import { Card, CardContent } from '#components/ui/card';
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -288,7 +287,6 @@ export default function DepartmentsPage(): ReactElement {
               : t('org.common.askAdministrator')}
           </EmptyDescription>
         </EmptyHeader>
-        {canUpdate ? <EmptyContent>{createButton}</EmptyContent> : null}
       </Empty>
     );
   } else {
@@ -363,11 +361,7 @@ export default function DepartmentsPage(): ReactElement {
       <PageHeader
         title={t('org.departments.title')}
         description={t('org.departments.description')}
-        actions={
-          canUpdate && departments && departments.length > 0
-            ? createButton
-            : null
-        }
+        actions={canUpdate ? createButton : null}
       />
       {content}
       {/* While the tree is empty the create dialog still needs somewhere to render. */}

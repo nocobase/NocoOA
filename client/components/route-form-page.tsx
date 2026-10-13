@@ -1,4 +1,11 @@
-import { useContext, useState, type ReactElement, type ReactNode } from 'react';
+import { RouteFormCloseGuardContext } from '#hooks/use-route-form-close-guard';
+import {
+  useContext,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import {
   DrawerFormContext,
   DrawerFormFooterContext,
@@ -12,6 +19,7 @@ export interface RouteFormPageProps {
   readonly presentation?: 'drawer' | 'page';
   readonly children?: ReactNode;
   readonly printable?: boolean;
+  readonly beforeClose?: () => boolean | Promise<boolean>;
 }
 
 /**
@@ -23,24 +31,33 @@ export function RouteFormPage({
   title,
   presentation = 'drawer',
   printable = false,
+  beforeClose,
   children,
 }: RouteFormPageProps): ReactElement {
+  const closeGuardRef = useRef<(() => boolean | Promise<boolean>) | undefined>(
+    undefined,
+  );
   const parentOverlay = useContext(RouteOverlayContext);
   const [footerTarget, setFooterTarget] = useState<HTMLDivElement | null>(null);
   if (presentation === 'page' && !parentOverlay)
     return <RouteChildPage>{children}</RouteChildPage>;
   return (
     <RouteDrawer
+      beforeClose={() =>
+        beforeClose ? beforeClose() : (closeGuardRef.current?.() ?? true)
+      }
       printable={printable}
       title={title}
       className='text-sm sm:max-w-2xl'
       footer={<div ref={setFooterTarget} className='contents' />}
     >
-      <DrawerFormContext.Provider value>
-        <DrawerFormFooterContext.Provider value={footerTarget}>
-          {children}
-        </DrawerFormFooterContext.Provider>
-      </DrawerFormContext.Provider>
+      <RouteFormCloseGuardContext.Provider value={closeGuardRef}>
+        <DrawerFormContext.Provider value>
+          <DrawerFormFooterContext.Provider value={footerTarget}>
+            {children}
+          </DrawerFormFooterContext.Provider>
+        </DrawerFormContext.Provider>
+      </RouteFormCloseGuardContext.Provider>
     </RouteDrawer>
   );
 }

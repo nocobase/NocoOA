@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
@@ -11,7 +12,7 @@ import {
   subDays,
   subMonths,
 } from 'date-fns';
-import { ChevronDownIcon, RefreshCwIcon, ScrollTextIcon } from 'lucide-react';
+import { ChevronDownIcon, RefreshCwIcon } from 'lucide-react';
 import { type ReactElement, useMemo, useRef } from 'react';
 import { Link, Outlet, useLocation, useSearchParams } from 'react-router';
 
@@ -30,13 +31,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#components/ui/dropdown-menu';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#components/ui/empty';
 import {
   Select,
   SelectContent,
@@ -290,20 +284,6 @@ export default function AuditLogsPage(): ReactElement {
     );
   } else if (!body) {
     content = <TableSkeleton columns={5} />;
-  } else if (body.meta.total === 0 && !hasFilters) {
-    content = (
-      <Empty className='min-h-48 border border-dashed'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <ScrollTextIcon />
-          </EmptyMedia>
-          <EmptyTitle>{t('platform.auditLogs.empty.title')}</EmptyTitle>
-          <EmptyDescription>
-            {t('platform.auditLogs.empty.description')}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
   } else {
     content = (
       <DataTableServer
@@ -325,12 +305,24 @@ export default function AuditLogsPage(): ReactElement {
         }
         pageSizeOptions={PAGE_SIZE_OPTIONS}
         emptyMessage={
-          <div className='flex flex-col items-center gap-2'>
-            <span>{t('platform.common.noResults')}</span>
-            <Button variant='link' size='sm' onClick={clearFilters}>
-              {t('platform.common.clearFilters')}
-            </Button>
-          </div>
+          <ApplicationTableEmpty
+            title={t(
+              hasFilters
+                ? 'platform.common.noResults'
+                : 'platform.auditLogs.empty.title',
+            )}
+            description={
+              hasFilters ? undefined : t('platform.auditLogs.empty.description')
+            }
+            clearFilters={
+              hasFilters
+                ? {
+                    label: t('platform.common.clearFilters'),
+                    onClick: clearFilters,
+                  }
+                : undefined
+            }
+          />
         }
       />
     );

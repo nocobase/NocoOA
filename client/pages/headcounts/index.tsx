@@ -126,7 +126,11 @@ export default function HeadcountsPage() {
       ),
       cell: ({ row }) => (
         <div className='text-right tabular-nums'>
-          {number(row.original[key])}
+          {key === 'year'
+            ? String(row.original.year)
+            : key === 'available' && !row.original.initialized
+              ? t('headcounts.uninitialized')
+              : number(row.original[key])}
         </div>
       ),
     })),

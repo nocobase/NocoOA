@@ -79,3 +79,5 @@ Start at [docs/README.md](docs/README.md). Find and update the existing owning d
 - Executable fixtures belong in `tests/fixtures/`. Temporary logs are not sufficient durable evidence. Never store credentials or real personal business data in documentation.
 
 Find current status, source reviews, module gaps, and development plans through the [documentation index](docs/README.md). The owning module design defines its business contracts.
+
+The route-level denied and load-failure surfaces use user-facing generic messages rather than internal route/package identifiers; denied pages link back to the workbench. This application shell presentation is customized in `client/routing/client-route.tsx`; preserve it during template upgrades. See [page experience](docs/designs/oa/page-experience-design.md).

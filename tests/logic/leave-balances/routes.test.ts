@@ -71,7 +71,12 @@ test('own balances are private; HR adjustments require explicit grants and audit
       { employeeId, leaveType: 'annual', availableUnits: 4, heldUnits: 0 },
     ],
   });
-  expect((await other.fetch('/leaveBalances/me')).status).toBe(404);
+  const unbound = await other.fetch('/leaveBalances/me');
+  expect(unbound.status).toBe(200);
+  expect(await unbound.json()).toEqual({ data: [] });
+  expect(
+    (await other.fetch('/leaveBalances/me/ledger?leaveType=annual')).status,
+  ).toBe(404);
   expect((await other.fetch(`/leaveBalances/${employeeId}`)).status).toBe(403);
   expect((await user.fetch(`/leaveBalances/${employeeId}`)).status).toBe(403);
   await grantSettings(testApp, other.user.id, LEAVE_BALANCE_SETTINGS, ['read']);
@@ -177,7 +182,9 @@ test('API document describes every leave balance endpoint and installed HR defau
   testApp,
 }) => {
   const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
-  expect((await admin.fetch('/leaveBalances/me')).status).toBe(404);
+  const balances = await admin.fetch('/leaveBalances/me');
+  expect(balances.status).toBe(200);
+  expect(await balances.json()).toEqual({ data: [] });
   const document = await app.container.resolve(apiDocsToken).getDocument();
   expect(findUndeclaredApiRoutes(app)).toEqual([]);
   expect(findApiDocumentSchemaProblems(document)).toEqual([]);

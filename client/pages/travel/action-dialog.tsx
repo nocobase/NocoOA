@@ -9,7 +9,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useOutletContext, useParams } from 'react-router';
 import { z } from 'zod';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { UserPicker } from '#components/user-picker';
 import { ApprovalRecipientPicker } from '#components/approval-recipient-picker';
@@ -88,7 +88,7 @@ export default function ApprovalActionDialog() {
         );
   const name = resource.data?.record.number ?? t('approvals.draft');
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t('approvals.actionTitle', {
         action: t(
           ['cc', 'complete', 'unable', 'forceComplete'].includes(actionName)
@@ -102,7 +102,7 @@ export default function ApprovalActionDialog() {
           actionName,
         )
           ? undefined
-          : 'sm:max-w-md'
+          : 'sm:max-w-2xl'
       }
       beforeClose={() => {
         if (busyRef.current) return false;
@@ -181,7 +181,7 @@ export default function ApprovalActionDialog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function ActionFooter({

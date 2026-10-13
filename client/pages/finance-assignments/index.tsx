@@ -1,3 +1,4 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
 import { useEffect } from 'react';
@@ -29,7 +30,7 @@ import { useUrlSearch } from '#hooks/use-url-search';
 import { TruncatedText } from '../platform/shared/truncated-text.js';
 import { SETTINGS, type Assignment, type Page } from './types.js';
 import { useFinanceResource } from './resource.js';
-import { FinanceError, FinanceEmpty, FinanceSkeleton } from './states.js';
+import { FinanceError, FinanceSkeleton } from './states.js';
 export default function FinanceAssignments() {
   const { t, i18n } = useTranslation(),
     location = useLocation(),
@@ -156,7 +157,7 @@ export default function FinanceAssignments() {
       <ApplicationToolbar
         actions={
           <>
-            {r.data && (r.data.meta.total > 0 || departmentId) ? create : null}
+            {create}
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -211,27 +212,6 @@ export default function FinanceAssignments() {
         r.loading ? (
           <FinanceSkeleton />
         ) : null
-      ) : r.data.meta.total === 0 ? (
-        <FinanceEmpty
-          kind={departmentId ? 'filtered' : canUpdate ? 'accounts' : 'readonly'}
-          action={
-            !departmentId ? (
-              create
-            ) : (
-              <Button
-                variant='outline'
-                onClick={() =>
-                  updateParams((p) => {
-                    p.delete('departmentId');
-                    p.delete('page');
-                  })
-                }
-              >
-                {t('financeAssignments.clear')}
-              </Button>
-            )
-          }
-        />
       ) : (
         <DataTableServer
           rows={r.data.data}
@@ -253,7 +233,28 @@ export default function FinanceAssignments() {
             })
           }
           pageSizeOptions={[10, 20, 50, 100]}
-          emptyMessage={t('financeAssignments.empty.filteredTitle')}
+          emptyMessage={
+            <ApplicationTableEmpty
+              title={t(
+                `financeAssignments.empty.${departmentId ? 'filtered' : canUpdate ? 'accounts' : 'readonly'}Title`,
+              )}
+              description={t(
+                `financeAssignments.empty.${departmentId ? 'filtered' : canUpdate ? 'accounts' : 'readonly'}Description`,
+              )}
+              clearFilters={
+                departmentId
+                  ? {
+                      label: t('financeAssignments.clear'),
+                      onClick: () =>
+                        updateParams((p) => {
+                          p.delete('departmentId');
+                          p.delete('page');
+                        }),
+                    }
+                  : undefined
+              }
+            />
+          }
         />
       )}
       <Outlet context={{ onSaved: r.reload }} />

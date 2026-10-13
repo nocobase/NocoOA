@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router';
 import { ApiClientError, useApiClient, useToaster } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { Textarea } from '#components/ui/textarea';
@@ -47,7 +47,7 @@ export default function WorkDialog() {
     !resource.error;
   const label = t(`departureRequests.work.labels.${actionName}`);
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t('departureRequests.work.title', {
         action: label,
         kind: item
@@ -56,7 +56,7 @@ export default function WorkDialog() {
         name:
           resource.data?.record.applicant?.name ?? t('approvals.unknownPerson'),
       })}
-      className='sm:max-w-md'
+      className='sm:max-w-2xl'
       beforeClose={() => {
         if (busyRef.current) return false;
         if (!dirtyRef.current) return true;
@@ -131,7 +131,7 @@ export default function WorkDialog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({
@@ -344,7 +344,7 @@ export function WorkForm({
           ) : null}
         </>
       ) : null}
-      <dl className='grid grid-cols-[8rem_1fr] gap-2'>
+      <dl className='grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] sm:grid-cols-[8rem_minmax(0,1fr)] gap-2'>
         <dt>{t('departureRequests.claimant')}</dt>
         <dd className='break-words'>
           <UserName name={item.claimedBy?.name ?? '—'} />

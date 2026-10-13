@@ -22,9 +22,26 @@ const { api } = vi.hoisted(() => ({
   api: { request: vi.fn(), stream: vi.fn() },
 }));
 
+const reportApi = {
+  ...api,
+  request: (args: { path: string }) =>
+    args.path === 'reports/datasets'
+      ? Promise.resolve({
+          data: [
+            'budget-balances',
+            'contract-ledger',
+            'headcount-balances',
+            'leave-monthly',
+            'leave-approval-efficiency',
+            'expense-summary',
+          ],
+        })
+      : api.request(args),
+};
+
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
-  useApiClient: () => api,
+  useApiClient: () => reportApi,
 }));
 vi.mock('@nocobase/app-plugin-authentication/client', async (original) => ({
   ...(await original<
@@ -73,7 +90,9 @@ const runtime = await createTestI18nRuntime({
 function show() {
   return render(
     <TestI18nProvider runtime={runtime}>
-      <ReportsPage />
+      <MemoryRouter>
+        <ReportsPage />
+      </MemoryRouter>
     </TestI18nProvider>,
   );
 }
@@ -84,6 +103,39 @@ const meta = {
   total: 1,
   generatedAt: '2026-10-11T03:00:00.000Z',
 };
+
+it('keeps typed report filters stable and cancels pending input when clearing', async () => {
+  const user = userEvent.setup();
+  show();
+  await user.click(
+    await screen.findByRole('tab', { name: 'Monthly leave requests' }),
+  );
+  const year = screen.getByLabelText('Year', { exact: true });
+  await user.type(year, '2026');
+  await waitFor(() =>
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'reports/leave-monthly',
+        query: expect.objectContaining({ year: '2026' }),
+      }),
+    ),
+  );
+  await user.clear(year);
+  await user.type(year, '2027');
+  expect(year).toHaveValue(2027);
+  await user.click(
+    screen.getByRole('button', { name: 'Clear filters', exact: true }),
+  );
+  await waitFor(() => expect(year).toHaveValue(null));
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  expect(year).toHaveValue(null);
+  expect(api.request).not.toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: 'reports/leave-monthly',
+      query: expect.objectContaining({ year: '2027' }),
+    }),
+  );
+});
 
 beforeEach(() => {
   api.request.mockImplementation(
@@ -115,7 +167,12 @@ beforeEach(() => {
               data: [
                 path === 'reports/contract-ledger'
                   ? { id: 'c1', number: 'C-001', amountCents: 100 }
-                  : { id: path, departmentId: 'dept-1', year: 2026 },
+                  : {
+                      id: path,
+                      departmentId: 'dept-1',
+                      departmentName: 'Accounting',
+                      year: 2026,
+                    },
               ],
               meta,
             },
@@ -136,7 +193,7 @@ afterEach(() => {
 it('loads every independently authorized dataset and sends its filters', async () => {
   show();
   const user = userEvent.setup();
-  await screen.findByText('dept-1');
+  await screen.findByText('Accounting');
 
   const department = screen.getByLabelText('Department');
   await user.type(department, 'Finance');
@@ -150,12 +207,12 @@ it('loads every independently authorized dataset and sends its filters', async (
     ),
   );
   await user.click(
-    screen.getByRole('tab', {
+    await screen.findByRole('tab', {
       name: 'Contract ledger',
     }),
   );
   await user.click(
-    screen.getByRole('tab', {
+    await screen.findByRole('tab', {
       name: 'Headcount balances',
     }),
   );
@@ -200,7 +257,13 @@ it('paginates with the current filters and reports an export failure', async () 
       path === 'departments/options'
         ? { data: [] }
         : {
-            data: [{ id: `${path}-${query.page}`, departmentId: 'dept-1' }],
+            data: [
+              {
+                id: `${path}-${query.page}`,
+                departmentId: 'dept-1',
+                departmentName: 'Accounting',
+              },
+            ],
             meta: {
               ...meta,
               page: Number(query.page),
@@ -210,7 +273,7 @@ it('paginates with the current filters and reports an export failure', async () 
   );
   api.stream.mockRejectedValue(new Error('download unavailable'));
   show();
-  await screen.findByText('dept-1');
+  await screen.findByText('Accounting');
   await userEvent.click(screen.getByRole('button', { name: 'Next' }));
   await waitFor(() =>
     expect(api.request).toHaveBeenCalledWith(
@@ -254,7 +317,7 @@ it('offers retry for a transient list failure and reloads the dataset', async ()
       ),
     ).toHaveLength(2),
   );
-  expect(await screen.findByText('No matching records.')).toBeInTheDocument();
+  expect(await screen.findByText('No report data yet')).toBeInTheDocument();
   expect(
     screen.queryByText('private database failure'),
   ).not.toBeInTheDocument();
@@ -262,7 +325,7 @@ it('offers retry for a transient list failure and reloads the dataset', async ()
 
 it('clears previous rows when refreshed source access is revoked', async () => {
   show();
-  await screen.findByText('dept-1');
+  await screen.findByText('Accounting');
   api.request.mockRejectedValueOnce(
     new ApiClientError('revoked', {
       status: 403,
@@ -274,13 +337,15 @@ it('clears previous rows when refreshed source access is revoked', async () => {
   await screen.findByText(
     'You do not have permission to read this report source.',
   );
-  expect(screen.queryByText('dept-1')).not.toBeInTheDocument();
+  expect(screen.queryByText('Accounting')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Export Excel' })).toBeDisabled();
 });
 
 it('filters the immutable contract expiry and headcount position without changing export scope', async () => {
   show();
-  await userEvent.click(screen.getByRole('tab', { name: 'Contract ledger' }));
+  await userEvent.click(
+    await screen.findByRole('tab', { name: 'Contract ledger' }),
+  );
   await userEvent.setup().clear(screen.getByLabelText('Ends on or before'));
   fireEvent.change(screen.getByLabelText('Ends on or before'), {
     target: { value: '2026-12-31' },
@@ -299,7 +364,7 @@ it('filters the immutable contract expiry and headcount position without changin
     expect.objectContaining({ query: { endsBefore: '2026-12-31' } }),
   );
   await userEvent.click(
-    screen.getByRole('tab', { name: 'Headcount balances' }),
+    await screen.findByRole('tab', { name: 'Headcount balances' }),
   );
   await userEvent.type(screen.getByLabelText('Position'), 'Engineer');
   await userEvent.click(
@@ -343,15 +408,17 @@ it.each(['en-US', 'zh-CN'])(
     });
     render(
       <TestI18nProvider runtime={localized}>
-        <ReportsPage />
+        <MemoryRouter>
+          <ReportsPage />
+        </MemoryRouter>
       </TestI18nProvider>,
     );
     await userEvent.click(
-      screen.getByRole('tab', {
+      await screen.findByRole('tab', {
         name: locale === 'zh-CN' ? '编制余额' : 'Headcount balances',
       }),
     );
-    await screen.findByText(
+    await screen.findAllByText(
       locale === 'zh-CN' ? '替补阻断' : 'Blocked replacement',
     );
     expect(
@@ -386,11 +453,13 @@ it.each(['en-US', 'zh-CN'])(
     });
     render(
       <TestI18nProvider runtime={localized}>
-        <ReportsPage />
+        <MemoryRouter>
+          <ReportsPage />
+        </MemoryRouter>
       </TestI18nProvider>,
     );
     await userEvent.click(
-      screen.getByRole('tab', {
+      await screen.findByRole('tab', {
         name: locale === 'zh-CN' ? '合同台账' : 'Contract ledger',
       }),
     );
@@ -403,9 +472,7 @@ it.each(['en-US', 'zh-CN'])(
         locale === 'zh-CN' ? '2026年12月31日' : 'December 31st, 2026',
       ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(locale === 'zh-CN' ? '12,500 基点' : '12,500 bp'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('125%')).toBeInTheDocument();
     expect(screen.queryByText('2026-12-31')).not.toBeInTheDocument();
   },
 );
@@ -413,7 +480,7 @@ it.each(['en-US', 'zh-CN'])(
 it('searches labels without submitting opaque IDs, then clears the selected position filter', async () => {
   show();
   await userEvent.click(
-    screen.getByRole('tab', { name: 'Headcount balances' }),
+    await screen.findByRole('tab', { name: 'Headcount balances' }),
   );
   const input = screen.getByLabelText('Position');
   await userEvent.type(input, 'Engineer');
@@ -457,7 +524,7 @@ it('fails closed for position metadata denial while leaving independent authoriz
   });
   show();
   await userEvent.click(
-    screen.getByRole('tab', { name: 'Headcount balances' }),
+    await screen.findByRole('tab', { name: 'Headcount balances' }),
   );
   await screen.findByText('Position options could not be loaded.');
   expect(
@@ -465,7 +532,7 @@ it('fails closed for position metadata denial while leaving independent authoriz
   ).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Position')).not.toBeInTheDocument();
   expect(screen.queryByText('secret')).not.toBeInTheDocument();
-  await screen.findByText('dept-1');
+  await screen.findByText('Accounting');
 });
 
 it('uses identical monthly leave filters for list and Excel, rejects invalid month and clears stale rows', async () => {
@@ -490,7 +557,9 @@ it('uses identical monthly leave filters for list and Excel, rejects invalid mon
         : { data: [], meta },
   );
   show();
-  await user.click(screen.getByRole('tab', { name: 'Monthly leave requests' }));
+  await user.click(
+    await screen.findByRole('tab', { name: 'Monthly leave requests' }),
+  );
   expect(await screen.findByText('annual')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Year'), {
     target: { value: '2026' },
@@ -542,7 +611,9 @@ it('uses identical monthly leave filters for list and Excel, rejects invalid mon
 it('monthly numeric sorting is sent to the owner and clear filters restores defaults', async () => {
   const user = userEvent.setup();
   show();
-  await user.click(screen.getByRole('tab', { name: 'Monthly leave requests' }));
+  await user.click(
+    await screen.findByRole('tab', { name: 'Monthly leave requests' }),
+  );
   await screen.findByRole('button', { name: 'Approved requests' });
   await user.click(screen.getByRole('button', { name: 'Approved requests' }));
   await waitFor(() =>
@@ -586,7 +657,9 @@ it('monthly source limit gives a range correction instead of blind retry', async
     return path === 'departments/options' ? { data: [] } : { data: [], meta };
   });
   show();
-  await user.click(screen.getByRole('tab', { name: 'Monthly leave requests' }));
+  await user.click(
+    await screen.findByRole('tab', { name: 'Monthly leave requests' }),
+  );
   expect(
     await screen.findByText(
       'This range exceeds 10,000 authorized approved requests. Select a month or another year, then try again.',
@@ -610,7 +683,9 @@ it('monthly known source denial hides Excel and gives the next step', async () =
     return path === 'departments/options' ? { data: [] } : { data: [], meta };
   });
   show();
-  await user.click(screen.getByRole('tab', { name: 'Monthly leave requests' }));
+  await user.click(
+    await screen.findByRole('tab', { name: 'Monthly leave requests' }),
+  );
   expect(
     await screen.findByText(
       'You do not have access to the current leave request source. Contact an administrator to check source permissions.',
@@ -669,7 +744,7 @@ it('composes both new source reports without mixing their filters or private fie
     </TestI18nProvider>,
   );
   await user.click(
-    screen.getByRole('tab', { name: enUS.reportsExpense.title }),
+    await screen.findByRole('tab', { name: enUS.reportsExpense.title }),
   );
   expect(await screen.findByText('travel')).toBeInTheDocument();
   expect(api.request).toHaveBeenCalledWith(
@@ -680,7 +755,7 @@ it('composes both new source reports without mixing their filters or private fie
   );
   expect(screen.queryByText('must-never-render')).not.toBeInTheDocument();
   await user.click(
-    screen.getByRole('tab', { name: enUS.reportsEfficiency.title }),
+    await screen.findByRole('tab', { name: enUS.reportsEfficiency.title }),
   );
   expect(
     await screen.findByText(enUS.reportsEfficiency.selectYear),

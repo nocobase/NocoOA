@@ -308,6 +308,39 @@ describe('restricted general file repository', () => {
       }),
     );
     expect(cross.status).toBe(400);
+    const unusedUpload = await upload(ownSession, other.id);
+    expect(unusedUpload.status).toBe(201);
+    const unusedFile = (await unusedUpload.json()).data.record;
+    await record(
+      await ownSession.fetch(
+        `/generalRequests/${other.id}/transition`,
+        json({
+          transition: 'submit',
+          version: other.lifecycleVersion,
+          requestId: randomUUID(),
+          input: {},
+        }),
+      ),
+    );
+    for (const session of [ownSession, managerSession]) {
+      const empty = await session.fetch('/generalAttachments/findMany', {
+        ...json({ limit: 10 }),
+        headers: {
+          'content-type': 'application/json',
+          origin: OA_TEST_ORIGIN,
+          'x-general-request-id': other.id,
+        },
+      });
+      expect(empty.status).toBe(200);
+      expect((await empty.json()).data).toEqual([]);
+    }
+    expect(
+      (
+        await ownSession.fetch(
+          new URL(unusedFile.contentUrl, OA_TEST_ORIGIN).href,
+        )
+      ).status,
+    ).toBe(403);
     const edited = await record(
       await ownSession.fetch(
         `/generalRequests/${draft.id}/transition`,

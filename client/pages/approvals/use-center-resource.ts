@@ -35,6 +35,7 @@ export interface CenterRecord {
     | 'oa.attendanceChange'
     | 'oa.outing';
   title?: string;
+  updatedAt?: string | null;
   dueAt?: string;
   number: string | null;
   applicantId: string;
@@ -53,7 +54,11 @@ interface CenterResponse {
     pageSize: number;
     total: number;
     kinds: CenterRecord['kind'][];
-    attention?: { drafts: CenterRecord[]; revisions: CenterRecord[] };
+    attention?: {
+      drafts: CenterRecord[];
+      revisions: CenterRecord[];
+      submitted?: CenterRecord[];
+    };
     counts: { drafts: number; revisions: number; inProgress: number };
   };
 }

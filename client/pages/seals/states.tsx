@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { Link, useLocation } from 'react-router';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -14,6 +15,7 @@ export function SealError({
   retry?: () => void;
   returnTo?: string;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'seals');
   const { t } = useTranslation(),
     location = useLocation();
   if (error instanceof ApiClientError && error.status === 401)
@@ -23,7 +25,7 @@ export function SealError({
   return (
     <Alert variant='destructive'>
       <AlertDescription>
-        {t(`seals.${denied ? 'unavailable' : 'failed'}`)}
+        {businessMessage ?? t(`seals.${denied ? 'unavailable' : 'failed'}`)}
       </AlertDescription>
       {denied ? (
         <Button
@@ -42,9 +44,16 @@ export function SealError({
           {t('seals.backToList')}
         </Button>
       ) : null}
-      {!denied && retry ? (
+      {!denied &&
+      (!businessMessage ||
+        (error instanceof ApiClientError && error.status === 409)) &&
+      retry ? (
         <Button variant='outline' onClick={retry}>
-          {t('seals.retry')}
+          {t(
+            error instanceof ApiClientError && error.status === 409
+              ? 'approvals.loadLatest'
+              : 'seals.retry',
+          )}
         </Button>
       ) : null}
     </Alert>

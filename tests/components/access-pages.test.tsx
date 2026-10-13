@@ -359,6 +359,95 @@ function mountPerson() {
   );
 }
 describe('Person permission sources', () => {
+  it('groups user decisions by module without dropping source or conditional details', async () => {
+    client.loadOptions.mockResolvedValue({
+      ...catalog,
+      sections: [
+        {
+          ...catalog.sections[0],
+          subsections: [
+            ...catalog.sections[0].subsections,
+            {
+              name: 'hr',
+              title: 'HR',
+              resources: [
+                {
+                  type: 'settings',
+                  id: 'hr',
+                  title: 'HR administration',
+                  actions: [{ name: 'read', title: 'Read HR' }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    client.inspectConfigured.mockResolvedValue({
+      sets: [{ ...definition, sources: [{ type: 'org.dutyRole', id: 'hr' }] }],
+    });
+    client.getEffective.mockResolvedValue([definition]);
+    client.inspectBatch.mockImplementation(async (_subject, checks) =>
+      checks.map((check: { resource: { id: string } }) => ({
+        ...check,
+        decision: {
+          effect: check.resource.id === 'budget' ? 'conditional' : 'deny',
+        },
+      })),
+    );
+    mountPerson();
+    const hr = await screen.findByRole('tab', {
+      name: 'HR: 0 configured / 1 resources',
+    });
+    expect(screen.queryByText('Read HR')).toBeNull();
+    expect(screen.getByText('Read budget')).toBeVisible();
+    expect(
+      screen.getByText('Access sources: Finance responsibilities'),
+    ).toBeVisible();
+    await userEvent.click(hr);
+    expect(screen.getByText('Read HR')).toBeVisible();
+    expect(screen.getByText(enUS.access.deniedAction)).toBeVisible();
+    expect(screen.queryByText('Read budget')).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: /All:/ }));
+    expect(screen.getByText('Read HR')).toBeVisible();
+    expect(screen.getByText('Read budget')).toBeVisible();
+  });
+  it('keeps unchecked results in their module rather than showing them as denied', async () => {
+    client.loadOptions.mockResolvedValue({
+      ...catalog,
+      sections: [
+        {
+          ...catalog.sections[0],
+          subsections: [
+            ...catalog.sections[0].subsections,
+            {
+              name: 'hr',
+              title: 'HR',
+              resources: [
+                {
+                  type: 'settings',
+                  id: 'hr',
+                  title: 'HR administration',
+                  actions: [{ name: 'read', title: 'Read HR' }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    client.inspectConfigured.mockResolvedValue({ sets: [] });
+    client.getEffective.mockResolvedValue([]);
+    client.inspectBatch.mockRejectedValue(new Error('Network unavailable'));
+    mountPerson();
+    await userEvent.click(await screen.findByRole('tab', { name: /HR:/ }));
+    expect(screen.getByText('Read HR')).toBeVisible();
+    expect(screen.getByText(enUS.access.unchecked)).toBeVisible();
+    expect(screen.queryByText('Read budget')).toBeNull();
+    expect(screen.queryByText(enUS.access.deniedAction)).toBeNull();
+    expect(screen.queryByText(enUS.access.none)).toBeNull();
+  });
+
   it('shows inherited responsibilities as their actual source and conditional decisions', async () => {
     client.resolveSubjects.mockImplementation(async (_surface, type) => [
       {
@@ -518,5 +607,64 @@ describe('Independent loading blocks', () => {
     expect(
       await screen.findByRole('link', { name: 'New colleague' }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('Role permission module grouping', () => {
+  it('shows one module at a time in role details', async () => {
+    client.loadOptions.mockResolvedValue({
+      ...catalog,
+      sections: [
+        {
+          ...catalog.sections[0],
+          subsections: [
+            ...catalog.sections[0].subsections,
+            {
+              name: 'hr',
+              title: 'HR',
+              resources: [
+                {
+                  type: 'settings',
+                  id: 'hr',
+                  title: 'HR administration',
+                  actions: [{ name: 'read', title: 'Read HR' }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const groupedDefinition = {
+      ...definition,
+      grants: [
+        ...definition.grants,
+        {
+          resource: { type: 'settings', id: 'hr' },
+          actions: [{ action: 'read' }],
+        },
+      ],
+    };
+    api.request.mockImplementation(async ({ path }: { path: string }) => ({
+      data: path.includes('/members')
+        ? []
+        : { ...snapshot, sets: [groupedDefinition] },
+    }));
+    mountAt(
+      <SubjectDetail />,
+      'access/roles/:type/:id/permissions',
+      '/access/roles/org.dutyRole/hr/permissions',
+    );
+    const hr = await screen.findByRole('tab', {
+      name: 'HR: 1 configured / 1 resources',
+    });
+    expect(screen.getByText('Read budget')).toBeVisible();
+    expect(screen.queryByText('Read HR')).toBeNull();
+    await userEvent.click(hr);
+    expect(screen.getByText('Read HR')).toBeVisible();
+    expect(screen.queryByText('Read budget')).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: /All:/ }));
+    expect(screen.getByText('Read budget')).toBeVisible();
+    expect(screen.getByText('Read HR')).toBeVisible();
   });
 });

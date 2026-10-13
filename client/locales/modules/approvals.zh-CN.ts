@@ -23,6 +23,31 @@ const existing = {
 };
 
 const copy = {
+  actionErrors: {
+    REASON_REQUIRED: '请填写本次操作的原因。',
+    CLAIM_FIRST: '请先领取该办理任务，再登记办理结果。',
+    TASK_CLOSED: '该任务已结束，请刷新申请并使用当前可用操作。',
+    ALREADY_ANSWERED: '您已处理该任务，请刷新查看已登记的结果。',
+    NOT_YOUR_TURN: '前序审批尚未完成，请等待轮到您处理。',
+    STALE: '审批状态已变化，请读取最新申请后再继续。',
+    CONTENT_CHANGED: '审批内容已变化，请刷新并重新核对后再操作。',
+    STALE_CONTENT: '审批内容已变化，请刷新并重新核对后再操作。',
+    INVALID_ANSWER: '当前环节不支持该审批决定，请刷新并选择可用操作。',
+    NOT_ALLOWED: '当前已不能执行该操作，请刷新并选择当前可用操作。',
+    NO_ASSIGNEE: '当前没有有效办理人，请联系审批管理员指派。',
+    NO_STAGE: '当前没有可处理的审批环节，请刷新并联系审批管理员核查。',
+    ASSIGNMENT_LOOP: '该转交会形成循环，请选择其他符合条件的接收人。',
+  },
+  businessErrorFields: '{{message}} 请检查以下字段：{{fields}}。',
+  invalidFields: '请检查以下字段：{{fields}}。',
+  fieldSeparator: '、',
+  businessErrors: {
+    LEAVE_MAX_DAYS: '请假天数超过该假种上限，请缩短请假时间。',
+    LEAVE_NO_WORKDAYS: '所选时间没有可请假的工作半天，请调整日期。',
+    LEAVE_TYPE_UNAVAILABLE: '该假种已停用或不可用，请重新选择启用的假种。',
+    LEAVE_DELEGATE_REQUIRED: '请为代申请选择另一名有效在职员工。',
+  },
+
   creationUnknown: '保存结果尚未确认，请重试同一保存操作或核查已有草稿。',
   resubmit: '重新提交',
   submitted: '已提交 {{name}}',

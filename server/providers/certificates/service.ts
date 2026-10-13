@@ -778,6 +778,7 @@ export function createCertificateApplication(d: CertificateDependencies) {
               result.push({
                 id: row.id,
                 kind: CERTIFICATE_KIND,
+                title: row.purpose.trim().replace(/\s+/g, ' ').slice(0, 240),
                 number: issue?.number ?? null,
                 applicantId: row.applicantId,
                 status: row.status,

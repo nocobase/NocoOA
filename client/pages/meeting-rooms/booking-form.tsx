@@ -207,12 +207,25 @@ function FormBody({
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      roomId: booking?.roomId ?? initialRoomId ?? '',
+      roomId:
+        booking?.roomId ??
+        initialRoomId ??
+        new URLSearchParams(location.search).get('selectedRoom') ??
+        '',
       title: booking?.title ?? '',
       attendeeUserIds: booking?.attendeeUserIds ?? [],
-      date: begin?.date ?? '',
-      startTime: begin?.time ?? '09:00',
-      endTime: end?.time ?? '10:00',
+      date:
+        begin?.date ??
+        new URLSearchParams(location.search).get('meetingDate') ??
+        '',
+      startTime:
+        begin?.time ??
+        new URLSearchParams(location.search).get('meetingStart') ??
+        '09:00',
+      endTime:
+        end?.time ??
+        new URLSearchParams(location.search).get('meetingEnd') ??
+        '10:00',
       frequency: 'none' as const,
       count: 1,
     },

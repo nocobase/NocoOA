@@ -4,6 +4,7 @@
  */
 const employeesEnUS = {
   employees: {
+    refresh: 'Refresh',
     personal: {
       title: 'Personal archive',
       description:

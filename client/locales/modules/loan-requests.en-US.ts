@@ -1,5 +1,18 @@
 export default {
   loanRequests: {
+    businessErrors: {
+      LOAN_REQUEST_DEPARTMENT_REQUIRED:
+        'The applicant needs an active primary department. Ask HR to update the employee record.',
+      LOAN_REQUEST_INVALID_DATE:
+        'The repayment due date must be today or later in the company time zone.',
+      LOAN_REQUEST_INVALID_TRAVEL: 'Select your own effective approved trip.',
+      LOAN_REQUEST_INVALID_INPUT: 'Enter a loan reason and a positive amount.',
+      LOAN_REQUEST_NOT_PAID:
+        'This loan has not been paid. Repayment can only be recorded after payment.',
+      LOAN_REQUEST_REPAYMENT_INPUT_INVALID:
+        'Enter the repayment receipt and reason.',
+    },
+
     loadLatest: 'Load latest facts',
     latestFacts:
       'Version {{version}} · {{amount}} CNY · due {{date}} · purpose: {{reason}}',
@@ -36,6 +49,8 @@ export default {
     loadingBank: 'Loading payment account…',
     bankNotSnapshot: 'No payment account has been captured yet.',
     recordCash: 'Record cash repayment',
+    invalidRepaymentAmount:
+      'Repayment amounts could not be read. Contact finance to check this record.',
     noRepayments: 'No repayment records',
     loading: 'Loading…',
     confirmRepayment: 'Confirm repayment',

@@ -9,7 +9,10 @@ import { test } from './helpers.js';
 import { createUser, write } from '../platform/helpers.js';
 import { createEmployee } from '../employees/helpers.js';
 import { organizationServiceToken } from '../../../server/providers/org/index.js';
-import { meetingRoomServiceToken } from '../../../server/providers/meeting-rooms/index.js';
+import {
+  meetingRoomServiceToken,
+  ROOM_FIELDS,
+} from '../../../server/providers/meeting-rooms/index.js';
 import { findUndeclaredApiRoutes } from '@nocobase/app-server/router';
 async function actor(
   testApp: Parameters<typeof createEmployee>[0],
@@ -144,6 +147,73 @@ test('real API denies anonymous/ungranted/foreign users; availability hides deta
   expect(text).not.toContain(body.title);
   expect(text).not.toContain(owner.userId);
   expect(JSON.parse(text).data.busy).toHaveLength(1);
+  const availabilityQuery =
+    '/meetingRooms/availability-search?capacity=5&startAt=2030-05-02T01:00:00Z&endAt=2030-05-02T02:00:00Z';
+  expect((await testApp.request(availabilityQuery)).status).toBe(401);
+  expect((await ungranted.fetch(availabilityQuery)).status).toBe(200); // ordinary default room viewing, no booking authority
+  const aggregated = await other.session.fetch(availabilityQuery);
+  expect(aggregated.status).toBe(200);
+  const available = await aggregated.json();
+  expect(available.meta.total).toBe(1);
+  expect(available.data[0].busy).toHaveLength(1); // pendingConfirmation occupies the interval
+  expect(JSON.stringify(available)).not.toContain(body.title);
+  expect(JSON.stringify(available)).not.toContain(owner.userId);
+  const adjacent = await other.session.fetch(
+    availabilityQuery
+      .replace('01:00:00Z', '02:00:00Z')
+      .replace('endAt=2030-05-02T02:00:00Z', 'endAt=2030-05-02T03:00:00Z'),
+  );
+  expect((await adjacent.json()).data[0].busy).toHaveLength(0);
+  const tooSmall = await other.session.fetch(
+    availabilityQuery.replace('capacity=5', 'capacity=6'),
+  );
+  expect((await tooSmall.json()).meta.total).toBe(0);
+  const authz = c.resolve(authorizationToken),
+    original = authz.for.bind(authz);
+  let denyFields = false;
+  const scopeSpy = vi.spyOn(authz, 'for').mockImplementation((identity) => {
+    const context = original(identity);
+    return {
+      ...context,
+      authorize: (async (check: AuthorizationCheckRequest) => {
+        const decision = await context.authorize(check);
+        if (
+          check.resource.type !== 'composite' ||
+          check.resource.id !== 'oa.meetingRooms' ||
+          check.action !== 'view'
+        )
+          return decision;
+        return {
+          ...decision,
+          conditions: {
+            ...decision.conditions,
+            database: {
+              ...decision.conditions?.database,
+              meetingRooms: {
+                ...decision.conditions?.database?.meetingRooms,
+                read: denyFields
+                  ? { scope: true, fields: ['id'] }
+                  : {
+                      scope: { id: 'outside-room-scope' },
+                      fields: [...ROOM_FIELDS],
+                    },
+              },
+            },
+          },
+        };
+      }) as typeof context.authorize,
+    };
+  });
+  try {
+    const scoped = await other.session.fetch(availabilityQuery);
+    expect(scoped.status).toBe(200);
+    expect((await scoped.json()).meta.total).toBe(0);
+    denyFields = true;
+    expect((await other.session.fetch(availabilityQuery)).status).toBe(403);
+  } finally {
+    scopeSpy.mockRestore();
+  }
+
   const illegal = await owner.session.fetch(
     '/meetingBookings',
     write('POST', { ...body, confirmedBy: a.userId }),

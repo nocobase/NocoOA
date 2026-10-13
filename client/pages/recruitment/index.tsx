@@ -1,3 +1,6 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { StatusBadge } from '#components/status-badge';
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { Link, Outlet, useLocation } from 'react-router';
@@ -11,7 +14,6 @@ import { ApplicationToolbar } from '#components/application-toolbar';
 import { ApplicationTableSkeleton } from '#components/application-table-skeleton';
 import { DataTableServer, DataTableColumnHeader } from '#components/data-table';
 import { Button } from '#components/ui/button';
-import { Badge } from '#components/ui/badge';
 import { useUrlSearch } from '#hooks/use-url-search';
 import { TruncatedText } from '../platform/shared/truncated-text.js';
 import { useRecruitmentResource } from './resource.js';
@@ -63,6 +65,20 @@ export default function RecruitmentList() {
     orderBy,
     desc: String(desc),
   });
+  const createOptions = useRecruitmentResource<{
+    data: { canCreate: boolean };
+  }>(
+    grant.can && !grant.isPending && !grant.error
+      ? 'recruitmentRequests/createOptions'
+      : null,
+  );
+  const canCreate =
+    grant.can &&
+    !grant.isPending &&
+    !grant.error &&
+    !createOptions.loading &&
+    !createOptions.error &&
+    createOptions.data?.data.canCreate === true;
   const columns: ColumnDef<ListRow>[] = [
     {
       id: 'position',
@@ -117,9 +133,9 @@ export default function RecruitmentList() {
       id: 'status',
       header: t('recruitment.fields.status'),
       cell: ({ row }) => (
-        <Badge variant='outline'>
+        <StatusBadge tone={statusTone(row.original.status)}>
           {t(`recruitment.status.${row.original.status}`)}
-        </Badge>
+        </StatusBadge>
       ),
     },
     ...(['createdAt', 'statusChangedAt'] as const).map(
@@ -146,7 +162,7 @@ export default function RecruitmentList() {
         actions={
           <>
             <Refresh busy={r.loading} onClick={r.reload} />
-            {grant.can && !grant.isPending && !grant.error ? (
+            {canCreate ? (
               <Button
                 nativeButton={false}
                 render={
@@ -212,11 +228,23 @@ export default function RecruitmentList() {
           columns={columns}
           getRowId={(row) => row.id}
           total={r.data.meta.total}
-          emptyMessage={t(
-            search.search || status
-              ? 'recruitment.filteredEmpty'
-              : 'recruitment.empty',
-          )}
+          emptyMessage={
+            <ApplicationTableEmpty
+              title={t(
+                search.search || status
+                  ? 'recruitment.filteredEmpty'
+                  : 'recruitment.empty',
+              )}
+              clearFilters={
+                search.search || status
+                  ? {
+                      label: t('recruitment.clear'),
+                      onClick: () => search.clear((p) => p.delete('status')),
+                    }
+                  : undefined
+              }
+            />
+          }
           pagination={{ pageIndex: page - 1, pageSize }}
           sorting={[{ id: orderBy, desc }]}
           onPaginationChange={(v) =>

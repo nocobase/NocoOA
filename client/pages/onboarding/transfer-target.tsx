@@ -28,7 +28,7 @@ export function TransferTarget({
     `onboardings/${id}/tasks/${encodeURIComponent(taskId)}/transferCandidates`,
   );
   if (r.loading) return <Loading />;
-  if (r.error) return <Failure error={r.error} />;
+  if (r.error) return <Failure module='onboarding' error={r.error} />;
   return (
     <Select
       value={value}

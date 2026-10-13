@@ -27,7 +27,7 @@ export default {
       month: '费用月份',
       category: '费用分类代码',
       settledRequestCount: '已结算申请数',
-      settledExpenseCents: '已结算费用毛额（分，非现金实付）',
+      settledExpenseCents: '已结算费用毛额（元，非现金实付）',
     },
   },
 };

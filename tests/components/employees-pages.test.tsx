@@ -170,7 +170,10 @@ describe('employee archive list', () => {
     );
     const row = link.closest('tr')!;
     expect(within(row).getByText('Sales')).toBeInTheDocument();
-    expect(within(row).getByText('Bob Li')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', { name: copy.fields.manager }),
+    ).not.toBeInTheDocument();
+    expect(within(row).queryByText('Bob Li')).not.toBeInTheDocument();
     expect(within(row).getByText(copy.status.probation)).toBeInTheDocument();
     expect(api.request).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -189,7 +192,7 @@ describe('employee archive list', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers creation in the empty state only to those who may create', async () => {
+  it('keeps an empty table and one toolbar creation action for authorized users', async () => {
     granted.add('oa.employees.archive:manage');
     answer({
       'GET employees': { data: [], meta: { page: 1, pageSize: 10, total: 0 } },
@@ -197,6 +200,17 @@ describe('employee archive list', () => {
     });
     renderList();
     expect(await screen.findByText(copy.empty.title)).toBeInTheDocument();
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole('button', { name: copy.create.action })
+        .closest('[data-slot=application-actions]'),
+    ).not.toBeNull();
+    expect(
+      within(screen.getByRole('table')).queryByRole('button', {
+        name: copy.create.action,
+      }),
+    ).toBeNull();
     expect(
       screen.getAllByRole('button', { name: copy.create.action }),
     ).toHaveLength(1);

@@ -1,3 +1,12 @@
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '#components/ui/alert-dialog';
 import { useRequestFormSubmission } from '#hooks/use-request-form-submission';
 import {
   RequestFormButtons,
@@ -66,6 +75,9 @@ export default function TravelFormDialog() {
   const resource = useResource<TravelDetail>(
     requestId ? `travelRequests/${encodeURIComponent(requestId)}` : null,
   );
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [discard, setDiscard] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const busyRef = useRef(false);
@@ -89,6 +101,17 @@ export default function TravelFormDialog() {
     )
       parentReload();
   }, [resource.error, parentReload]);
+  const closeForm = () => {
+    if (busyRef.current) return;
+    if (dirtyRef.current) {
+      setDiscard(true);
+      return;
+    }
+    void navigate(
+      { pathname: '..', search: location.search, hash: location.hash },
+      { relative: 'route', replace: true },
+    );
+  };
   useNavigationGuard(() => {
     if (busyRef.current) return false;
     return (
@@ -97,6 +120,10 @@ export default function TravelFormDialog() {
   });
   return (
     <RouteFormPage
+      beforeClose={() => {
+        closeForm();
+        return false;
+      }}
       printable
       title={drawerTitle(requestId ? 'travel.edit' : 'travel.new')}
     >
@@ -107,6 +134,7 @@ export default function TravelFormDialog() {
           description={t('travel.formDescription')}
           actions={
             <FormFooter
+              onCancel={closeForm}
               revision={resource.data?.record.status === 'revision'}
               busy={busy}
               disabled={
@@ -145,29 +173,51 @@ export default function TravelFormDialog() {
           />
         )}
       </PageContainer>
+      <AlertDialog open={discard} onOpenChange={setDiscard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('approvals.discard')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('approvals.discardDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>
+              {t('approvals.cancel')}
+            </AlertDialogCancel>
+            <Button
+              variant='destructive'
+              disabled={busy}
+              onClick={() => {
+                if (busyRef.current) return;
+                dirtyRef.current = false;
+                setDiscard(false);
+                closeForm();
+              }}
+            >
+              {t('approvals.discardConfirm')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </RouteFormPage>
   );
 }
 function FormFooter({
+  onCancel,
   busy,
   disabled,
   revision,
 }: {
+  onCancel: () => void;
   busy: boolean;
   disabled: boolean;
   revision?: boolean;
 }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const close = async () =>
-    navigate(
-      { pathname: '..', search: location.search },
-      { relative: 'route', replace: true },
-    );
   const { t } = useTranslation();
   return (
     <>
-      <Button variant='outline' disabled={busy} onClick={() => void close()}>
+      <Button variant='outline' disabled={busy} onClick={onCancel}>
         {t('approvals.cancel')}
       </Button>
       <RequestFormButtons
@@ -381,6 +431,19 @@ function TravelForm({
       options.loading
     )
       return;
+    if (
+      submission.intent.current === 'submit' &&
+      values.international &&
+      !values.attachments.length
+    ) {
+      form.setError('attachments', {
+        message: t('travel.businessErrors.TRAVEL_ITINERARY_REQUIRED'),
+      });
+      requestAnimationFrame(() =>
+        document.getElementById('travel-file')?.focus(),
+      );
+      return;
+    }
     runningRef.current = true;
     onBusy(true);
     setError(undefined);

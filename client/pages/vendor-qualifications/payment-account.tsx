@@ -9,7 +9,7 @@ import { ApiClientError, useApiClient, useToaster } from '@nocobase/app-client';
 
 import { useTranslation } from '@nocobase/i18n/client';
 import { Link, useLocation, useOutletContext } from 'react-router';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Input } from '#components/ui/input';
 import { Button } from '#components/ui/button';
@@ -119,7 +119,7 @@ export default function BankDialog() {
     busyRef = useRef(false);
   const guard = useCloseGuard(saving);
   return (
-    <RouteDialog
+    <RouteDrawer
       className='sm:max-w-md'
       title={t('vendorQualifications.account.edit')}
       beforeClose={guard.beforeClose}
@@ -138,7 +138,7 @@ export default function BankDialog() {
         stay={guard.stay}
         discard={guard.discard}
       />
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({ busy, ready }: { busy: boolean; ready: boolean }) {

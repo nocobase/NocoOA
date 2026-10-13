@@ -5,7 +5,7 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { useToaster, ApiClientError } from '@nocobase/app-client';
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useAuthorizationRevision } from '@nocobase/app-plugin-authorization/client';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { DateTimePicker } from '#components/date-time-picker';
 import { UserPicker } from '#components/user-picker';
@@ -78,7 +78,7 @@ function Overlay() {
           )) ||
         (operation === 'actualReturn' && cap.canActualReturn));
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t(`seals.actions.${operation}`)}
       className='sm:max-w-2xl'
       beforeClose={() =>
@@ -151,7 +151,7 @@ function Overlay() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({ busy, ready }: { busy: boolean; ready: boolean }) {

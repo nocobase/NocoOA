@@ -13,7 +13,7 @@ import {
   FieldError,
   FieldGroup,
 } from '#components/ui/field';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import {
   AlertDialog,
@@ -144,7 +144,7 @@ export default function PaymentAccountDialog() {
   const [discard, setDiscard] = useState(false);
   const resolveRef = useRef<((value: boolean) => void) | null>(null);
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t('reimbursementRequests.bank.correct')}
       footer={null}
       beforeClose={() => {
@@ -213,7 +213,7 @@ export default function PaymentAccountDialog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function AccountForm({

@@ -1,3 +1,5 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
+import { statusTone } from './status-tone.js';
 import { ApplicationSearch } from '#components/application-search';
 import { UserName } from '#components/user-name';
 import { Link, Outlet, useLocation } from 'react-router';
@@ -17,7 +19,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from '#components/ui/tooltip';
-import { Badge } from '#components/ui/badge';
+import { StatusBadge } from '#components/status-badge';
 import {
   Select,
   SelectTrigger,
@@ -130,9 +132,9 @@ export default function TransferList() {
         header: t('transfer.fields.status'),
         enableSorting: false,
         cell: ({ row }) => (
-          <Badge variant='secondary'>
+          <StatusBadge tone={statusTone(row.original.status)}>
             {t(`transfer.status.${row.original.status}`)}
-          </Badge>
+          </StatusBadge>
         ),
       },
       {
@@ -286,9 +288,27 @@ export default function TransferList() {
               params.delete('page');
             })
           }
-          emptyMessage={t(
-            search.search || status ? 'transfer.noResults' : 'transfer.empty',
-          )}
+          emptyMessage={
+            <ApplicationTableEmpty
+              title={t(
+                search.search || status
+                  ? 'transfer.noResults'
+                  : 'transfer.empty',
+              )}
+              clearFilters={
+                search.search || status
+                  ? {
+                      label: t('transfer.clear'),
+                      onClick: () =>
+                        search.clear((p) => {
+                          p.delete('status');
+                          p.delete('page');
+                        }),
+                    }
+                  : undefined
+              }
+            />
+          }
           pageSizeOptions={[10, 20, 50, 100]}
         />
       )}

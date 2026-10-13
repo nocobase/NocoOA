@@ -1,5 +1,16 @@
 export default {
   budgetAdjustments: {
+    businessErrors: {
+      BUDGET_ADJUSTMENT_INVALID_ACCOUNT: '请选择有效部门和预算年度。',
+      BUDGET_ADJUSTMENT_INVALID_AMOUNT:
+        '请填写调整原因并输入大于零的调整金额。',
+      BUDGET_ADJUSTMENT_INVALID_SUBJECT: '请选择已启用的预算科目。',
+      BUDGET_ADJUSTMENT_INVALID_TRANSFER:
+        '调拨须选择不同的来源和目标科目；追加预算须清空来源科目。',
+      BUDGET_ADJUSTMENT_INACTIVE_HEAD:
+        '部门负责人已失效，请联系管理员维护部门负责人。',
+    },
+
     authz: {
       resource: '预算调整',
       submit: '提交预算调整',

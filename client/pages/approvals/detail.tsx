@@ -401,7 +401,7 @@ export default function LeaveDetailPage() {
               }).format(new Date(v))
             }
           >
-            <dl className='grid max-w-4xl gap-4 sm:grid-cols-[8rem_1fr]'>
+            <dl className='grid max-w-4xl gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]'>
               {[
                 [
                   t('approvals.applicant'),

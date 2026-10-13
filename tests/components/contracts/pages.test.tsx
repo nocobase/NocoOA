@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import {
   ApiClientError,
   NavigationGuardProvider,
@@ -347,13 +348,16 @@ it('loads the latest complete edit and locks partial proposal replacements', asy
 it('validates on submit, focuses first error and preserves typed input', async () => {
   show(<Form />, '/contractRequests/newContract');
   const input = await screen.findByLabelText('Counterparty *');
-  fireEvent.change(input, { target: { value: 'New customer' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+  const user = userEvent.setup();
+  await user.type(input, 'New customer');
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
   await waitFor(() =>
     expect(screen.getAllByText('Enter this field').length).toBeGreaterThan(0),
   );
-  expect(screen.getByLabelText('Contract type *') as HTMLElement).toBe(
-    document.activeElement,
+  await waitFor(() =>
+    expect(screen.getByLabelText('Contract type *') as HTMLElement).toBe(
+      document.activeElement,
+    ),
   );
   expect((input as HTMLInputElement).value).toBe('New customer');
   expect(api.request.mock.calls.some(([v]) => v.method === 'POST')).toBe(false);

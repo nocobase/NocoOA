@@ -29,6 +29,14 @@ export default {
     period: 'Period',
     amount: 'Quantity',
     scope: 'Only records within your authorized business scope are shown.',
+    category: 'Request category',
+    categories: {
+      all: 'All requests',
+      drafts: 'Drafts',
+      revisions: 'Returned and exceptions',
+      inProgress: 'In progress',
+      submitted: 'Submitted',
+    },
     kinds: {
       workItem: 'Work item',
       announcementReceipt: 'Announcement receipt',

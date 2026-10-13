@@ -1,3 +1,4 @@
+import { useBusinessErrorMessage } from '#hooks/use-business-error-message';
 import { Link, useLocation } from 'react-router';
 import { ApiClientError } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -11,6 +12,7 @@ export function TransferError({
   error: unknown;
   retry: () => void;
 }) {
+  const businessMessage = useBusinessErrorMessage(error, 'transfer');
   const { t } = useTranslation(),
     location = useLocation();
   if (error instanceof ApiClientError && error.status === 401)
@@ -19,9 +21,10 @@ export function TransferError({
   return (
     <Alert variant='destructive'>
       <AlertDescription>
-        {t(
-          `transfer.errors.${status === 404 ? 'missing' : status === 403 ? 'denied' : status === 409 ? 'conflict' : status === 412 || (status === 400 && error instanceof ApiClientError && error.reason !== 'INVALID_ARGUMENT') ? 'precondition' : 'failed'}`,
-        )}
+        {businessMessage ??
+          t(
+            `transfer.errors.${status === 404 ? 'missing' : status === 403 ? 'denied' : status === 409 ? 'conflict' : status === 412 || (status === 400 && error instanceof ApiClientError && error.reason !== 'INVALID_ARGUMENT') ? 'precondition' : 'failed'}`,
+          )}
       </AlertDescription>
       {status === 404 ? (
         <Button

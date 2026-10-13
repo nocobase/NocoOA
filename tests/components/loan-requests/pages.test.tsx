@@ -9,6 +9,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import enUS from '../../../client/locales/en-US.js';
 import LoansPage from '../../../client/pages/loan-requests/index.js';
+import { LoanFinancialSections } from '../../../client/pages/loan-requests/repayments.js';
+import type { LoanRequestRecord } from '../../../client/pages/loan-requests/types.js';
 import LoanForm from '../../../client/pages/loan-requests/form-dialog.js';
 const { api, permission } = vi.hoisted(() => ({
   api: { request: vi.fn() },
@@ -269,3 +271,51 @@ describe('loan request browser components', () => {
     expect(writes[1].requestId).not.toBe(writes[0].requestId);
   });
 });
+
+it.each([4000, '4000', Number.MAX_SAFE_INTEGER + 1])(
+  'contains invalid repayment amounts locally (%s)',
+  async (cents) => {
+    api.request.mockResolvedValue({
+      data: {
+        reservations: [
+          {
+            id: 'r1',
+            reference: 'CASH-1',
+            kind: 'cash',
+            state: 'pending',
+            cents,
+          },
+        ],
+      },
+    });
+    const router = createMemoryRouter([
+      {
+        path: '/',
+        element: (
+          <LoanFinancialSections
+            record={{ ...record, status: 'paid' } as LoanRequestRecord}
+            reload={vi.fn()}
+          />
+        ),
+      },
+    ]);
+    render(
+      <TestI18nProvider runtime={runtime}>
+        <RouterProvider router={router} />
+      </TestI18nProvider>,
+    );
+    if (typeof cents === 'number' && Number.isSafeInteger(cents)) {
+      expect(await screen.findByText('40.00')).toBeVisible();
+    } else {
+      expect(
+        await screen.findByText(
+          'Repayment amounts could not be read. Contact finance to check this record.',
+        ),
+      ).toBeVisible();
+      expect(screen.queryByText('CASH-1')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'More actions' }),
+      ).not.toBeInTheDocument();
+    }
+  },
+);

@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router';
 import {
   createTestI18nRuntime,
   TestI18nProvider,
@@ -47,7 +48,9 @@ async function show(locale = 'en-US') {
   });
   const view = render(
     <TestI18nProvider runtime={runtime}>
-      <LeaveApprovalEfficiencyReport />
+      <MemoryRouter>
+        <LeaveApprovalEfficiencyReport />
+      </MemoryRouter>
     </TestI18nProvider>,
   );
   return { ...view, runtime };
@@ -238,7 +241,7 @@ it('distinguishes empty source from filtered no results and provides clearing', 
   await screen.findByText(en.selectYear);
 });
 it.each(['revision', 'actor'] as const)(
-  'drops rows, pinned download and filters on actual hook %s changes',
+  'drops rows and pinned download, preserving URL filters on actual hook %s changes',
   async (kind) => {
     api.request.mockResolvedValue(data);
     const view = await show();
@@ -261,11 +264,13 @@ it.each(['revision', 'actor'] as const)(
     else identity.actor = 'other';
     view.rerender(
       <TestI18nProvider runtime={view.runtime}>
-        <LeaveApprovalEfficiencyReport />
+        <MemoryRouter>
+          <LeaveApprovalEfficiencyReport />
+        </MemoryRouter>
       </TestI18nProvider>,
     );
     expect(screen.queryByText('Manager')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Start year')).toHaveValue('');
+    expect(screen.getByLabelText('Start year')).toHaveValue('2026');
     finish(
       new ReadableStream({
         start(controller) {
@@ -275,7 +280,7 @@ it.each(['revision', 'actor'] as const)(
       }),
     );
     await waitFor(() =>
-      expect(screen.getByText(en.selectYear)).toBeInTheDocument(),
+      expect(screen.getByText('Manager')).toBeInTheDocument(),
     );
     expect(click).not.toHaveBeenCalled();
     click.mockRestore();

@@ -78,6 +78,11 @@ export default {
       searchPeople: '搜索候选人姓名',
     },
     errors: {
+      category: '请选择启用的供应商类别。',
+      evidence: '请上传或选择至少一份资质附件。',
+      expiry: '资质到期日须晚于公司时区的今天。',
+      qualificationFacts:
+        '请补齐供应商名称、启用的类别及资质附件，并选择晚于公司时区今天的资质到期日。',
       missingReturned: '{{name}}申请已不可用，已返回来源。',
       missingUnnamed: '申请已不可用，已返回来源。',
       forbidden: '当前无权访问，请联系管理员。',

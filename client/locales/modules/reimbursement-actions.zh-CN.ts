@@ -7,6 +7,14 @@ export default {
     title: '{{action}}报销“{{name}}”',
     unavailable: '此操作已不可用，请读取最新报销。',
     unsupported: '此操作需要页面尚未支持的输入契约。',
+    submitRequirements:
+      '提交审批使用草稿中已保存的报销事由和费用明细。请先在编辑报销中填写事由、费用类别、日期、金额、发票号码，并为每条明细选择证据附件。',
+    reasonRequired: '草稿尚未填写报销事由，请先编辑报销。',
+    linesRequired: '草稿尚未添加费用明细，请先编辑报销并上传证据附件。',
+    lineIncomplete:
+      '第{{number}}条费用明细不完整，请补齐类别、日期、正数金额、发票号码及证据附件。',
+    duplicateLines: '费用明细重复，请先编辑报销并核对明细。',
+    editDraft: '编辑报销',
     comment: '意见或原因',
     person: '接收人',
     mode: '加签位置',

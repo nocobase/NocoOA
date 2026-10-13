@@ -1,5 +1,13 @@
 export default {
   onboarding: {
+    businessErrors: {
+      ONBOARDING_SOURCE_INVALID:
+        'The onboarding source or employee details are no longer valid. Refresh and check the source, identity and required details.',
+      ONBOARDING_IDEMPOTENCY_CONFLICT:
+        'This operation already used different content. Refresh to check its result before continuing.',
+    },
+
+    clear: 'Clear filters',
     timeline: {
       unknownActor: 'Historical handler unavailable',
       parentCompleted: 'Onboarding completed',

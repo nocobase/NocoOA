@@ -3,12 +3,17 @@ import { useRef, useState } from 'react';
 import { useParams, useOutletContext } from 'react-router';
 import { ApiClientError, useApiClient, useToaster } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { RouteDialog } from '#components/route-dialog';
+import { RouteDrawer } from '#components/route-drawer';
 import { useRouteOverlay } from '#components/use-route-overlay';
 import { Button } from '#components/ui/button';
 import { Spinner } from '#components/ui/spinner';
 import { Textarea } from '#components/ui/textarea';
-import { Field, FieldGroup, FieldLabel } from '#components/ui/field';
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldError,
+} from '#components/ui/field';
 import { Alert, AlertDescription } from '#components/ui/alert';
 import type { OfferedAction } from '@nocobase/app-plugin-approval/client';
 import {
@@ -60,10 +65,10 @@ function RecruitmentActionContent() {
           )),
     ready = !r.loading && !r.error && (!!offer || !!transition);
   return (
-    <RouteDialog
+    <RouteDrawer
       title={t(`recruitment.actions.${operation}`)}
       className={
-        peopleActions.includes(operation) ? 'sm:max-w-2xl' : 'sm:max-w-md'
+        peopleActions.includes(operation) ? 'sm:max-w-2xl' : 'sm:max-w-2xl'
       }
       beforeClose={guard.beforeClose}
       footer={
@@ -98,7 +103,7 @@ function RecruitmentActionContent() {
         </Alert>
       )}
       <Discard guard={guard} />
-    </RouteDialog>
+    </RouteDrawer>
   );
 }
 function Footer({
@@ -155,6 +160,7 @@ function Body({
     [mode, setMode] = useState(''),
     [place, setPlace] = useState(''),
     [error, setError] = useState<unknown>(),
+    [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}),
     [confirm, setConfirm] = useState(false),
     [uncertain, setUncertain] = useState(false),
     [blocked, setBlocked] = useState(false),
@@ -177,14 +183,21 @@ function Body({
     needsRecipient = peopleActions.includes(operation),
     frozen = busy || uncertain || blocked;
   function prepare() {
-    if (
-      !reason.trim() ||
-      (needsRecipient && !recipient) ||
-      (operation === 'return' && !targets.includes(returnTarget)) ||
-      (operation === 'addSigner' && !modes.includes(mode)) ||
-      (operation === 'appoint' && !places.some((p) => p.place === place))
-    ) {
-      setError(new Error(t('recruitment.invalid')));
+    const invalid: Record<string, string> = {};
+    const required = t('approvals.required');
+    if (!reason.trim()) invalid.reason = required;
+    if (needsRecipient && !recipient) invalid.recipient = required;
+    if (operation === 'return' && !targets.includes(returnTarget))
+      invalid.return = required;
+    if (operation === 'addSigner' && !modes.includes(mode))
+      invalid['signer-mode'] = required;
+    if (operation === 'appoint' && !places.some((p) => p.place === place))
+      invalid.place = required;
+    setFieldErrors(invalid);
+    if (Object.keys(invalid).length) {
+      document
+        .getElementById(`recruitment-${Object.keys(invalid)[0]}`)
+        ?.focus();
       return false;
     }
     const input: Record<string, unknown> = {};
@@ -265,6 +278,7 @@ function Body({
     <>
       <form
         id='recruitment-action'
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           if (frozen || lockRef.current) return;
@@ -280,7 +294,15 @@ function Body({
               {t('recruitment.actionConsequence')}
             </p>
           ) : null}
-          {error ? <ErrorState error={error} retry={onReload} /> : null}
+          {error instanceof Error &&
+          !(error instanceof ApiClientError) &&
+          error.message === t('recruitment.actionInvalid') ? (
+            <Alert variant='destructive'>
+              <AlertDescription>{error.message}</AlertDescription>
+            </Alert>
+          ) : error ? (
+            <ErrorState error={error} retry={onReload} />
+          ) : null}
           {needsRecipient && offer && 'taskId' in offer.target ? (
             <Field>
               <FieldLabel htmlFor='recruitment-recipient'>
@@ -295,9 +317,13 @@ function Body({
                 known={detail.users}
                 onChange={(v) => {
                   setRecipient(v);
+                  setFieldErrors((old) => ({ ...old, recipient: '' }));
                   guard.changed();
                 }}
               />
+              {fieldErrors['recipient'] && (
+                <FieldError>{fieldErrors['recipient']}</FieldError>
+              )}
             </Field>
           ) : null}
           {operation === 'return' ? (
@@ -316,9 +342,13 @@ function Body({
                 disabled={frozen}
                 onChange={(v) => {
                   setReturnTarget(v);
+                  setFieldErrors((old) => ({ ...old, return: '' }));
                   guard.changed();
                 }}
               />
+              {fieldErrors['return'] && (
+                <FieldError>{fieldErrors['return']}</FieldError>
+              )}
             </Field>
           ) : null}
           {operation === 'addSigner' ? (
@@ -337,9 +367,13 @@ function Body({
                 disabled={frozen}
                 onChange={(v) => {
                   setMode(v);
+                  setFieldErrors((old) => ({ ...old, 'signer-mode': '' }));
                   guard.changed();
                 }}
               />
+              {fieldErrors['signer-mode'] && (
+                <FieldError>{fieldErrors['signer-mode']}</FieldError>
+              )}
             </Field>
           ) : null}
           {operation === 'appoint' ? (
@@ -358,9 +392,13 @@ function Body({
                 disabled={frozen}
                 onChange={(v) => {
                   setPlace(v);
+                  setFieldErrors((old) => ({ ...old, place: '' }));
                   guard.changed();
                 }}
               />
+              {fieldErrors['place'] && (
+                <FieldError>{fieldErrors['place']}</FieldError>
+              )}
             </Field>
           ) : null}
           <Field>
@@ -375,9 +413,13 @@ function Body({
               disabled={frozen}
               onChange={(e) => {
                 setReason(e.target.value);
+                setFieldErrors((old) => ({ ...old, reason: '' }));
                 guard.changed();
               }}
             />
+            {fieldErrors['reason'] && (
+              <FieldError>{fieldErrors['reason']}</FieldError>
+            )}
           </Field>
         </FieldGroup>
       </form>

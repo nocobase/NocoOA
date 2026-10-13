@@ -150,6 +150,13 @@ const messages = {
     who: 'Who',
   },
   permissionWorkspace: {
+    businessModules: 'Business modules',
+    allModules: 'All',
+    otherModules: 'Other',
+    clearFilters: 'Clear filters',
+    noModuleMatches: 'No permissions match in this module',
+    moduleCount: '{{module}}: {{configured}} configured / {{total}} resources',
+
     pageAccessHint:
       'Page access controls entry. Business permissions control data operations.',
     specifyScope: 'Specify scope: {{scope}}',

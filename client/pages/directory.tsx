@@ -1,9 +1,10 @@
+import { ApplicationTableEmpty } from '#components/application-table-empty';
 import { ApplicationToolbar } from '#components/application-toolbar';
 import { UserName } from '#components/user-name';
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertCircleIcon, ContactRoundIcon, SearchIcon } from 'lucide-react';
+import { AlertCircleIcon, SearchIcon } from 'lucide-react';
 import {
   type ReactElement,
   useEffect,
@@ -26,13 +27,6 @@ import {
   AlertTitle,
 } from '#components/ui/alert';
 import { Button } from '#components/ui/button';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#components/ui/empty';
 import {
   InputGroup,
   InputGroupAddon,
@@ -269,20 +263,6 @@ export default function DirectoryPage(): ReactElement {
         ))}
       </div>
     );
-  } else if (result?.total === 0 && !rowsFiltered) {
-    content = (
-      <Empty className='min-h-48 border border-dashed'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <ContactRoundIcon />
-          </EmptyMedia>
-          <EmptyTitle>{t('employees.directory.emptyTitle')}</EmptyTitle>
-          <EmptyDescription>
-            {t('employees.directory.emptyDescription')}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
   } else {
     content = (
       <DataTableServer
@@ -299,14 +279,23 @@ export default function DirectoryPage(): ReactElement {
           });
         }}
         emptyMessage={
-          rowsFiltered ? (
-            <div className='flex flex-col items-center gap-2'>
-              <span>{t('employees.directory.noResults')}</span>
-              <Button variant='link' size='sm' onClick={clearFilters}>
-                {t('employees.filters.clear')}
-              </Button>
-            </div>
-          ) : null
+          <ApplicationTableEmpty
+            title={
+              rowsFiltered
+                ? t('employees.empty.noResults')
+                : t('employees.directory.emptyTitle')
+            }
+            description={
+              rowsFiltered
+                ? undefined
+                : t('employees.directory.emptyDescription')
+            }
+            clearFilters={
+              rowsFiltered
+                ? { label: t('employees.filters.clear'), onClick: clearFilters }
+                : undefined
+            }
+          />
         }
       />
     );

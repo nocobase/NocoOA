@@ -2,6 +2,29 @@ import actionCopy from './reimbursement-actions.zh-CN.js';
 import formCopy from './reimbursement-forms.zh-CN.js';
 export default {
   reimbursementRequests: {
+    businessErrors: {
+      REIMBURSEMENT_INVALID_LINE_AMOUNT:
+        '每条报销明细金额须大于零且在支持范围内。',
+      REIMBURSEMENT_INVALID_LINE_DATE: '请为每条报销明细选择有效的费用日期。',
+      REIMBURSEMENT_VOUCHER_REQUIRED: '请填写付款凭证号后再确认付款。',
+      REIMBURSEMENT_PAYMENT_CONFIRMATION_REQUIRED:
+        '请填写强制付款原因，并准确确认报销总额、借款冲抵额及实付金额。',
+      REIMBURSEMENT_HANDLING_REASON_REQUIRED: '请填写无法完成付款的原因。',
+      REIMBURSEMENT_PAYMENT_ACCOUNT_STALE:
+        '收款账户已变化，请读取最新账户后再更正。',
+      REIMBURSEMENT_AUTHORIZATION_CHANGED:
+        '前置审批额度已变化，请刷新来源单据并核对报销总额。',
+      REIMBURSEMENT_INVOICES_CHANGED:
+        '发票凭据已变化，请刷新申请并重新选择可用发票。',
+      REIMBURSEMENT_LOAN_CHANGED:
+        '借款冲抵信息已变化，请刷新借款并确认冲抵金额。',
+      REIMBURSEMENT_TOTAL_TOO_LARGE:
+        '报销合计超过支持范围，请减少金额或拆分申请。',
+      REIMBURSEMENT_FILE_SIZE: '请选择非空且不超过 5 MiB 的附件。',
+      REIMBURSEMENT_FILE_TYPE:
+        '请上传格式与扩展名一致的 PDF、JPEG、PNG 或 WebP 文件。',
+    },
+
     ...formCopy,
     ...actionCopy,
     title: '费用报销',
