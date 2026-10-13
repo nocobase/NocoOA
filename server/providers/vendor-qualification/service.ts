@@ -966,7 +966,10 @@ export function createVendorQualificationService(d: QualificationDependencies) {
           (row) => row.active && ['manual', 'qualified'].includes(row.status),
         ),
       };
-      const directory = await d.directory.snapshot(),
+      const directory = await d.directory.eligibility(
+          [actorId],
+          ['purchasing'],
+        ),
         department = await d.org.primaryDepartmentOf(actorId);
       if (
         permitted.data.some(

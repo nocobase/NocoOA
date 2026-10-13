@@ -221,14 +221,16 @@ export const routes: readonly AppRouteContribution<Application>[] = [
         await policy(ctx, 'create');
         const id = actor(ctx),
           employee = await c.resolve(employeeServiceToken).getByUserId(id),
-          department = await c.resolve(orgServiceToken).primaryDepartmentOf(id),
-          directory = await c.resolve(approvalDirectoryServiceToken).snapshot();
+          department = await c.resolve(orgServiceToken).primaryDepartmentOf(id);
         const headId = department
           ? await c.resolve(orgServiceToken).headOf(department.id)
           : undefined;
         const head = headId
           ? await c.resolve(userAdministrationServiceToken).get(headId)
           : undefined;
+        const directory = await c
+          .resolve(approvalDirectoryServiceToken)
+          .eligibility(headId ? [id, headId] : [id], ['admin']);
         const categories = (
           await c.resolve(dictionaryServiceToken).list('assetCategory')
         )
