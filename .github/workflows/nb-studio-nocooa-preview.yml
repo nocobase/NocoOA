@@ -59,14 +59,15 @@ jobs:
       - name: Ensure PR preview App
         if: github.event_name == 'pull_request'
         run: nb-studio app ensure "$APP_ID" --environment "$ENVIRONMENT"
-      - name: Check existing main App
-        if: github.event_name == 'push'
-        run: nb-studio app get "$APP_ID"
       - run: nb-studio build status --app "$APP_ID" --state building --logs "$LOGS"
       - run: pnpm install --frozen-lockfile
       - name: Prepare SQLite release template for PR preview
         if: github.event_name == 'pull_request'
         run: node scripts/ci/prepare-studio-preview.mjs
+      - name: Include source revision in the published client
+        run: node scripts/ci/prepare-studio-revision.mjs
+        env:
+          STUDIO_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       # Leaves storage/exports/dist.tar.gz: dist/ and config.example.yml.
       - run: pnpm build --target linux-x64 --node-version 24 --tar
         env:

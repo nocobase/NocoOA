@@ -13,9 +13,24 @@ async function studio(args) {
       timeout: 180000,
       maxBuffer: 4 * 1024 * 1024,
     }));
-  } catch {
-    // Upload responses may contain tickets; do not expose raw child-process errors.
-    throw new Error('Studio command failed; inspect the deployment in Studio.');
+  } catch (error) {
+    // Upload responses may contain tickets; expose only a validated error code.
+    let code = 'PROCESS_ERROR';
+    for (const output of [error.stdout, error.stderr]) {
+      try {
+        const candidate = JSON.parse(output).error?.code;
+        if (
+          typeof candidate === 'string' &&
+          /^[A-Z0-9_]{1,80}$/.test(candidate)
+        )
+          code = candidate;
+      } catch {
+        /* No structured error. */
+      }
+    }
+    throw new Error(
+      `Studio ${args[0]} failed (${code}); inspect the deployment in Studio.`,
+    );
   }
   let response;
   try {
@@ -34,6 +49,16 @@ export async function deployAndWait({
   wait = sleep,
   now = Date.now,
   timeout = 600000,
+  server,
+  readJson = async (url) => {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
+      redirect: 'error',
+      cache: 'no-store',
+    });
+    assert(response.ok, 'Preview endpoint is not ready.');
+    return response.json();
+  },
 }) {
   const uploaded = await cli([
     'deploy',
@@ -64,34 +89,26 @@ export async function deployAndWait({
   }
   const deploymentId = outcome.deployment?.id;
   assert(deploymentId, 'Studio returned no deployment ID.');
+  const url = new URL(`/${appId}/`, server);
   const deadline = now() + timeout;
   while (now() < deadline) {
-    const deployment = await cli(['deploy', 'get', appId, deploymentId]);
-    assert.equal(deployment.appId, appId, 'Wrong deployment App.');
-    assert.equal(
-      deployment.releaseId,
-      uploaded.release.id,
-      'Wrong deployed release.',
-    );
-    if (deployment.status === 'succeeded') {
-      const current = await cli(['app', 'get', appId]);
-      assert.equal(
-        current.app?.currentDeploymentId,
-        deploymentId,
-        'Deployment is not current.',
-      );
-      assert.equal(current.runtime?.state, 'running', 'App is not running.');
-      return {
-        status: 'succeeded',
-        appId,
-        releaseId: uploaded.release.id,
-        deploymentId,
-      };
+    try {
+      const revision = await readJson(new URL('studio-revision.json', url));
+      const health = await readJson(new URL('api/healthz', url));
+      if (
+        revision.sha === sha &&
+        health.ok === true &&
+        health.app?.name === appId
+      )
+        return {
+          status: 'succeeded',
+          appId,
+          releaseId: uploaded.release.id,
+          deploymentId,
+        };
+    } catch {
+      // A new App returns 404/503 while Studio starts it; retry within the bounded window.
     }
-    assert(
-      ['queued', 'deploying'].includes(deployment.status),
-      `Studio deployment ${deploymentId} ended with status ${deployment.status}; inspect Studio logs.`,
-    );
     await wait(10000);
   }
   throw new Error(
@@ -104,6 +121,7 @@ async function main() {
     const result = await deployAndWait({
       appId: process.env.APP_ID,
       sha: process.env.STUDIO_SOURCE_SHA,
+      server: process.env.NB_STUDIO_URL,
     });
     const summary =
       result.status === 'pending'
