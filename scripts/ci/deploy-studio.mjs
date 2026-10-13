@@ -93,7 +93,9 @@ export async function deployAndWait({
   const deadline = now() + timeout;
   while (now() < deadline) {
     try {
-      const revision = await readJson(new URL('assets/studio-revision.json', url));
+      const revision = await readJson(
+        new URL('assets/studio-revision.json', url),
+      );
       const health = await readJson(new URL('api/healthz', url));
       if (
         revision.sha === sha &&
