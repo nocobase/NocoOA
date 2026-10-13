@@ -7,6 +7,23 @@ export default {
     edgeHelp: 'Process transition',
   },
   processManagement: {
+    nodeSettings: {
+      edit: 'Edit parameters',
+      editNamed: 'Edit parameters for {{name}}',
+      title: 'Edit parameters for {{name}}',
+      parameter: 'Parameter',
+      effect:
+        'Changes do not rewrite saved request snapshots or existing tasks. New submissions use the effective configuration; resubmissions follow the owning process rules.',
+      shared: 'Shared setting. Also affects: {{flows}}.',
+      unavailable:
+        'This node has no available editable parameters. Close this dialog and choose a configured node.',
+      forbidden:
+        'You do not have permission to edit this node’s configuration.',
+      newCommittee: 'Publish a new committee structure',
+      seat: 'Version {{version}} · {{name}} seat person',
+      committeeContext:
+        'Selected node: version {{selected}}. Active: {{active}}. Latest saved: {{latest}}.',
+    },
     conditionMissing:
       'This branch needs an explicit condition description; inspect the owning business rules',
     snapshotConditions:

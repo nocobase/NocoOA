@@ -1,7 +1,7 @@
 import { validCommittee } from './configuration-model.js';
 import { createRequestId } from '../approvals/request-id.js';
 import { finalRefusal } from './errors.js';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiClientError, useApiClient, useToaster } from '@nocobase/app-client';
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
@@ -78,14 +78,24 @@ export default function ConfigurationPage() {
     </PageContainer>
   );
 }
-function Structure({
+export function Structure({
   data,
   reload,
   disabled,
+  compact = false,
+  onSubmittingChange,
+  onBlockedChange,
+  onSaved,
+  formId,
 }: {
   data: Configuration;
   reload: () => void;
   disabled: boolean;
+  compact?: boolean;
+  onSubmittingChange?: (busy: boolean) => void;
+  onBlockedChange?: (blocked: boolean) => void;
+  onSaved?: () => void;
+  formId?: string;
 }) {
   const { t } = useTranslation(),
     api = useApiClient(),
@@ -119,6 +129,7 @@ function Structure({
     }
     lockRef.current = true;
     setBusy(true);
+    onSubmittingChange?.(true);
     try {
       await api.request({
         method: 'POST',
@@ -131,224 +142,229 @@ function Structure({
           version: structure.version,
         }),
       });
-      reload();
+      if (onSaved) onSaved();
+      else reload();
     } catch (cause) {
       setError(cause);
-      setBlocked(true);
+      // Invalid input can be corrected in place; ambiguous writes and stale versions require a refresh.
+      const mustRefresh =
+        !(cause instanceof ApiClientError) ||
+        ![400, 412].includes(cause.status);
+      setBlocked(mustRefresh);
+      onBlockedChange?.(mustRefresh);
       reload();
     } finally {
       lockRef.current = false;
       setBusy(false);
+      onSubmittingChange?.(false);
     }
   }
   const locked = disabled || busy || blocked;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          {t('vendorQualifications.configuration.structure')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className='flex flex-col gap-4'>
-        <p className='text-sm text-muted-foreground'>
-          {t('vendorQualifications.configuration.active', {
-            version: data.activeCommitteeVersion,
-          })}
-        </p>
-        <p>{t('vendorQualifications.configuration.restartRequired')}</p>
-        <ul>
-          {data.versions.map((v) => (
-            <li key={v.version}>
-              {t('vendorQualifications.committeeVersion', {
-                version: v.version,
-              })}{' '}
-              · {t('vendorQualifications.configuration.min')}: {v.min}
-            </li>
-          ))}
-        </ul>
-        {!!error && (
-          <ErrorState
-            error={error}
-            retry={() => {
-              reload();
-              setBlocked(false);
-            }}
-          />
-        )}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void publish();
+    <ConfigurationSection
+      compact={compact}
+      title={t('vendorQualifications.configuration.structure')}
+    >
+      <p className='text-sm text-muted-foreground'>
+        {t('vendorQualifications.configuration.active', {
+          version: data.activeCommitteeVersion,
+        })}
+      </p>
+      <p>{t('vendorQualifications.configuration.restartRequired')}</p>
+      <ul>
+        {data.versions.map((v) => (
+          <li key={v.version}>
+            {t('vendorQualifications.committeeVersion', {
+              version: v.version,
+            })}{' '}
+            · {t('vendorQualifications.configuration.min')}: {v.min}
+          </li>
+        ))}
+      </ul>
+      {!!error && (
+        <ErrorState
+          error={error}
+          retry={() => {
+            reload();
+            setBlocked(false);
+            onBlockedChange?.(false);
           }}
-          className='flex flex-col gap-4'
-        >
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor='committee-version'>
-                {t('vendorQualifications.configuration.version')} *
-              </FieldLabel>
-              <Input
-                id='committee-version'
-                type='number'
-                min={highest + 1}
-                value={structure.version}
-                disabled={locked}
-                onChange={(event) =>
-                  setStructure((v) => ({
-                    ...v,
-                    version: Number(event.target.value),
-                  }))
-                }
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor='committee-min'>
-                {t('vendorQualifications.configuration.min')} *
-              </FieldLabel>
-              <Input
-                id='committee-min'
-                type='number'
-                min={1}
-                max={structure.seats.length}
-                value={structure.min}
-                disabled={locked}
-                onChange={(event) =>
-                  setStructure((v) => ({
-                    ...v,
-                    min: Number(event.target.value),
-                  }))
-                }
-              />
-            </Field>
-            {structure.seats.map((seat, index) => (
-              <div
-                key={seatKeys[index]}
-                className='flex flex-wrap items-end gap-2'
-              >
-                <Field>
-                  <FieldLabel htmlFor={`seat-key-${index}`}>
-                    {t('vendorQualifications.configuration.seatKey')} *
-                  </FieldLabel>
-                  <Input
-                    id={`seat-key-${index}`}
-                    maxLength={48}
-                    value={seat.key}
-                    disabled={locked}
-                    onChange={(event) =>
-                      setStructure((v) => ({
-                        ...v,
-                        seats: v.seats.map((s, i) =>
-                          i === index ? { ...s, key: event.target.value } : s,
-                        ),
-                      }))
-                    }
-                  />
-                </Field>
-                <Choice
-                  label={t('vendorQualifications.configuration.source')}
-                  value={seat.source}
+        />
+      )}
+      <form
+        id={formId}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void publish();
+        }}
+        className='flex flex-col gap-4'
+      >
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor='committee-version'>
+              {t('vendorQualifications.configuration.version')} *
+            </FieldLabel>
+            <Input
+              id='committee-version'
+              type='number'
+              min={highest + 1}
+              value={structure.version}
+              disabled={locked}
+              onChange={(event) =>
+                setStructure((v) => ({
+                  ...v,
+                  version: Number(event.target.value),
+                }))
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor='committee-min'>
+              {t('vendorQualifications.configuration.min')} *
+            </FieldLabel>
+            <Input
+              id='committee-min'
+              type='number'
+              min={1}
+              max={structure.seats.length}
+              value={structure.min}
+              disabled={locked}
+              onChange={(event) =>
+                setStructure((v) => ({
+                  ...v,
+                  min: Number(event.target.value),
+                }))
+              }
+            />
+          </Field>
+          {structure.seats.map((seat, index) => (
+            <div
+              key={seatKeys[index]}
+              className='flex flex-wrap items-end gap-2'
+            >
+              <Field>
+                <FieldLabel htmlFor={`seat-key-${index}`}>
+                  {t('vendorQualifications.configuration.seatKey')} *
+                </FieldLabel>
+                <Input
+                  id={`seat-key-${index}`}
+                  maxLength={48}
+                  value={seat.key}
                   disabled={locked}
-                  items={sources.map((source) => ({
-                    value: source,
-                    label: t(`vendorQualifications.sources.${source}`),
-                  }))}
-                  onChange={(value) =>
+                  onChange={(event) =>
                     setStructure((v) => ({
                       ...v,
                       seats: v.seats.map((s, i) =>
-                        i === index
-                          ? {
-                              ...s,
-                              source:
-                                value as Committee['seats'][number]['source'],
-                            }
-                          : s,
+                        i === index ? { ...s, key: event.target.value } : s,
                       ),
                     }))
                   }
                 />
-                <label className='flex items-center gap-2'>
-                  <Checkbox
-                    checked={seat.veto}
-                    disabled={locked}
-                    onCheckedChange={(checked) =>
-                      setStructure((v) => ({
-                        ...v,
-                        seats: v.seats.map((s, i) =>
-                          i === index ? { ...s, veto: !!checked } : s,
-                        ),
-                      }))
-                    }
-                  />
-                  {t('vendorQualifications.configuration.veto')}
-                </label>
-                <Button
-                  type='button'
-                  variant='outline'
-                  disabled={locked || structure.seats.length <= 3}
-                  onClick={() => {
-                    setSeatKeys((keys) => keys.filter((_, i) => i !== index));
+              </Field>
+              <Choice
+                label={t('vendorQualifications.configuration.source')}
+                value={seat.source}
+                disabled={locked}
+                items={sources.map((source) => ({
+                  value: source,
+                  label: t(`vendorQualifications.sources.${source}`),
+                }))}
+                onChange={(value) =>
+                  setStructure((v) => ({
+                    ...v,
+                    seats: v.seats.map((s, i) =>
+                      i === index
+                        ? {
+                            ...s,
+                            source:
+                              value as Committee['seats'][number]['source'],
+                          }
+                        : s,
+                    ),
+                  }))
+                }
+              />
+              <label className='flex items-center gap-2'>
+                <Checkbox
+                  checked={seat.veto}
+                  disabled={locked}
+                  onCheckedChange={(checked) =>
                     setStructure((v) => ({
                       ...v,
-                      seats: v.seats.filter((_, i) => i !== index),
-                    }));
-                  }}
-                >
-                  {t('vendorQualifications.configuration.removeSeat')}
-                </Button>
-              </div>
-            ))}
-            <Button
-              type='button'
-              variant='outline'
-              disabled={locked || structure.seats.length >= 32}
-              onClick={() => {
-                setSeatKeys((keys) => [...keys, createRequestId()]);
-                setStructure((v) => ({
-                  ...v,
-                  seats: [
-                    ...v.seats,
-                    {
-                      key: `technical${v.seats.length}`,
-                      source: 'technical',
-                      veto: false,
-                    },
-                  ],
-                }));
-              }}
-            >
-              {t('vendorQualifications.configuration.addSeat')}
-            </Button>
-            <Field>
-              <FieldLabel htmlFor='committee-reason'>
-                {t('vendorQualifications.configuration.reason')} *
-              </FieldLabel>
-              <Input
-                id='committee-reason'
-                value={reason}
-                maxLength={4000}
-                disabled={locked}
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </Field>
-            {invalid && (
-              <FieldError>
-                {t('vendorQualifications.configuration.invalid')}
-              </FieldError>
+                      seats: v.seats.map((s, i) =>
+                        i === index ? { ...s, veto: !!checked } : s,
+                      ),
+                    }))
+                  }
+                />
+                {t('vendorQualifications.configuration.veto')}
+              </label>
+              <Button
+                type='button'
+                variant='outline'
+                disabled={locked || structure.seats.length <= 3}
+                onClick={() => {
+                  setSeatKeys((keys) => keys.filter((_, i) => i !== index));
+                  setStructure((v) => ({
+                    ...v,
+                    seats: v.seats.filter((_, i) => i !== index),
+                  }));
+                }}
+              >
+                {t('vendorQualifications.configuration.removeSeat')}
+              </Button>
+            </div>
+          ))}
+          <Button
+            type='button'
+            variant='outline'
+            disabled={locked || structure.seats.length >= 32}
+            onClick={() => {
+              setSeatKeys((keys) => [...keys, createRequestId()]);
+              setStructure((v) => ({
+                ...v,
+                seats: [
+                  ...v.seats,
+                  {
+                    key: `technical${v.seats.length}`,
+                    source: 'technical',
+                    veto: false,
+                  },
+                ],
+              }));
+            }}
+          >
+            {t('vendorQualifications.configuration.addSeat')}
+          </Button>
+          <Field>
+            <FieldLabel htmlFor='committee-reason'>
+              {t('vendorQualifications.configuration.reason')} *
+            </FieldLabel>
+            <Input
+              id='committee-reason'
+              value={reason}
+              maxLength={4000}
+              disabled={locked}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+          {invalid && (
+            <FieldError>
+              {t('vendorQualifications.configuration.invalid')}
+            </FieldError>
+          )}
+        </FieldGroup>
+        <div className={compact ? 'hidden' : 'flex justify-end'}>
+          <Button type='submit' disabled={locked}>
+            {t(
+              busy
+                ? 'vendorQualifications.common.saving'
+                : 'vendorQualifications.configuration.publish',
             )}
-          </FieldGroup>
-          <div className='flex justify-end'>
-            <Button type='submit' disabled={locked}>
-              {t(
-                busy
-                  ? 'vendorQualifications.common.saving'
-                  : 'vendorQualifications.configuration.publish',
-              )}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          </Button>
+        </div>
+      </form>
+    </ConfigurationSection>
   );
 }
 function Assignments({
@@ -458,7 +474,7 @@ function Removal({
     </Card>
   );
 }
-function PersonSetting({
+export function PersonSetting({
   data,
   reload,
   disabled,
@@ -468,6 +484,11 @@ function PersonSetting({
   path,
   extra,
   name,
+  compact = false,
+  onSubmittingChange,
+  onBlockedChange,
+  onSaved,
+  formId,
 }: {
   data: Configuration;
   reload: () => void;
@@ -478,6 +499,11 @@ function PersonSetting({
   path: string;
   extra: Record<string, string | number>;
   name: string;
+  compact?: boolean;
+  onSubmittingChange?: (busy: boolean) => void;
+  onBlockedChange?: (blocked: boolean) => void;
+  onSaved?: () => void;
+  formId?: string;
 }) {
   const api = useApiClient(),
     { t } = useTranslation(),
@@ -511,6 +537,7 @@ function PersonSetting({
     }
     lockRef.current = true;
     setBusy(true);
+    onSubmittingChange?.(true);
     try {
       await api.request({
         method: 'PATCH',
@@ -523,19 +550,29 @@ function PersonSetting({
           name: t(`vendorQualifications.sources.${source}`),
         }),
       });
-      reload();
+      if (onSaved) onSaved();
+      else reload();
     } catch (cause) {
       setError(cause);
-      setBlocked(true);
+      // Invalid input can be corrected in place; ambiguous writes and stale versions require a refresh.
+      const mustRefresh =
+        !(cause instanceof ApiClientError) ||
+        ![400, 412].includes(cause.status);
+      setBlocked(mustRefresh);
+      onBlockedChange?.(mustRefresh);
       if (cause instanceof ApiClientError && cause.status === 409) reload();
     } finally {
       lockRef.current = false;
       setBusy(false);
+      onSubmittingChange?.(false);
     }
   }
   return (
     <form
-      className='flex flex-col gap-4 border-b pb-4'
+      id={formId}
+      className={
+        compact ? 'flex flex-col gap-4' : 'flex flex-col gap-4 border-b pb-4'
+      }
       onSubmit={(event) => {
         event.preventDefault();
         void save();
@@ -579,10 +616,11 @@ function PersonSetting({
           retry={() => {
             reload();
             setBlocked(false);
+            onBlockedChange?.(false);
           }}
         />
       )}
-      <div className='flex justify-end'>
+      <div className={compact ? 'hidden' : 'flex justify-end'}>
         <Button type='submit' disabled={disabled || busy || blocked}>
           {t(
             busy
@@ -592,5 +630,26 @@ function PersonSetting({
         </Button>
       </div>
     </form>
+  );
+}
+
+function ConfigurationSection({
+  compact,
+  title,
+  children,
+}: {
+  compact: boolean;
+  title: string;
+  children: ReactNode;
+}) {
+  return compact ? (
+    <div className='flex flex-col gap-4'>{children}</div>
+  ) : (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className='flex flex-col gap-4'>{children}</CardContent>
+    </Card>
   );
 }

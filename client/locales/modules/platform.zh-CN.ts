@@ -6,7 +6,7 @@ const platformZhCN: LocaleResource<PlatformLocale> = {
     navigation: {
       calendar: '工作日历',
       dictionaries: '数据字典',
-      rules: '审批规则',
+      rules: '规则总览与变更历史',
       sequences: '单据编号',
       auditLogs: '审计日志',
     },
@@ -14,7 +14,7 @@ const platformZhCN: LocaleResource<PlatformLocale> = {
       section: 'OA 平台',
       calendar: '工作日历',
       dictionaries: '数据字典',
-      rules: '审批规则',
+      rules: '规则总览与变更历史',
       sequences: '单据编号',
       auditLogs: '审计日志',
       actions: { read: '查看', update: '编辑' },
@@ -211,9 +211,11 @@ const platformZhCN: LocaleResource<PlatformLocale> = {
       },
     },
     rules: {
-      title: '审批规则',
+      relatedFlows: '关联流程（节点编辑）',
+      editAtNode: '前往流程节点修改',
+      title: '规则总览与变更历史',
       description:
-        '调整各流程使用的金额、天数与时效。修改只影响生效后提交的申请。',
+        '查看当前规则、排期与变更历史。通过关联流程进入节点编辑，共享规则会影响多个流程。',
       loadFailedTitle: '审批规则加载失败',
       notFound: '该规则不存在。',
       change: '修改',

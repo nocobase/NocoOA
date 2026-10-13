@@ -32,10 +32,10 @@ export function ErrorState({
       <AlertDescription>
         {t(`vendorQualifications.errors.${key}`)}
       </AlertDescription>
-      {['failed', 'conflict'].includes(key) && (
+      {['failed', 'conflict', 'sourceConflict'].includes(key) && (
         <AlertAction>
           <Button variant='outline' onClick={retry}>
-            {t(key === 'conflict' ? 'approvals.loadLatest' : 'approvals.retry')}
+            {t(key === 'failed' ? 'approvals.retry' : 'approvals.loadLatest')}
           </Button>
         </AlertAction>
       )}

@@ -128,3 +128,37 @@ it('overlays actual progress on the complete business flow and preserves histori
     screen.getByRole('button', { name: 'Manager', exact: true }),
   ).toHaveAttribute('data-current', 'true');
 });
+
+it('opens settings only for explicitly configured definition nodes', async () => {
+  const configure = vi.fn();
+  const { rerender } = render(
+    <TestI18nProvider runtime={runtime}>
+      <ProcessGraph
+        definition
+        states={states}
+        edges={edges}
+        initial='draft'
+        configurableNodes={new Set(['manager'])}
+        onConfigure={configure}
+      />
+    </TestI18nProvider>,
+  );
+  const { default: userEvent } = await import('@testing-library/user-event');
+  await userEvent.click(screen.getByRole('button', { name: 'Manager' }));
+  expect(configure).toHaveBeenCalledWith('manager');
+  await userEvent.click(screen.getByRole('button', { name: 'Approved' }));
+  expect(configure).toHaveBeenCalledOnce();
+  rerender(
+    <TestI18nProvider runtime={runtime}>
+      <ProcessGraph
+        states={states}
+        edges={edges}
+        initial='draft'
+        configurableNodes={new Set(['manager'])}
+        onConfigure={configure}
+      />
+    </TestI18nProvider>,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Manager' }));
+  expect(configure).toHaveBeenCalledOnce();
+});

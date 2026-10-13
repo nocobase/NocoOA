@@ -313,7 +313,7 @@ describe('approval rules page', () => {
       await screen.findByText(copy.rules.domains.spend.title),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(copy.rules.domains.leave.title),
+      screen.getAllByText(copy.rules.domains.leave.title)[0],
     ).toBeInTheDocument();
     expect(
       screen.getByText(copy.rules.keys.spend_vp.label),
@@ -321,6 +321,14 @@ describe('approval rules page', () => {
     expect(screen.getByText('¥50,000')).toBeInTheDocument();
     expect(screen.getByText(/¥60,000/)).toBeInTheDocument();
     expect(screen.getByText('3 days')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: enUS.processManagement.kinds.leave }),
+    ).toHaveAttribute(
+      'href',
+      '/processManagement/definitions/oa.leave/nodes/manager/settings?rule=leave.head',
+    );
+    expect(screen.queryByRole('link', { name: copy.rules.change })).toBeNull();
+    expect(screen.getAllByText(copy.rules.relatedFlows)[0]).toBeInTheDocument();
   });
 
   it('validates half days and posts a new version', async () => {

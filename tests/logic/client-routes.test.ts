@@ -27,6 +27,7 @@ describe('app client routes', () => {
       expect.arrayContaining([
         '/processManagement',
         '/processManagement/definitions/:kind',
+        '/processManagement/definitions/:kind/nodes/:node/settings',
         '/processManagement/definitions/:kind/executions/:recordId',
         '/processManagement/executions/:kind/:recordId/actions/:actionName/:taskId',
       ]),

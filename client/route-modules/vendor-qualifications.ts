@@ -2,7 +2,7 @@ import {
   defineAppRoutes,
   type AppClientRouteDefinition,
 } from '@nocobase/app-client/plugins';
-import { BadgeCheck, UsersRound } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
 function detailChildren(owner: string): AppClientRouteDefinition[] {
   return [
     {
@@ -96,12 +96,7 @@ export const vendorQualificationRoutes = defineAppRoutes([
       resource: { type: 'page', id: 'oa-vendor-qualification-configuration' },
       action: 'access',
     },
-    navigation: {
-      title: 'vendorQualifications.configuration.title',
-      icon: UsersRound,
-      order: 92,
-    },
     componentLoader: () =>
-      import('../pages/vendor-qualifications/configuration.js'),
+      import('../pages/vendor-qualifications/configuration-redirect.js'),
   },
 ]);

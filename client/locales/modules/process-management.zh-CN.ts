@@ -7,6 +7,21 @@ export default {
     edgeHelp: '流程转移',
   },
   processManagement: {
+    nodeSettings: {
+      edit: '编辑参数',
+      editNamed: '编辑{{name}}的参数',
+      title: '编辑{{name}}的参数',
+      parameter: '配置项',
+      effect:
+        '修改不覆盖申请已保存的快照或已有任务。新提交按生效配置读取，重提沿用各流程既有规则。',
+      shared: '这是共享配置，同时影响：{{flows}}。',
+      unavailable: '此节点没有可编辑的参数，请关闭弹窗并选择有配置入口的节点。',
+      forbidden: '你没有修改此节点配置的权限。',
+      newCommittee: '发布新的委员会结构',
+      seat: '版本 {{version}} · {{name}} 席位人员',
+      committeeContext:
+        '当前节点版本：{{selected}}；运行中版本：{{active}}；最新保存版本：{{latest}}。',
+    },
     conditionMissing: '此分支尚缺条件说明，请核对源业务规则',
     snapshotConditions:
       '金额、天数和职级门槛以申请提交时冻结的规则为准；本定义图说明判断方式，不代替历史申请的规则快照。',

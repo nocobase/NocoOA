@@ -1,16 +1,11 @@
+import { ruleNodeTargets } from '../../process-management/node-settings.js';
 import { ResponsiveTable as Table } from '#components/responsive-table';
 import { useApiClient, useToaster } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import { PencilIcon, Undo2Icon } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
-import {
-  Link,
-  Outlet,
-  useLocation,
-  useOutletContext,
-  useParams,
-} from 'react-router';
+import { Link, Outlet, useOutletContext, useParams } from 'react-router';
 
 import { RouteDrawer } from '#components/route-drawer';
 import { SessionExpiredAlert } from '#components/session-expired-alert';
@@ -60,7 +55,6 @@ function HistoryDrawer({
 }): ReactElement {
   const { t } = useTranslation();
   const { locale } = useLocale();
-  const location = useLocation();
   const parent = useOutletContext<RulesOutletContext>();
   const update = useCan({
     resource: { type: 'settings', id: RULES_SETTINGS },
@@ -207,15 +201,13 @@ function HistoryDrawer({
       footer={
         <>
           <OverlayCloseButton label={t('actions.close')} />
-          {canUpdate && rule ? (
+          {canUpdate && rule && ruleNodeTargets(rule.key).length ? (
             <Button
-              render={
-                <Link to={{ pathname: 'edit', search: location.search }} />
-              }
+              render={<Link to={ruleNodeTargets(rule.key)[0].path} />}
               nativeButton={false}
             >
               <PencilIcon data-icon='inline-start' />
-              {t('platform.rules.change')}
+              {t('platform.rules.editAtNode')}
             </Button>
           ) : null}
         </>

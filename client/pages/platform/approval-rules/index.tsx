@@ -1,10 +1,12 @@
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import type { ColumnDef } from '@tanstack/react-table';
-import { HistoryIcon, MoreHorizontalIcon, PencilIcon } from 'lucide-react';
+import { HistoryIcon, MoreHorizontalIcon } from 'lucide-react';
 import { type ReactElement, useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 
+import { ruleNodeTargets } from '../../process-management/node-settings.js';
+import { useProcessText } from '../../process-management/text.js';
 import { DataTable } from '#components/data-table';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -38,10 +40,11 @@ import {
 
 /**
  * Route /approval-rules: every rule key of the rules area, grouped by domain, with the value in effect and
- * the versions scheduled for later. A change adds a version; requests submitted earlier keep their snapshot.
+ * the versions scheduled for later. Editing opens the owning process node; history remains here.
  */
 export default function ApprovalRulesPage(): ReactElement {
   const { t } = useTranslation();
+  const text = useProcessText();
   const { locale } = useLocale();
   const location = useLocation();
   const update = useCan({
@@ -94,7 +97,7 @@ export default function ApprovalRulesPage(): ReactElement {
               t,
               locale,
               row.original.type,
-              row.original.current?.value,
+              row.original.current?.value ?? row.original.defaultValue,
             )}
           </div>
         ),
@@ -124,6 +127,30 @@ export default function ApprovalRulesPage(): ReactElement {
           ),
       },
       {
+        id: 'flows',
+        header: t('platform.rules.relatedFlows'),
+        cell: ({ row }) => (
+          <div className='flex flex-col items-start gap-1'>
+            {ruleNodeTargets(row.original.key).map((target) => (
+              <Link
+                key={target.kind}
+                className='text-primary underline underline-offset-4'
+                to={
+                  canUpdate
+                    ? target.path
+                    : `/processManagement/definitions/${encodeURIComponent(target.kind)}`
+                }
+              >
+                {text.name(target.kind)}
+              </Link>
+            ))}
+            {!ruleNodeTargets(row.original.key).length && (
+              <span className='text-muted-foreground'>—</span>
+            )}
+          </div>
+        ),
+      },
+      {
         id: 'actions',
         header: () => (
           <span className='sr-only'>{t('platform.common.actions')}</span>
@@ -148,21 +175,6 @@ export default function ApprovalRulesPage(): ReactElement {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align='end' className='w-auto min-w-40'>
                   <DropdownMenuGroup>
-                    {canUpdate ? (
-                      <DropdownMenuItem
-                        render={
-                          <Link
-                            to={{
-                              pathname: `edit/${encodeURIComponent(row.original.key)}`,
-                              search: location.search,
-                            }}
-                          />
-                        }
-                      >
-                        <PencilIcon />
-                        {t('platform.rules.change')}
-                      </DropdownMenuItem>
-                    ) : null}
                     <DropdownMenuItem
                       render={
                         <Link
@@ -184,7 +196,7 @@ export default function ApprovalRulesPage(): ReactElement {
         },
       },
     ],
-    [canUpdate, dateFormat, locale, location.search, t],
+    [canUpdate, dateFormat, locale, location.search, t, text],
   );
 
   let content: ReactElement;

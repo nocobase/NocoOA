@@ -4,9 +4,13 @@ export function useProcessText() {
   return {
     name: (kind: string) => t(`processManagement.kinds.${kind.slice(3)}`),
     state: (name: string) =>
-      t(`processManagement.states.${name}`, {
-        defaultValue: t('processManagement.otherStage', { name }),
-      }),
+      /^committee_v([1-9]\d*)$/.test(name)
+        ? t('vendorQualifications.committeeVersion', {
+            version: name.slice('committee_v'.length),
+          })
+        : t(`processManagement.states.${name}`, {
+            defaultValue: t('processManagement.otherStage', { name }),
+          }),
     transition: (name: string) => {
       const key = `processManagement.transitionNames.${name}`;
       return i18n.exists(key)

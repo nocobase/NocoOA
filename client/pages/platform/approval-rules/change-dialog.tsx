@@ -2,7 +2,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useApiClient, useToaster } from '@nocobase/app-client';
 import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import { AlertCircleIcon } from 'lucide-react';
-import { type ReactElement, useMemo, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  type ReactElement,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useOutletContext, useParams } from 'react-router';
 import { z } from 'zod';
@@ -118,16 +124,45 @@ function ChangeForm({
   readonly rule: RuleSummary;
   readonly onSubmittingChange: (submitting: boolean) => void;
 }): ReactElement {
+  const { close } = useRouteOverlay();
+  const { reload } = useOutletContext<RulesOutletContext>();
+  return (
+    <RuleChangeForm
+      rule={rule}
+      onSubmittingChange={onSubmittingChange}
+      onSaved={() => {
+        reload();
+        void close();
+      }}
+    />
+  );
+}
+
+/** Shared version editor; callers provide their own overlay and refresh behavior. */
+export function RuleChangeForm({
+  rule,
+  onSubmittingChange,
+  onSaved,
+  formId = FORM_ID,
+  disabled = false,
+}: {
+  readonly rule: RuleSummary;
+  readonly onSubmittingChange: (submitting: boolean) => void;
+  readonly onSaved: () => void;
+  readonly formId?: string;
+  readonly disabled?: boolean;
+}): ReactElement {
   const { t } = useTranslation();
   const { locale } = useLocale();
   const api = useApiClient();
   const toaster = useToaster();
-  const { close } = useRouteOverlay();
-  const { reload } = useOutletContext<RulesOutletContext>();
+  const submittingRef = useRef(false);
   const ratio = rule.type === 'ratio';
   const name = t(`platform.rules.keys.${ruleKeyId(rule.key)}.label`);
   const current =
-    typeof rule.current?.value === 'number' ? rule.current.value : undefined;
+    typeof (rule.current?.value ?? rule.defaultValue) === 'number'
+      ? ((rule.current?.value ?? rule.defaultValue) as number)
+      : undefined;
 
   const schema = useMemo(() => {
     const min = rule.min ?? (rule.type === 'workingHours' ? 1 : 0);
@@ -192,148 +227,157 @@ function ChangeForm({
   });
   const mode = useWatch({ control: form.control, name: 'mode' });
 
-  const submit = form.handleSubmit(async (values) => {
-    const value = ratio ? Number(values.value) / 100 : Number(values.value);
-    onSubmittingChange(true);
-    try {
-      await api.request({
-        path: `approvalRules/${encodeURIComponent(rule.key)}/versions`,
-        method: 'POST',
-        json: {
-          value,
-          effectiveFrom: effectiveFromOf(values.mode, values.date),
-          note: values.note || null,
-        },
-      });
-    } catch (error: unknown) {
-      const status = statusOf(error);
-      const reason = reasonOf(error);
-      const fields = fieldViolationsOf(error);
-      if (status === 401) form.setError('root', { type: 'sessionExpired' });
-      else if (
-        reason === 'RULE_EFFECTIVE_IN_PAST' ||
-        (status === 400 && fields.includes('effectiveFrom'))
-      )
-        form.setError(
-          'date',
-          { message: t('platform.rules.effective.pastError') },
-          { shouldFocus: true },
-        );
-      else if (reason === 'RULE_INVALID_VALUE')
-        form.setError(
-          'value',
-          { message: t('platform.rules.errors.invalidValue') },
-          { shouldFocus: true },
-        );
-      else
-        form.setError('root', {
-          message:
-            reason === 'RULE_ORDER_VIOLATED'
-              ? t('platform.rules.errors.orderViolated')
-              : reason === 'RULE_VERSION_EXISTS'
-                ? t('platform.rules.errors.versionExists')
-                : status === 403
-                  ? t('platform.common.writeForbidden')
-                  : t('platform.common.saveFailed'),
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    await form.handleSubmit(async (values) => {
+      if (disabled || submittingRef.current) return;
+      submittingRef.current = true;
+      const value = ratio ? Number(values.value) / 100 : Number(values.value);
+      onSubmittingChange(true);
+      try {
+        await api.request({
+          path: `approvalRules/${encodeURIComponent(rule.key)}/versions`,
+          method: 'POST',
+          json: {
+            value,
+            effectiveFrom: effectiveFromOf(values.mode, values.date),
+            note: values.note || null,
+          },
         });
-      return;
-    } finally {
-      onSubmittingChange(false);
-    }
-    toaster.show({
-      type: 'success',
-      title: t('platform.rules.changed', { name }),
-    });
-    reload();
-    void close();
-  });
+      } catch (error: unknown) {
+        const status = statusOf(error);
+        const reason = reasonOf(error);
+        const fields = fieldViolationsOf(error);
+        if (status === 401) form.setError('root', { type: 'sessionExpired' });
+        else if (
+          reason === 'RULE_EFFECTIVE_IN_PAST' ||
+          (status === 400 && fields.includes('effectiveFrom'))
+        )
+          form.setError(
+            'date',
+            { message: t('platform.rules.effective.pastError') },
+            { shouldFocus: true },
+          );
+        else if (reason === 'RULE_INVALID_VALUE')
+          form.setError(
+            'value',
+            { message: t('platform.rules.errors.invalidValue') },
+            { shouldFocus: true },
+          );
+        else
+          form.setError('root', {
+            message:
+              reason === 'RULE_ORDER_VIOLATED'
+                ? t('platform.rules.errors.orderViolated')
+                : reason === 'RULE_VERSION_EXISTS'
+                  ? t('platform.rules.errors.versionExists')
+                  : status === 403
+                    ? t('platform.common.writeForbidden')
+                    : t('platform.common.saveFailed'),
+          });
+        return;
+      } finally {
+        submittingRef.current = false;
+        onSubmittingChange(false);
+      }
+      toaster.show({
+        type: 'success',
+        title: t('platform.rules.changed', { name }),
+      });
+      onSaved();
+    })(event);
+  };
 
   const rootError = form.formState.errors.root;
 
   return (
-    <form id={FORM_ID} noValidate onSubmit={(event) => void submit(event)}>
-      <FieldGroup>
-        {rootError?.type === 'sessionExpired' ? (
-          <SessionExpiredAlert />
-        ) : rootError ? (
-          <Alert variant='destructive'>
-            <AlertCircleIcon />
-            <AlertDescription>{rootError.message}</AlertDescription>
-          </Alert>
-        ) : null}
-        <Controller
-          control={form.control}
-          name='value'
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={`${FORM_ID}-value`}>
-                {t('platform.rules.fields.newValue')}
-                <span aria-hidden='true' className='text-destructive'>
-                  *
-                </span>
-              </FieldLabel>
-              <InputGroup>
-                <InputGroupInput
+    <form id={formId} noValidate onSubmit={(event) => void submit(event)}>
+      <fieldset
+        disabled={disabled || form.formState.isSubmitting}
+        className='min-w-0'
+      >
+        <FieldGroup>
+          {rootError?.type === 'sessionExpired' ? (
+            <SessionExpiredAlert />
+          ) : rootError ? (
+            <Alert variant='destructive'>
+              <AlertCircleIcon />
+              <AlertDescription>{rootError.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          <Controller
+            control={form.control}
+            name='value'
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={`${formId}-value`}>
+                  {t('platform.rules.fields.newValue')}
+                  <span aria-hidden='true' className='text-destructive'>
+                    *
+                  </span>
+                </FieldLabel>
+                <InputGroup>
+                  <InputGroupInput
+                    {...field}
+                    id={`${formId}-value`}
+                    inputMode='decimal'
+                    autoComplete='off'
+                    aria-required='true'
+                    aria-invalid={fieldState.invalid}
+                  />
+                  <InputGroupAddon align='inline-end'>
+                    <InputGroupText>
+                      {t(`platform.rules.unitSuffix.${rule.type}`)}
+                    </InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
+                <FieldDescription>
+                  {t('platform.rules.currentValue', {
+                    value: formatRuleValue(
+                      t,
+                      locale,
+                      rule.type,
+                      rule.current?.value ?? rule.defaultValue,
+                    ),
+                  })}
+                </FieldDescription>
+                <FieldError errors={[fieldState.error]} />
+              </Field>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name='date'
+            render={({ field, fieldState }) => (
+              <EffectiveFromFields
+                formId={formId}
+                mode={mode}
+                date={field.value}
+                onModeChange={(next) => form.setValue('mode', next)}
+                onDateChange={field.onChange}
+                dateError={fieldState.error?.message}
+              />
+            )}
+          />
+          <Controller
+            control={form.control}
+            name='note'
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={`${formId}-note`}>
+                  {t('platform.rules.fields.note')}
+                </FieldLabel>
+                <Textarea
                   {...field}
-                  id={`${FORM_ID}-value`}
-                  inputMode='decimal'
-                  autoComplete='off'
-                  aria-required='true'
+                  id={`${formId}-note`}
+                  rows={2}
                   aria-invalid={fieldState.invalid}
                 />
-                <InputGroupAddon align='inline-end'>
-                  <InputGroupText>
-                    {t(`platform.rules.unitSuffix.${rule.type}`)}
-                  </InputGroupText>
-                </InputGroupAddon>
-              </InputGroup>
-              <FieldDescription>
-                {t('platform.rules.currentValue', {
-                  value: formatRuleValue(
-                    t,
-                    locale,
-                    rule.type,
-                    rule.current?.value,
-                  ),
-                })}
-              </FieldDescription>
-              <FieldError errors={[fieldState.error]} />
-            </Field>
-          )}
-        />
-        <Controller
-          control={form.control}
-          name='date'
-          render={({ field, fieldState }) => (
-            <EffectiveFromFields
-              formId={FORM_ID}
-              mode={mode}
-              date={field.value}
-              onModeChange={(next) => form.setValue('mode', next)}
-              onDateChange={field.onChange}
-              dateError={fieldState.error?.message}
-            />
-          )}
-        />
-        <Controller
-          control={form.control}
-          name='note'
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={`${FORM_ID}-note`}>
-                {t('platform.rules.fields.note')}
-              </FieldLabel>
-              <Textarea
-                {...field}
-                id={`${FORM_ID}-note`}
-                rows={2}
-                aria-invalid={fieldState.invalid}
-              />
-              <FieldError errors={[fieldState.error]} />
-            </Field>
-          )}
-        />
-      </FieldGroup>
+                <FieldError errors={[fieldState.error]} />
+              </Field>
+            )}
+          />
+        </FieldGroup>
+      </fieldset>
     </form>
   );
 }
