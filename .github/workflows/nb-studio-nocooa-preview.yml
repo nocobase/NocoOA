@@ -19,7 +19,6 @@ jobs:
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     env:
       APP_ID: ${{ github.event_name == 'pull_request' && format('nocooa-pr-{0}', github.event.pull_request.number) || 'nocooa' }}
-      NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/nocooa.npmrc
       NOCOBASE_NPM_PASSWORD: ${{ secrets.NOCOBASE_NPM_PASSWORD }}
       ENVIRONMENT: 'preview'
       LOGS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -38,6 +37,8 @@ jobs:
             echo '::error::Add the repository Actions secret NOCOBASE_NPM_PASSWORD for pkg-v3.nocobase.com.'
             exit 1
           fi
+          NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/nocooa.npmrc"
+          echo "NPM_CONFIG_USERCONFIG=$NPM_CONFIG_USERCONFIG" >> "$GITHUB_ENV"
           umask 077
           registry_password_b64=$(printf '%s' "$NOCOBASE_NPM_PASSWORD" | base64 -w 0)
           echo "::add-mask::$registry_password_b64"
