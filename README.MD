@@ -285,6 +285,17 @@ import { resolveAssetUrl } from '@nocobase/app-client';
 
 Pass the file's path relative to `dist/client/`, with or without a leading slash. `resolveAssetUrl` reads `import.meta.env.BASE_URL`, which Vite replaces with the configured `base` during the application build; the browser does not read `CDN_BASE_URL` from the server environment. With an absolute HTTP(S) CDN base it returns the CDN URL, otherwise it falls back to `resolveAppUrl` and the runtime `APP_BASE_PATH`. Already resolved URLs are preserved. Use `resolveAppUrl` for API URLs, page links and runtime-generated resources; the CDN must actually contain a file before it can be served there.
 
+#### Studio CI deployment
+
+[The Studio workflow](.github/workflows/nb-studio-nocooa-preview.yml) builds Linux x64 archives with Node.js 24 and deploys through `nb-studio`. One job handles both triggers:
+
+- Pull requests opened, updated, or reopened deploy their head commit to `nocooa-pr-<number>` in the `preview` environment. A newer run cancels the previous run for the same PR.
+- Pushes to the default branch `main`, including merged PRs, deploy the pushed commit to the existing `nocooa` App. Main deployments share a concurrency group and do not cancel a running deployment. PR builds never deploy to this fixed App.
+
+Configure repository secrets under **Settings → Secrets and variables → Actions**: `NB_STUDIO_API_KEY` authenticates to Studio; `NOCOBASE_NPM_TOKEN` authenticates package downloads from `pkg-v3.nocobase.com`, including the private Approval package. The latter is referenced through a temporary npm configuration outside the checkout, also used during archive builds. Do not commit tokens. Fork PRs do not receive repository secrets and cannot deploy with this workflow.
+
+The Studio server is `https://studio.v2.test.nocobase.com/main`. Main deployments update code in the existing App without replacing its configuration, database, or persistent storage. A protected Studio environment may require approval before deployment. Merging the workflow activates the main trigger; source and formatting checks alone do not prove a successful deployment.
+
 #### Packing the build
 
 `pnpm build --tar` writes `storage/exports/dist.tar.gz`, the artifact `@nocobase/app-installer` installs on a server.
