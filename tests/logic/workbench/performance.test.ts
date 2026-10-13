@@ -135,6 +135,12 @@ test('profiles first workbench reads on PostgreSQL with a small synthetic roster
       }) + '\n',
     );
     expect(status).toBe(200);
+    // Form eligibility must not rebuild the full approval directory. These
+    // budgets cover the real route, including authentication and authorization.
+    if (path.startsWith('/assetRequests/options'))
+      expect(queries).toBeLessThanOrEqual(80);
+    if (path.startsWith('/vendorQualifications/options'))
+      expect(queries).toBeLessThanOrEqual(86);
     expect(queries).toBeLessThan(
       path === '/authorization/permissions' ? 600 : 400,
     );

@@ -71,6 +71,57 @@ export function createApprovalDirectoryService({
   }
   const connectionOf = (connection?: DatabaseConnection) =>
     connection ?? database.connection();
+  async function eligibility(
+    userIds: readonly string[],
+    roleCodes: readonly string[],
+    connection?: DatabaseConnection,
+  ): Promise<Pick<OaApprovalDirectory, 'isActive' | 'hasRole'>> {
+    // Authorization may already have needed the complete directory in this GET.
+    // Reuse that request-local read rather than querying the same people again.
+    const existing = !connection && readSnapshots.getStore()?.value;
+    if (existing) {
+      const directory = await existing;
+      const requested = new Set(
+        roleCodes.filter((role) => role !== 'approval.admin'),
+      );
+      const selected = new Set(userIds);
+      return {
+        isActive: (id) => selected.has(id) && directory.isActive(id),
+        hasRole: (id, role) =>
+          selected.has(id) &&
+          requested.has(role) &&
+          directory.hasRole(id, role),
+      };
+    }
+    const tx = connectionOf(connection);
+    const ids = [...new Set(userIds)];
+    const active = new Set<string>();
+    if (!ids.length) return { isActive: () => false, hasRole: () => false };
+    const entries = [
+      ...(await employees.getByUserIds(ids, tx)).values(),
+    ].filter((employee) => employee.active && employee.status !== 'left');
+    for (let offset = 0; offset < entries.length; offset += 100) {
+      const page = await users.withConnection(tx).list({
+        userIds: entries
+          .slice(offset, offset + 100)
+          .map((entry) => entry.userId),
+        page: 1,
+        pageSize: 100,
+        kind: 'person',
+        status: 'enabled',
+      });
+      for (const user of page.items) active.add(user.id);
+    }
+    const members = await org.dutyRoleMembersByCodes(
+      roleCodes.filter((code) => code !== 'approval.admin'),
+      tx,
+    );
+    return {
+      isActive: (id) => active.has(id),
+      hasRole: (id, role) =>
+        active.has(id) && (members.get(role)?.includes(id) ?? false),
+    };
+  }
   async function enabledEmployees(
     connection: DatabaseConnection,
   ): Promise<Employee[]> {
@@ -404,6 +455,7 @@ export function createApprovalDirectoryService({
       : database.transaction(run);
   }
   return {
+    eligibility,
     snapshot,
     withReadSnapshot: (read) => readSnapshots.run({}, read),
     list,

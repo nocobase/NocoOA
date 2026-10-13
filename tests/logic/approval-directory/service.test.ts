@@ -55,6 +55,28 @@ describe('approval directory and proxy delegations', () => {
     );
     await org.addDutyRoleMember('gm', boss.userId, actor);
     const directory = await service.snapshot();
+    const eligibility = await service.eligibility(
+      [boss.userId, person.userId, inactive.userId, 'missing-user'],
+      ['gm', 'hr', 'approval.admin'],
+    );
+    for (const id of [
+      boss.userId,
+      person.userId,
+      inactive.userId,
+      'missing-user',
+    ]) {
+      expect(eligibility.isActive(id)).toBe(directory.isActive(id));
+      for (const role of ['gm', 'hr'])
+        expect(eligibility.hasRole(id, role)).toBe(directory.hasRole(id, role));
+      expect(eligibility.hasRole(id, 'approval.admin')).toBe(false);
+    }
+    await container
+      .resolve(userAdministrationServiceToken)
+      .disable(boss.userId);
+    const disabled = await service.eligibility([boss.userId], ['gm']);
+    expect(disabled.isActive(boss.userId)).toBe(false);
+    expect(disabled.hasRole(boss.userId, 'gm')).toBe(false);
+    await container.resolve(userAdministrationServiceToken).enable(boss.userId);
     const shared = await service.withReadSnapshot(() =>
       Promise.all([service.snapshot(), service.snapshot()]),
     );
@@ -62,6 +84,11 @@ describe('approval directory and proxy delegations', () => {
     expect(shared[0]).not.toBe(directory);
     await service.withReadSnapshot(async () => {
       const read = await service.snapshot();
+      const bounded = await service.eligibility([boss.userId], ['gm']);
+      expect(bounded.isActive(boss.userId)).toBe(read.isActive(boss.userId));
+      expect(bounded.hasRole(boss.userId, 'gm')).toBe(true);
+      expect(bounded.isActive(person.userId)).toBe(false);
+      expect(bounded.hasRole(boss.userId, 'approval.admin')).toBe(false);
       const explicit = await service.snapshot(testApp.database.connection());
       expect(explicit).not.toBe(read);
     });

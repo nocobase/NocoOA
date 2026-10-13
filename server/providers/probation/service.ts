@@ -1040,11 +1040,11 @@ export function createProbationService(d: ProbationDependencies) {
       approval.approval as unknown as import('@nocobase/app-plugin-approval/server').Approval<never>,
     initialize: refresh,
     async options(actorId: string) {
-      await refresh();
+      const directory = await d.directory.eligibility([actorId], ['hr']);
       const user = await d.users.get(actorId);
       return {
         timeZone: d.calendar.timeZone(),
-        canCreateManualDraft: outside.directory.hasRole(actorId, 'hr'),
+        canCreateManualDraft: directory.hasRole(actorId, 'hr'),
         actorId,
         actor: user ? { id: user.id, name: user.name } : null,
       };

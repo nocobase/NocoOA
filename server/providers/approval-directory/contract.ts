@@ -38,6 +38,13 @@ export interface OaApprovalDirectory extends ApprovalDirectory {
   uniqueRoleMember(role: string): string | undefined;
 }
 export interface ApprovalDirectoryService {
+  /** Fresh, bounded employee/account and organisation duty-role checks for form options.
+   * Does not resolve reporting chains, delegations or protected approval.admin assignments. */
+  eligibility(
+    userIds: readonly string[],
+    roles: readonly string[],
+    connection?: DatabaseConnection,
+  ): Promise<Pick<OaApprovalDirectory, 'isActive' | 'hasRole'>>;
   /** Fresh synchronous directory; acquire within the lifecycle transaction before planning or answering. */
   snapshot(connection?: DatabaseConnection): Promise<OaApprovalDirectory>;
   /** Share a fresh directory only inside a read operation; explicit transactional snapshots remain independent. */

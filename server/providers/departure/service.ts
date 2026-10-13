@@ -989,6 +989,7 @@ export function createDepartureService(d: DepartureDependencies) {
     ) {
       const employee = await d.employees.getByUserId(actorId);
       const actor = (await resolveUsers([actorId]))[0];
+      const departureTypes = await d.dictionaries.list('departureType');
       return {
         timeZone: d.calendar.timeZone(),
         actor,
@@ -998,15 +999,16 @@ export function createDepartureService(d: DepartureDependencies) {
           ['probation', 'regular'].includes(employee.status),
         canCreateManualDraft:
           grants.manual && (await d.org.hasDutyRole(actorId, 'hr')),
-        selfDepartureTypes: (await d.dictionaries.list('departureType'))
+        selfDepartureTypes: departureTypes
           .filter((type) => type.code === 'resignation')
           .map((type) => ({ code: type.code, label: type.label })),
-        manualDepartureTypes: (await d.dictionaries.list('departureType'))
+        manualDepartureTypes: departureTypes
           .filter((type) => ['dismissal', 'contractExpiry'].includes(type.code))
           .map((type) => ({ code: type.code, label: type.label })),
-        departureTypes: (await d.dictionaries.list('departureType')).map(
-          (type) => ({ code: type.code, label: type.label }),
-        ),
+        departureTypes: departureTypes.map((type) => ({
+          code: type.code,
+          label: type.label,
+        })),
       };
     },
     async handoverCandidates(
