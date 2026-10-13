@@ -64,11 +64,17 @@ jobs:
         run: nb-studio app get "$APP_ID"
       - run: nb-studio build status --app "$APP_ID" --state building --logs "$LOGS"
       - run: pnpm install --frozen-lockfile
+      - name: Prepare SQLite release template for PR preview
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci/prepare-studio-preview.mjs
       # Leaves storage/exports/dist.tar.gz: dist/ and config.example.yml.
       - run: pnpm build --target linux-x64 --node-version 24 --tar
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       # Uploads the archive and deploys it; a protected environment asks its approvers instead.
-      - run: nb-studio deploy --app "$APP_ID" --file storage/exports/dist.tar.gz
+      - name: Deploy and wait for Studio startup
+        run: node scripts/ci/deploy-studio.mjs
+        env:
+          STUDIO_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - if: failure() && steps.studio-cli.outcome == 'success'
         run: nb-studio build status --app "$APP_ID" --state failed --logs "$LOGS"
