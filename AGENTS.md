@@ -1,657 +1,81 @@
-# Application Development Guidelines
+# nb3-oa Development Guide
 
-This is a NocoBase 3 application. Do not apply globally installed NocoBase 2 Skills. You are building the application itself — its pages, its API, its database tables. Everything under this directory is application-owned source code that you may edit directly.
+## Project goal
 
-Do not create a plugin to add a feature. Plugins are separately published packages for capabilities shared across several applications; building one for this application's own feature adds a package boundary, a version, and a release process to work that belongs in `client/` and `server/`. Create one only when the user explicitly asks for a reusable published package.
+A NocoBase 3 office automation application for mid-size companies, covering organization and HR, daily office work, approvals, finance and expenses, procurement and contracts, and administration and assets. It provides a unified workbench, task center, and access management.
 
-When users refer to annotations, marks, or selections in the current application, first run `pnpm exec agent-annotations list --json` from the application root to find Agent Annotations records, ask for clarification only if none match or the target remains unclear, and do not implement annotation requests when the user only asks where they are.
+This repository owns the application business code. Build features directly in the application; create a plugin only when explicitly asked for an independently published, reusable package. Do not apply NocoBase 2 Skills or reset existing business features to the empty template.
 
-## Pull requests
+## Stack and plugins
 
-Write pull request titles and descriptions in English. Apply this rule when creating or updating a pull request, even when the conversation is in another language.
+- Stack: TypeScript, React, shadcn/ui, Tailwind CSS, and NocoBase 3. PostgreSQL is the default database for the application and its database tests.
+- Environment: Node.js >= 24 and pnpm. See [package.json](package.json) and the lockfile for exact versions.
+- Registered plugins below omit the `@nocobase/app-plugin-` prefix:
+
+| Capability                          | Plugins                                                                                   |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| Authentication, users, and API keys | `authentication`, `users`, `api-keys`                                                     |
+| Authorization and data scopes       | `authorization`, `authz-default-access`, `authz-sharing-rules`, `authz-restriction-rules` |
+| Internationalization and files      | `i18n`, `file`                                                                            |
+| Notifications and inbox             | `notification`, `notification-in-app`, `notification-providers`                           |
+| Approvals, scheduling, and agents   | `approval`, `scheduler`, `agents`                                                         |
+
+Registration lives in [server/plugins.ts](server/plugins.ts), [client/plugins.ts](client/plugins.ts), and [cli/plugins.ts](cli/plugins.ts), as needed by each runtime. Approval pages import the plugin's frontend helpers and locales directly. Template printing uses `@nocobase/app-plugin-template-print` through the application's `server/providers/template-print/`. An installed dependency is not necessarily registered or enabled.
+
+## Project structure
+
+```text
+client/
+  runtime.ts                 Browser application composition
+  routes.ts                  Page routes and navigation composition
+  route-modules/<module>.ts  Module routes
+  pages/<module>/            Module pages and page-local components
+  components/                Shared components; ui/ contains CLI-generated shadcn primitives
+  hooks/, lib/               Shared hooks and utilities
+  locales/                   User-visible copy; module locales live in modules/
+server/
+  runtime.ts, app.ts         Server composition and application assembly
+  plugins.ts                 Server plugin registration
+  providers/<module>/        Business services, public contracts, permissions, and background jobs
+  routes/<module>/           HTTP endpoints and response schemas
+  config/                    Configuration defaults and environment variable mappings
+database/main/
+  migrations/, seeds/        Production migrations and initial data
+  collections/               Generated Collection artifacts
+cli/commands/                Application commands
+tests/                       Unit, integration, and browser tests; fixtures/ for isolated fixtures
+docs/                        Requirements, designs, plans, records, and operating guides
+```
+
+Register new modules in `server/providers/index.ts`, `server/routes/index.ts`, `client/routes.ts`, and the locale entry points. Place business pages under existing domain navigation groups and approval types in the existing task center.
+
+## Development workflow
+
+1. Read the local [application development Skill](.agents/skills/nocobase-app-development/SKILL.md), then choose references and plugin Skills for the task. Follow its UI workflow for frontend changes. Use the corresponding local Skills for template upgrades and production deployment.
+2. Before business development, read chapters 01, 02, and 08, the relevant business chapters, and the original detailed designs/reviews in the [complete requirements baseline](docs/designs/baseline/README.md), then the current module design. Explicitly record differences between requirements and implementation.
+3. Reuse existing components, plugins, and public services. Keep changes within module boundaries and complete main application registration. Use `pnpm dev` for development; see [README.MD](README.MD) for operation and configuration.
+4. Scope formatting, static checks, and tests to the affected code; do not default to full `pnpm check`. Documentation-only changes require formatting and local-link checks. State unverified limits honestly. Write PR titles and descriptions in English.
+
+`pnpm install` synchronizes local Skills; run `pnpm nocobase skills sync` if they are missing or stale. When users mention page annotations, first run `pnpm exec agent-annotations list --json` from the root to locate them. Do not implement changes when the user only asks where annotations are.
+
+<a id="unified-application-table-presentation"></a>
+
+## Essential conventions
+
+- Every endpoint independently enforces authentication, action permissions, record scopes, and field permissions. Hiding navigation does not replace server authorization.
+- Call other modules through public service tokens, not their implementations or plugin internal tables. Commit business writes, audits, and related changes in the same transaction. Use platform services for working days, rule snapshots, and document numbers.
+- Published migrations are immutable; add new migrations for changes. Do not edit generated collections. Register permission seeds in the main application only after their providers and actions are registered.
+- Declare menus through route `navigation` and fetch data with `useApiClient`. Reuse existing tables, pickers, and layouts; follow the [shared table design](docs/designs/oa/table-presentation-design.md). Add shadcn primitives through the CLI; do not edit generated files.
+- Put user-visible copy in locale files. Frontend request identifiers use `createRequestKey` from `#lib/request-key`; do not use `crypto.randomUUID`, to support intranet HTTP origins.
+- Keep tests in `tests/`. Database tests use isolated environments, never business databases; do not switch to SQLite to bypass failures. Preserve existing application adapters and review their owning designs and records during upgrades.
 
 ## Documentation rules
 
-Read [docs/README.md](docs/README.md) before creating or updating project documentation. Documentation belongs to one category, then one module:
+Start at [docs/README.md](docs/README.md). Find and update the existing owning document first. Keep this file limited to a stable project overview and essential rules; do not append module implementation logs or progress reports.
 
-- `docs/plans/<topic>-YYYY-MM-DD.md`: goals, work packages, dependencies and completion criteria. A plan does not prove implementation or imply any agent is currently running.
-- `docs/designs/<module>/<topic>-design.md`: current business rules, public contracts, permissions, transactions and acceptance requirements. Clearly distinguish implemented contracts from proposed work; put commands, results and execution chronology in records.
-- `docs/records/<module>/<topic>-YYYY-MM-DD.md`: actual execution, registration, verification, failures, repairs and unverified boundaries. Cross-module progress and source audits belong to `docs/records/oa/`; integration records belong to `docs/records/integration/`. Preserve historical facts and append dated corrections instead of rewriting an old failure as a pass.
-- `docs/guides/<topic>.md`: reusable operating instructions, such as deployment; actual release outcomes belong to dated records.
+- `docs/plans/`: plans; `docs/designs/<module>/`: business rules and current contracts; `docs/records/<module>/`: execution and verification; `docs/guides/`: operating instructions.
+- Use lowercase kebab-case for new documents and ISO dates for plans and records. Maintain category indexes and relative links. Preserve provenance and history in the original baseline and `source/`; do not depend on the ignored local worklog.
+- Business code changes update the owning design, progress, and module audit. Distinguish source presence, main registration, automated validation, real-role browser acceptance, and production release. Record date/time zone, commands, actual results, and limits; do not rewrite historical failures.
+- Executable fixtures belong in `tests/fixtures/`. Temporary logs are not sufficient durable evidence. Never store credentials or real personal business data in documentation.
 
-Use lowercase kebab-case paths, stable module names and ISO dates. Do not create new module folders at the docs root, ad hoc root progress files or duplicate “latest/final/new” documents. Search for and update the existing owning document first. Category READMEs index every document; update them and affected relative links in the same change. The root README links the canonical progress, plan and source-review entry points.
-
-The complete OA business baseline is [docs/designs/baseline/README.md](docs/designs/baseline/README.md), imported from `worklog/2026-10-09-oa-plan-v2`. Read 01 (foundation), 02 (global rules/permissions), the exact numbered business or non-approval entry in 03–07, and 08 (technical delivery/acceptance) before designing a module; also read its full original detailed design and relevant review in `source/`. Short implementation supplements cannot replace these requirements. Every current design must link its original chapter/section and describe the full fields, guards, stages, people, decisions, operations, frozen/covered fields, reservations, exits, outputs, transactions, authorization, UI and acceptance scope that apply. Code is evidence of current implementation, not authority to silently remove unmet requirements. Record original requirement/current behavior/reason/remaining work when they differ; use explicitly agreed later business decisions for changes and label new requirements as supplements.
-
-The original 01–08 and `source/` documents preserve full source content and original filenames/numbering as an explicit archival exception requested by the user. Keep their provenance and historical evidence; do not turn them into summaries, rewrite an old test as a current pass, or create another competing worklog copy. Maintain future changes in the owning current design and record a dated change against the original requirement; the source archive is a reference snapshot, not a second live status report. The formal docs are the durable entry point, so implementation must not require the ignored local worklog to exist.
-
-Before asserting current status, inspect actual provider/HTTP/client composition, public services, main migrations/seeds and affected test evidence. Separate source present, main registered, automated validation, real-role browser acceptance and production release. A proposed design, fixture registration or old green test does not establish current delivery. If code changed, update the current design, progress and module audit together, and add a dated source correction linking the evidence; historical records retain their original scope. Never infer completion from file timestamps, copied agent messages or a path alone.
-
-Verification records state date/time zone, scope, reproducible commands, actual results and unresolved limits; do not invent runs, merge overlapping test counts or describe a local rerun as a full suite pass. Temporary `/tmp` logs and ignored `worklog`/`storage` files are supplementary only; retain the meaningful summary and source/test anchors in tracked docs. Do not copy credentials, secrets or personal business data into records.
-
-Executable candidates and migrations do not belong in docs. Put isolation fixtures in `tests/fixtures/<module>/`; keep published migrations immutable and only register production migrations/seeds through coordinated application registration. Historical candidate fixtures are not production initialization. `AGENTS.md` holds durable development rules and integration constraints, not plans, chat transcripts or test diaries; link to the owning docs instead. Documentation changes require scoped formatting and local-link checks; moved executable fixtures also require checks of their actual consumers.
-
-## Default template scope
-
-Default is the clean application starting point. It registers product capabilities but no `app-plugin-*-example` plugins, example pages, application sample services, or sample APIs. Keep runnable demonstrations in `app-template-examples`. Application-owned server routes start empty; the only built-in application provider exposes Authorization Permission Sets as direct roles in the Users page. The only application page is a localized homepage.
-
-`database/main/` contains required permission initialization only; application-owned business migrations and seeds start empty. Do not add article history, demo seeds, or compatibility copies from Examples to this template. Existing installations retain their own executed migration sources when upgrading; see the [upgrade migration rules](.agents/skills/nocobase-app-upgrade/references/edge-cases.md#migrations).
-
-## Load the development skills
-
-`pnpm install` runs `pnpm nocobase skills sync` through the application's `postinstall` hook. If `.agents/skills/nocobase-app-development/` is missing, install dependencies from the application root; if install scripts were disabled or synchronized Skills are stale, run `pnpm nocobase skills sync` explicitly.
-
-`.agents/skills/nocobase-app-development/` holds the detailed guidance behind this file. Read its `SKILL.md` first — it routes to the reference that matches your task instead of making you read everything:
-
-| Task                                                         | Reference                            |
-| ------------------------------------------------------------ | ------------------------------------ |
-| Any frontend change: pages, routes, components, styles, copy | `references/frontend/ui-workflow.md` |
-| Add an HTTP endpoint                                         | `references/server-routes.md`        |
-| Name an endpoint, shape its response or errors, validate it  | `references/http-api.md`             |
-| Read or write data                                           | `references/database-and-data.md`    |
-| Change the schema                                            | `references/migrations.md`           |
-| Switch or add a database connection                          | `references/database-connections.md` |
-| Translate server-produced text or add a language             | `references/i18n.md`                 |
-| Add a service, background job, or scheduled task             | `references/services-and-jobs.md`    |
-| Write tests and verify                                       | `references/testing.md`              |
-
-Read the one page your task needs, not the whole directory.
-
-`.agents/skills/nocobase-app-upgrade/` is a separate Skill for a separate job: merging a newer release of the template this application was generated from. Read it when the task is upgrading the template rather than building a feature, and read it before touching anything — an upgrade done by copying the newest template over this application destroys the work that made it this application.
-
-`.agents/skills/nocobase-deployment/` covers moving this application from source to a production server: building for the target platform, what the archive does and does not carry, migrations and business data, production configuration, and what to verify afterwards. Read it before building for deployment, and when an application starts in production but does not work.
-
-## Where things go
-
-Business code goes in these places. This is where you work, and where you should stay unless the task genuinely requires otherwise:
-
-```text
-client/routes.ts          Declare a page route
-client/pages/             The page component; a folder when a page has children or files of its own
-client/components/        Your components
-client/components/ui/     shadcn/ui primitives; add with the CLI, never hand-write or edit
-client/hooks/             Hooks shared across features
-client/locales/           Every user-visible string; system/ holds the template's copy
-client/service-provider.ts Client startup: services that boot with the application
-server/routes/            HTTP endpoints
-server/providers/         Services and their lifecycle
-database/main/migrations/      Schema changes
-database/main/seeds/           Required initial data
-database/main/collections/     Generated Collection artifacts; regenerate, never edit
-cli/commands/             Commands this application owns
-tests/                    Tests; never beside the source
-```
-
-A page with children or page-local helpers uses a folder with `index.tsx`; child folders mirror route paths. Keep page-local components and data in that folder, reserving `client/components/` for application-wide components. See [child routes](.agents/skills/nocobase-app-development/references/frontend/references/child-routes.md) for examples.
-
-A feature with a page and an API touches five places: a migration for the table, a route in `server/routes/`, a page in `client/pages/` declared in `client/routes.ts`, navigation on the page route, and strings in `client/locales/`.
-
-Approval detail and request-form overlays explicitly opt into `printable` on `RouteOverlay` / `RouteDrawer` / `RouteFormPage`; ordinary configuration and ledger overlays do not enable it by default. Set `printDisabled` while detail data is loading or unreadable. Browser printing copies only the current authorized reading surface and expands `data-print-expanded` timeline content; it does not replace the separately authorized template-print service. See [approval printing](docs/designs/oa/approval-print-design.md).
-
-Frontend identifiers and idempotency keys use `createRequestKey` from `#lib/request-key` (cryptographic UUID v4 via `crypto.getRandomValues`). Do not use `crypto.randomUUID` anywhere under `client/`: intranet HTTP origins do not expose it. The client ESLint restriction enforces this rule; Node.js server/test UUID APIs remain supported. See [browser request keys](docs/designs/oa/browser-request-keys-design.md).
-
-`client/runtime.ts` composes the browser application; `client/react-providers.ts` declares React providers in outer-to-inner layers `root`, `application`, and `extension`. Applications use the first two and plugins own the last; `before` and `after` order providers only within their layer.
-
-`server/app.ts` installs the application-owned `requestPerformanceMiddleware` from `server/providers/request-performance/` before route freezing. The current authorization plugin repeatedly resolves the same OA data scope and inspects physical schemas within a request; the built-in registry does not deduplicate these reads. This adapter shares physical-schema reads per request (invalidated through the public registry API; concurrent requests share only an unfinished schema inspection), and shares OA scope resolutions plus the approval directory only within GET requests. It never caches grants or decisions across requests, and explicit directory transaction snapshots remain independent. Preserve this adapter on template upgrades until the public framework removes the repeated reads. Its slow-request logs also aggregate scope resolution counts/times; the five largest aggregates appear in `Server-Timing` without identities, parameters or record contents. Concurrent scope durations overlap and must not be summed as request wall time. It emits downstream `Server-Timing` and warns when downstream execution exceeds 500ms; prior session middleware and browser transport/queueing are outside that timer. See [workbench performance](docs/records/workbench/performance-2026-10-12.md).
-
-`server/runtime.ts` composes configuration, plugins, providers and routes; `server/app.ts` assembles the application. `server/standalone.ts` starts the Node listener and `server/embedded.ts` lets a host mount the same runtime. Register endpoints through `server/routes/index.ts`; queue consumers and background jobs are registered from a service provider, not discovered from a directory. Editable module defaults live in `server/config/` and are collected by `defaultAppConfigs` in its `index.ts`; `server/config.ts` loads the configuration file. Each section declares the environment variables that set it in `env` of its `defineAppConfig`, with a `description` and, where it applies, `secret`, `required`, `generate` or `firstStartOnly` in the helper's second argument; `pnpm nocobase config env` lists them all, `pnpm nocobase config variables` describes each, and `pnpm build` writes that description to `dist/variables.json` for whoever deploys the build. `server/config/database.ts` maps `DB_*` onto the main connection and `server/config/users.ts` maps `INITIAL_ADMIN_*` onto the initial administrator. `config.yml` is read as written: a `${NAME}` in it is not expanded.
-
-### The rest is framework structure
-
-Layouts own breadcrumb route context and render the current page's trail in the header after the sidebar toggle (`client/components/breadcrumbs.tsx`): the route trail by default, or the trail a page declares with `usePageBreadcrumb` from `@nocobase/app-client` when it names records. Pages do not render breadcrumbs themselves. `AppRouter` selects routes and layouts. See [pages and routes](.agents/skills/nocobase-app-development/references/frontend/references/page.md) for each layout's scope.
-
-`client/layouts/components/layout-header.tsx` is a presentation container accepting children. The sidebar is shadcn's Sidebar: `components/app-sidebar.tsx` wraps its provider, desktop icon mode and phone sheet, and `components/navigation-menu.tsx` draws the permission-filtered route tree with `SidebarMenu*` and controlled `Collapsible` sub-menus. Leave `client/components/ui/sidebar.tsx` as the shadcn CLI writes it and customize from outside: widths go through the provider's `style` in spacing units, the phone sheet is rendered in `app-sidebar.tsx` with a translated title, and the provider's Ctrl/Cmd+B shortcut is stopped at `document`. The App layout owns menus, branding, permissions and redirects. Desktop icon mode shows leaf labels as zero-delay tooltips and opens groups in hover and keyboard-focus popovers, preserving filtered navigation, parent-page links, nested groups and the selected group's highlight. Keep this behavior aligned across layouts. Desktop collapse state is shared through `useSidebarPreference` at `nocobase:sidebar:collapsed` across applications on the same origin; whether the phone sheet is open stays local to each layout.
-
-The header carries no Settings or Inbox entry. An application has no separate settings area: a page that configures something is an ordinary route in `client/routes.ts` with `navigation`, placed in the sidebar like any other page, for example under a Settings navigation group. The `/inbox` page declares no navigation; give it an entry where the application wants one.
-
-`client/routing/`, `client/layouts/`, `client/theme/`, the server entry points, the `package.json` scripts that call `nocobase`, and the tsconfigs are the scaffolding the template provides. It is still this application's own source — it shipped to the user and they may change it — but it is the part the template evolves, so an edit there is what a future upgrade has to reconcile.
-
-Prefer the mechanism the system already provides. Declare a page in `client/routes.ts` and add `navigation` when it needs a menu entry. Refine resources add no menu entries and, with no data provider registered, load nothing; pages load data through `useApiClient`. A page uses `authz` to restrict access; a plugin page is customized through an option or an override. Before editing the shell to add a menu, check the route and its `navigation` declaration.
-
-When the built-in mechanism genuinely cannot express what is being asked, changing this structure is a legitimate answer — not a last resort to apologize for. Do it deliberately, and leave the next agent enough to work with:
-
-- Comment what you changed and why the built-in path did not fit. On upgrade, an agent reconciling the template's version needs to know whether your change is still needed.
-- Update this file in the same change, so the guidance describes the application as it actually is. If the framework's shared guidance is wrong for every application, update the source `@nocobase/app-skills` package instead of editing its synchronized copy.
-
-## OA modules
-
-This application is a mid-size company OA system. Its complete Chinese business design is maintained through [the formal original-requirement baseline](docs/designs/baseline/README.md), with full module designs and historical reviews imported from the local `worklog/2026-10-09-oa-plan-v2/`; P0a (organisation, employees, platform configuration, import) is built. Each module owns one folder per layer so modules can be developed side by side without editing the same file:
-
-```text
-server/providers/<module>/       Services, tokens, authorization declarations; index.ts default-exports the provider
-server/routes/<module>/          Route contributions; schemas.ts holds the response schemas
-client/route-modules/<module>.ts Route contributions, spread into client/routes.ts
-client/pages/<module>/           Pages and their local components
-client/locales/modules/<module>.en-US.ts / .zh-CN.ts   Copy, nested under one top-level key named after the module
-database/main/migrations|seeds/  Files prefixed 2026101002 (org), …03 (platform), …04 (employees), …05 (import)
-```
-
-Register a new module's provider in `server/providers/index.ts` (dependency order: audit, platform, org, employees, …), its routes in `server/routes/index.ts`, its client routes in `client/routes.ts` and its locales in `client/locales/en-US.ts` / `zh-CN.ts`. Navigation keeps the workbench, task center (`/approvals`), and messages at the top level. Business pages use pathless domain groups: `oa-office` (日常办公: approval delegation, announcements, work items and knowledge), `oa-organization` (组织与人事: organization, employee archives, recruitment, onboarding, probation, personnel changes, departure, directory, leave balances, certificates and import), `oa-finance` (财务与费用: reimbursement, loans, payments, budgets and finance assignments), `oa-procurement` (采购与合同: suppliers, qualification requests, purchase orders, contracts and their ledger), and `oa-administration` (行政与资产: asset requests, supply ledger, seal management, seal requests and seal ledger). Other administrative pages use `oa-configuration` (业务配置), `oa-automation` (自动化), or `oa-system` (系统管理). Keep actual configuration, such as qualification committees and print templates, under configuration. Each page retains its own permission policy; a domain group grants no access and disappears when all its pages are filtered out. New approval types enter the existing task center's creation picker and registered domain pages belong at the second navigation level; do not add a top-level menu for an individual approval type.
-
-Do not place a new module's permission seed in `database/main/seeds/` before its provider and authorization actions are registered in the main application: every actual App test runs the main seeds and validates stored grants, so an unregistered action prevents unrelated modules from starting. Keep candidate permission initialization outside the discovered seed directory and invoke it explicitly only in a fixture that registers that provider; move the seed into the main directory as part of the coordinated registration.
-
-Shared services every module uses — resolve them by token, never by importing the implementation:
-
-- `auditServiceToken` (`server/providers/audit/`): record every sensitive non-approval write — organisation, employees, duty-role members, rules, dictionaries, calendar, administrator corrections — in the same transaction as the write. Permission-set definitions and assignments (including Users role changes) are audited by decorating the authorization plugin's public `permissionSets` API in `server/providers/audit/permission-sets.ts`; it preserves plugin protections and commits audit entries in the caller's transaction. The plugin has no transactional audit hook, so retain this application adapter on upgrade. `server/app.ts` installs its actor-context middleware before routes are frozen; providers cannot add middleware during registration.
-- `orgServiceToken` (`server/providers/org/contract.ts`) for reads; `organizationServiceToken` for membership writes, which take `{ actorId, connection }` to join the caller's transaction. Only top-level departments may carry `executiveId`; clear it in the same update when moving a top-level department under another. Department data scopes are registered per module with `registerDepartmentScopes(authz, organization, { prefix, targets })` from `server/providers/org/index.ts`.
-- Employees (`server/providers/employees/contract.ts`): `managerChainOf` / `managerOf` for the reporting line. A collection that needs the reporting-chain scopes `oa.reports` / `oa.selfAndReports` registers itself with `reportingScopesToken.use(collection, { field, identifies })` in its provider's `register()`; the scopes are defined in `boot()` and refuse later registrations. Employee status changes only through `applyStatusChange` (a flow's exit, in the flow's transaction) or the audited administrator correction. `employeeHistory` never carries amounts; pay goes to `employeeCompensation`.
-- Platform (`server/providers/platform/index.ts`): `calendarServiceToken` for every working-day and working-hour calculation (never the server's local time; `approvalCalendar()` is what the approval plugin's `calendar(services)` returns), `sequenceServiceToken.next(prefix, tx)` inside the submitting transaction, `ruleServiceToken.snapshot(keys, now, tx)` into a document's `ruleSnapshot` at submission, `dictionaryServiceToken` for enumerations. A new rule key or dictionary type changes `rule-definitions.ts` / `dictionary-types.ts`, the copy and a new seed; dictionary entries are disabled, never deleted.
-
-Endpoints that return a user id also return the resolved `{ id, name }`: the Users plugin's HTTP API cannot look a user up by id, so `UserPicker` (`client/components/user-picker.tsx`) shows a name only through `knownUsers`, and it searches `GET /api/users`, which needs `user:read` in the permission set of whoever uses the page. Pick departments with `DepartmentPicker` (`client/components/department-picker.tsx`) and list records with `DataTable` / `DataTableServer` (`client/components/data-table/`).
-
-The application defaults and application/database tests use PostgreSQL. Vitest configures both `DB_DIALECT` and `NOCOBASE_TEST_DB_DIALECT` as `postgres`; `tests/setup/database-environment.ts` aligns `DB_*` with the PG test provisioner's `POSTGRES_*` settings. Public test provisioners own isolated temporary schemas, never the business tables. Standalone fixtures use `OA_TEST_DATABASE_ENV` and `OA_TEST_SERVER`; do not pin a helper or browser harness to SQLite to bypass PG failures. SQLite directory-isolation unit tests describe the retained utility only and do not select the runtime database.
-
-Whole-application tests use `OA_TEST_ORIGIN` and `OA_TEST_SERVER` from `tests/logic/oa-test-origin.ts`, which reads the configured public origin from the environment and `.env.local`. Set `secrets.keys` and send the same `origin` on writes; do not override the development listener or public address to make tests pass. See `tests/logic/org/helpers.ts`. A seed never imports from `server/`: the seed loader does not map `.js` to `.ts`, so ids and codes are written into the seed itself.
-
-`@nocobase/app-plugin-approval` is installed as `0.0.2-beta.0` from `https://pkg-v3.nocobase.com` and registered on the server. Its `/client` entry exports helpers and a locale registration factory; this application imports the helpers and locale bundles directly from its approval pages and locale modules, so it does not register the client factory.
-
-Headcount capacity is registered under `server/providers/headcounts/` and `server/routes/headcounts/`, prefix `2026101035`. Resolve `headcountServiceToken` and join the caller transaction; capacity starts uninitialized until complete real employee/primary-department/position facts are reconciled. Future replacement claims identify distinct occupied sources and never expose capacity before actual departure; pending holds can be revised atomically through the public service. Read a business source through `headcountServiceToken.reservation(source, tx)`; its `blocked` count must be zero before a recruitment approval can proceed. This internal contract does not replace the owning HTTP resource policy. Recruitment submission and final requisition allocation are integrated through the public capacity service; Onboarding creation/cancellation integrates public capacity and recruitment allocation in the same transaction, including explicit company-year target-account rebind through the public recruitment requisition service; transfer uses the public capacity service. Actual departure left now releases occupancy in the employee/account transaction; independently confirmed HR cancellation restores the frozen real employee status and invalidates future replacements without releasing the occupied source. Employee administrator create/update/correctStatus and employee import use public protectRoster in the caller transaction, preserving initialized real roster/occupancy consistency and rejecting writes without a business source; they never manufacture used-count corrections. Administrative corrections restoring leaving employees use public invalidateReplacements in that same transaction, so old future claims cannot revive; employee import shares that status-correction entry. Independent org membership HTTP management uses organizationServiceToken.manageMember, joining public protectRoster and the audit transaction; business-source addMember/removeMember/setPrimary keep their existing coordinated transaction contracts. Department active/hierarchy changes and source-backed administrator corrections remain outside this guard. Read docs/designs/headcounts/administrative-roster-design.md for the boundary; do not claim the capacity guard serializes upstream writers that have not joined it.
-
-Vehicle requests and garage services are registered under `server/providers/vehicles/` and `server/routes/vehicles/`, prefix `2026101036`. Resolve `vehicleRequestServiceToken` or `vehicleServiceToken`; dispatch requires the real SDK offer and caller transaction, and a submitted request does not reserve a vehicle. Vehicle/driver half-open intervals are locked before conflict checks. Fuel costs remain in a private facade and require both ordinary record viewing and `viewCost`; do not put amounts in SDK records, history or audit metadata. Dispatched requests cannot use ordinary withdrawal/termination. The departure-reassignment registry covers `oa.vehicleRequest`; head-review and dispatch tasks use public reassignment actions. Usage registration remains applicant-owned and fails closed on departure reassignment, blocking account disabling while outstanding. Vehicle request/garage browser pages are now registered under `client/pages/vehicles/` and `client/route-modules/vehicles.ts`; current safe browser operations and private cost reads preserve the independent view policies. Browser/API verification is in progress. Approval-center aggregation is registered through the public listForCenter facade and preserves the independent ordinary record policy; VehiclesProvider.boot registers public same-transaction departure custody clearance for both the actual applicant and driver. Outstanding dispatched uses require the actual applicant usage receipt; reassignment and HR work exemptions do not clear them. Dispatch locks the applicant and actual driver through the public Authentication user administration lock and rechecks active identities; departure uses that lock before disabling. The clearance proves the use-registration boundary, not an invented physical return certificate. See docs/records/vehicles/departure-clearance-2026-10-11.md for actual verification scope; complete original browser/production acceptance remains separate.
-
-Assets owns onboardingAssetServiceToken for real onboarding issue/recovery through the existing stock engine. IT and administration task sources keep their original duty eligibility and require the independent asset action/row/field policies. Caller transactions commit the complete code/serial batch and safe receipt reference with the task; all inventory sources lock actual assets in the same sorted ID order, and audit targets use the real onboarding parent ID rather than its opaque receipt source; cancellation leaves actual custody outstanding and creates recovery work. Neither text references nor forced task completion substitute for a real return. Read docs/designs/assets/onboarding-inventory-design.md before extending this contract.
-
-Meeting-room booking is registered under `server/providers/meeting-rooms/` and `server/routes/meeting-rooms/`, prefix `2026101037`. Use `meetingRoomServiceToken` in the caller transaction. Pending administrative confirmation occupies the room; intervals are half-open, and finite recurring batches commit atomically. Availability exposes busy intervals only; booking detail and mutations still enforce their own scope and fields. Administrative confirmation requires the real admin duty role and cannot confirm the actor's own booking. Meeting-room browser pages are registered under `client/pages/meeting-rooms/` and `client/route-modules/meeting-rooms.ts`, with routes under the administration group. Options/actions expose only current authorized metadata; future series edits use the complete current mutable batch, ignoring terminal historical members. Component/API verification is in progress and real-role browser acceptance remains pending.
-
-Contracts are registered under `server/providers/contracts/` and `server/routes/contracts/`, prefix `2026101033`. Use public contract, immutable ledger and funding tokens in the caller transaction. Supplier sources require the qualified public `snapshotForContract`; legal/finance candidates are deduplicated in declaration order. Contract numbers are allocated only on final publication. Contract browser composition and the public immutable seal linkage are implemented. Contract payment sources use the public ledger/funding facade with current ordinary contract view policy, immutable version/counterparty and same-transaction holds; excess payment requires the complete approval staircase, and only verified actual cashier settlement creates paid facts. Customer contracts may have no vendor; private bank data stays in the protected payment facade. Static registration does not establish real-role browser acceptance.
-
-The Template Print package (`@nocobase/app-plugin-template-print` 0.0.2-beta.1) provides guidance only and is not a runtime plugin. Application-owned DOCX printing is registered through `server/providers/template-print/` and `server/routes/template-print/`, with prefix `2026101038`. It uses pinned Carbone 3.8.2 workers, immutable validated revisions and the intersection of template-use, source-print and business-view policies. Current public detail loaders conservatively require complete readable fields before invocation; bank details, pay and raw SDK snapshots never enter the explicit DTO. Leave, reimbursement, payment and contract approval requests are supported; CertificatesProvider.boot adds the actual certificates source with its separate HR/income policies. Contracts use the public `printDetail` owner facade and an explicit DTO after complete field-policy checks; the output has no raw snapshots or attachment bodies. SealsProvider.boot registers the actual sealRegistration source through the public immutable ledger/receipt facade. It requires current template-use, source-print and ordinary ledger/receipt/request view policies; incomplete, unreturned or unconfirmed evidence fails closed. Actual DOCX/permission verification is recorded separately from Word/WPS and browser acceptance. The browser template management page is registered through `client/route-modules/template-print.ts`; actual browser and Office acceptance remain separate. Keep the uploaded ZIP/XML validation and guarded byte routes; do not register the guidance package as a plugin or claim backend registration completes P5 printing.
-
-The generic Workflow plugin is intentionally removed from Client, Server and CLI registrations. OA approvals use the separate Approval plugin, and scheduled jobs use Scheduler; do not reintroduce Workflow during template upgrades.
-
-Agents is registered in Client, Server and CLI. Its public page exports are routed under the OA automation group
-by `client/route-modules/agents.ts`; the plugin contributes no routes to the browser itself. Business actions remain
-unavailable until an application provider binds `agentsAccessToken` and contributes the corresponding capabilities.
-Legacy AI Employee dependencies and registrations are removed; historical plugin tables are preserved.
-The `@nocobase` package scope uses `https://pkg-v3.nocobase.com` in `.npmrc`; source and production dependency installation require authentication to that registry. Approval uses a pinned published version and no longer requires a local tarball, peer-version override or CLI build patch.
-
-Non-approval center sources use the owner public `listForCenter` facades for ordinary work items and personal announcement receipts. They require current ordinary row/field view and the current business action policy; historical involvement or a center page grant does not create a pending responsibility. These sources enter pending only and do not manufacture Approval SDK offers, done history or copies. Their titles and safe deadlines are separate from approval numbers; work-item creation time remains nullable when the owner field policy does not expose it. Center and home owner drawers retain independent view and mutation policies, their parent refresh context and the original query/hash. See docs/designs/approval-center/business-sources-design.md.
-
-Onboarding creation records the requested mentor employee, its authorized frozen name, and workstation requirement separately from actual completed task facts. Existing actor/mentor Authentication identity locks precede the capacity guard; callers of create must enter through a plain transaction rather than holding capacity first. Mentor selection requires the independent employee-directory policy as well as onboarding creation qualification. HR fixed-mentor reassignment has its own action policy and resolves the current real department head; it preserves the task deadline, facts and state, and cannot replace completion. See docs/designs/onboarding/process-design.md.
-
-Replacement invalidation persists notification work in the capacity caller transaction. The recruitment owner freezes safe recipient references and text, then rechecks active identities, current ordinary recruitment view and actual blocked source on every delivery. Only the configured in-app channel is used; unavailable delivery retries without sending inside the source transaction. Headcounts startup/sweep recovers historical blocked sources lacking a durable notice. Source invalidation still cannot manufacture capacity or silently convert a replacement to a new position. See docs/designs/headcounts/replacement-notifications-design.md.
-
-### OA application page presentation
-
-Record details throughout the application use `RecordDetailDrawer` (`client/components/record-detail-drawer.tsx`), including drafts, approval records, ledgers and employee or access records with tabs. Keep the existing detail URL, resource policy, latest-data loader and source view; use the drawer title and fixed footer for grouped record actions rather than PageHeader/BackButton/PageContainer inside the detail. The drawer uses theme `text-sm` for fields and `DialogTitle` for its heading, is medium/wide on desktop and full-screen on phones. Carry any existing source-query cleanup into `closeTo`; closing an overlay preserves the source hash. Pending record writes block closing through `beforeClose`. ClientRoute presents loading, denied and failure feedback for registered request creation paths in a drawer before the lazy form loads; otherwise the workbench's lower Outlet hides feedback below its long list. Match the existing requestActionDefinitions paths without bypassing the route's permission check. OA request create/edit forms use right-side drawers at workbench, list and detail entries. `RouteFormPage` defaults to a drawer and reuses original navigation guards; its context removes repeated headings, back links and page padding, and portals PageHeader actions into the fixed footer. Configuration forms may explicitly use `presentation="page"` at their root entry while still becoming drawers when nested. Dialog-based request forms use RouteDrawer with the same text-sm and sm:max-w-2xl presentation; short approval actions and confirmations retain dialogs. Do not change every RouteChildPage into a drawer globally. Agents/Skills detail pages are full editing workbenches and retain their package presentation: their public loaders expose no dirty-state or mutation guard for an external drawer. Do not wrap these editors in an overlay without a public unsaved-close contract.
-
-Request lists use `ApplicationToolbar` (`client/components/application-toolbar.tsx`): search and filters on the left, refresh and initiation grouped on the right of the same desktop row. Initiation stays in that toolbar during loading, empty and filtered states whenever its existing permission allows it; do not duplicate it in `PageHeader` or `EmptyContent`. This user-requested convention overrides the synchronized UI guidelines' header/empty-state placement for OA requests. Loaded empty lists keep their `DataTableServer` headers and pagination, with localized empty content in the table's `emptyMessage`. Use `ApplicationTableSkeleton` for initial loading. Lists retain their own columns, grants, resource hooks and URL filters; modules composed solely into the approval center share its presentation.
-
-All route dialogs/drawers share `RouteOverlay`'s responsive header/body/footer spacing, themed surface, fixed footer and scrolling body. Its styling intentionally applies to application-wide route overlays, so request forms and administration overlays remain visually consistent. Use its default `sm:max-w-2xl` for multi-field forms/pickers and `sm:max-w-md` for short action forms; avoid unprefixed max-width overrides that defeat its mobile viewport constraint. OA request forms use drawers at every entry; configuration covering forms use the explicit `RouteFormPage` page option described above.
-
-Approval and shared overlay footer actions use the application's `client/styles.css` sizing rule, including nested groups and link-rendered buttons. Use 40px minimum height on desktop and 44px on phones in both presets, with `text-sm` labels and matching dropdown action/section text. Draft/submit (`requestIntent`) buttons use the same sizing outside an overlay. Preserve this application adaptation on upgrade; do not move it into generated shadcn primitives. See [action button design](docs/designs/oa/action-buttons-design.md).
-
-OA request forms present “保存为草稿” and “提交” together in the drawer footer. Reopened drafts use the same controls; revision records use save changes/resubmit. Use `RequestFormButtons` with the owning composite resource and `useRequestFormSubmission` with the owner's actual submit contract. The owner saves first and submits the acknowledged id/version in one user action. Preserve a committed draft after submission failure; unknown commands retain their exact key/payload/version, and plain creation must never be blindly replayed. Enable `replayUnknownCreate` only for a durable owner create endpoint. Check eligibility through the owner submit endpoint after saving corrections; old offers can refer to facts the form has just changed. Number allocation stays in the existing owner transaction. Preparation such as attachments, contract text and protected banking stays in the same form and preserves independent policies.
-
-### Unified application table presentation
-
-See [the current table presentation contract](docs/designs/oa/table-presentation-design.md). Every application-owned table, including budgets, approval lists, ledgers, configuration, administration, loading placeholders and empty results, uses the same presentation. `client/styles.css` owns this contract under `[data-slot='responsive-table']`: one rounded `border` frame on a `card` surface, neutral muted header, `text-sm`, desktop header height of 12 spacing units plus its separator (mobile headers reserve a 44px control plus padding), header weight 600, horizontal cell padding of 3 spacing units and vertical padding of 2, horizontal row separators, neutral hover/expanded feedback and `muted` selected rows. Use semantic theme variables so both presets and light/dark modes stay consistent. Amounts and counts use right alignment and `tabular-nums`; ordinary text stays start-aligned. Preserve meaningful status colors, wrapped explanations, expanded content, column widths and authorization.
-
-Use `DataTable` / `DataTableServer` for record lists and `ResponsiveTable` plus shadcn table sections for manual tables. Native administration markup must also live inside `ResponsiveTable`; the authorization inspector keeps its bounded scroll/sticky header with the same `data-slot`. The shared surface owns the border; direct legacy frame borders are suppressed by the stylesheet to avoid double outlines. Do not introduce page-specific table colors, font sizes, padding, uppercase headers, frames or hover styles, or modify generated `client/components/ui/table.tsx`. Change shared presentation once instead of copying styles into modules. `DataTableView` supplies `aria-sort` for sortable headers; use `DataTableColumnHeader` for its existing sort controls.
-
-For record lists, use `ApplicationToolbar` for filters and grouped refresh/create actions and `ApplicationTableSkeleton` with the actual column count for loading. Keep authorized creation available in the toolbar during loading and empty results, without duplicate header/empty-state buttons. Loaded empty results retain the normal table columns and pagination and put localized feedback in `emptyMessage`. Preserve each table's existing data loading, sorting, pagination, URL state, row actions and policies. Expanded rows and full-width empty cells may keep their content layout instead of ordinary-cell padding. Verify shared changes against DataTable/manual tables, loading/empty states, both presets, light/dark and 375px; isolated style checks do not establish real-role business acceptance.
-
-List filters also share this contract: use `ApplicationToolbar` and `ApplicationSearch` (or the existing IME-aware InputGroup with `data-slot="application-search"`). The toolbar owns wrapping, spacing and the filter/actions groups; search has a bounded 64-spacing-unit desktop width, other fields 40, common 8-unit heights, and 44px mobile touch targets. Existing labelled wrappers opt in with `data-slot="application-filter"`; text/select labels stay accessible through their original IDs, while numeric/year/month/date/range controls use `data-context="true"` and persistent visible inline labels. Checkbox descriptions remain visible. Never override a linked label with a placeholder-derived accessible name. Refresh is an outline icon button with a localized accessible name; create/export/other text actions stay grouped at the right. Keep clear/focus behavior, input refs, URL state, IME handling, conditional permissions and actions through every loading/empty/error state. Forms and file-upload previews use their form semantics rather than list-filter layout. Scope presentation overrides to toolbar slots, not all inputs globally. The [dated inspection inventory](docs/records/oa/table-presentation-2026-10-12.md#全项目列表筛选巡检2026-10-12) records coverage and verification limits.
-
-### Mobile tables
-
-Application tables compose `ResponsiveTable` (`client/components/responsive-table.tsx`) around the untouched shadcn Table. `DataTable` and `DataTableServer` use it internally; manual tables use the same composition. Actual horizontal overflow reveals localized scroll controls and a keyboard-focusable region. Keep all business columns reachable rather than automatically pinning or hiding fields. The authorization inspector retains its bounded vertical scroll and sticky header, with `data-slot='responsive-table'` for shared touch/text rules.
-
-Mobile table text wraps instead of relying on hover-only tooltips. The application stylesheet gives standalone row controls and table pagination 44px touch targets regardless of preset; use `data-slot='table-pagination'` on custom table pagers. `DataTablePagination` places page size and previous/next on one mobile row and the page indicator below. Do not move these application adaptations into `client/components/ui/` or discard them on template upgrades.
-
-### Knowledge and announcements
-
-Knowledge is application-owned under `server/providers/knowledge/` and `server/routes/knowledge/`, migration prefix `2026101042`. Resolve `knowledgeServiceToken`; document saves require document, immutable-version and parent-folder policies in the caller transaction. Historical content and bytes use the current document scope and version field policy. Folder changes and publication serialize through the tree guard; durable command keys bind actor and payload. Browser pages are registered under `client/pages/knowledge/` and `client/route-modules/knowledge.ts`: scoped folder tree, immutable Markdown/file versions, covering-page publication and current-policy preview. Safe file metadata uses guarded owner content URLs. Source and component checks pass; real-role browser and Office rendering acceptance remain pending.
-
-Announcements are application-owned under `server/providers/announcements/` and `server/routes/announcements/`, prefix `2026101041`, registered after Knowledge. Resolve `announcementServiceToken`; publishing freezes the actual active employee audience and creates receipts atomically, while current authorization remains required. Future publications activate through lifecycle maintenance; valid intervals are half-open. Confirmation belongs to the receipt recipient, revocation retains receipt history, and command replays recheck current permissions. Knowledge links use its public snapshot/version contracts and current knowledge view policy. These backends do not complete the browser pages, workbench or multi-source task-center integration.
-
-Ordinary work items are registered under `server/providers/work-items/` and `server/routes/work-items/`, prefix `2026101045`. Resolve `workItemServiceToken` in the caller transaction. They use Lifecycle without Approval and do not replace onboarding, departure or other business-owned work records. Public `actions` report business eligibility; HTTP and future task-center composition must also enforce each action's current grant and record policy. Forced completion requires an actual current administrative duty role and a reason. Departure execution checks its public `departureBlockers` while holding the authentication user lock before disabling an account; assignment writes share that lock and recheck the real account state. This is separate from the Approval owner scan. Confirmation handover has a public service, HTTP action and main migration 104502; its default permission upgrade seed 104512 remains a test candidate. The existing page shows the actual confirmation owner. New handover UI and automatic departure handover remain pending; an outstanding actual confirmation blocks disabling until resolved. Browser pages are registered under `client/pages/work-items/` and `client/route-modules/work-items.ts`, with current-action forms and actor/authorization-revision isolation. Component/source checks pass; real-role browser acceptance and multi-source center integration remain pending.
-
-Recruitment is registered under `server/providers/recruitment/` and `server/routes/recruitment/`, prefix `2026101039`. Resolve `recruitmentServiceToken`; submission acquires capacity and a fresh approval directory in the caller transaction, while final approval publishes a requisition allocation. Salary revisions stay in a private facade requiring ordinary request view plus `viewSalary`, never SDK records or history. Default create grants require a same-transaction scoped submission read of the new record because composite create alone cannot enforce its department scope. Departure reassignment binds this public owner and preserves durable actor/payload commands. Onboarding consumes the real requisition through its public service. Earlier-stage returns, reviewer field editing and createOptions exist in the service/HTTP; latest options/default grants need verification. Recruitment browser/center composition and opinion reuse remain pending.
-
-### Personnel changes, certificates and attendance configuration
-
-Transfer is now registered through `server/providers/transfer/`, `server/routes/transfer/` and main prefix `2026101050`. Resolve `transferServiceToken` in the caller transaction. Six-stage approval, restricted reviewer edits, independent HR cancellation, capacity rebinding and scheduled effectiveness use the real public services; salary reads require both ordinary view and `viewSalary`. The departure-reassignment registry includes `oa.transfer`. Its browser pages, task-center/workbench composition and creation picker are registered; real-role browser acceptance remains pending.
-
-Certificates are registered through `server/providers/certificates/`, `server/routes/certificates/` and prefix `2026101047`. Resolve the public certificate service; preparation, real DOCX generation, confirmation and immutable employee archive references remain separate steps. Its provider registers the actual template-print source. HR issue/download, source-print, ordinary view and income field policies intersect; private amounts and file identifiers do not belong in ordinary request records. The departure registry includes `oa.certificateRequest`. Browser routes under employee services are registered, with component and real-role acceptance still being completed.
-
-Attendance configuration is registered through `server/providers/attendance-management/`, `server/routes/attendance-management/` and prefix `2026101048`. Immutable shift and department/date schedule revisions use the current-pointer lock, CAS, current authorization and audited caller transactions. No default business shifts are seeded. Browser routes under workflow configuration are registered. This configuration delivery does not complete attendance import, daily judgment, reminders or monthly aggregation.
-
-### Budget foundation
-
-`server/providers/budgets/` exposes `budgetServiceToken`; migration prefix `2026101017` stores department/year/subject accounts, immutable ledger deltas and idempotency operations. Amounts are integer cents stored in big integers and bounded by JavaScript safe integers. Every write joins the caller transaction and records audit there. `adjustHold` sets a document's reservation, `settle` turns it into used funds, and `release` frees it; settled documents cannot reserve again. `transferHeld` moves a budget adjustment's source reservation between subjects without recording expenditure, locking both accounts in canonical order. Financial allocation APIs must validate department and dictionary identities and enforce authorization. Finance management endpoints and pages live in `server/routes/budgets/` and `client/pages/budgets/`. Budget adjustment approval uses `server/providers/budget-adjustments/` and migration prefix `2026101019`: return retains the source hold; only resubmission changes it, and `heldAccount`/`heldCents` expose the actual reservation separately from edited proposals. Browser role acceptance remains pending.
-
-### Approved expense authorizations
-
-`expenseAuthorizationServiceToken` in `server/providers/expense-authorizations/contract.ts` owns approved allowances for `oa.expensePlan`, `oa.travel`, and `oa.training`, stored under migration `202610102002`. Call it inside the cash or approval lifecycle transaction. References are `${sourceKind}:${sourceId}`. Its immutable `budgetMode` is `reserved` for expense-plan allowances (the original budget account is retained), or `none` for travel/training allowances without a budget reservation; never invent a budget account for a non-budget source. `consumeHeld` consumes only the current reimbursement and preserves remaining hold; its consumption reference prevents duplicate cash settlement. Claim sums above 120% require an exact integer comparison and an overrun reason. The company-local deadline is exclusive, 90 natural days after approval; pending claims retain the hold and their final cancellation/payment releases overdue residue. Scheduler reconciles expiry daily. Do not claim the expense, travel, training or reimbursement workflows complete merely because this shared service is present. Expense-plan approvals live in `server/providers/expense-plan/` and `client/pages/expense-plan/`, with migration `202610102001`; training lives in `server/providers/training/` and `client/pages/training/`, with migration prefix `2026101022`. Training grants non-budget allowances only for positive costs and records working-time training through the attendance token in the same approval transaction. Their real-role browser acceptance remains pending.
-
-### Financial flow composition
-
-Reimbursement, purchase and loan public records are composed into the approval center through their public service tokens with each module's own view policy. Their browser children are declared under every approval tab and the home route so records and forms preserve the current source. Standalone reimbursement/loan pages and the purchase order ledger remain available under their own grants. Payment uses the same composition as its browser implementation is completed; API kinds do not grant record or field access.
-
-Payment sources are verified and locked through the purchase or contract public owner, including immutable contract version/counterparty, real holds and verified cashier settlement. Excess contract payments require the full approval staircase. See [contract payment contract](docs/designs/contract-payments/process-design.md). A payment is not a goods receipt or budget receipt settlement. Private payment accounts require both their own bank action record policy and the ordinary business view policy; ownership scopes on inherited employee grants must not expand another financial role's bank access. New forward seeds repair installed grant policies without editing executed historical sources.
-
-### Probation and departure composition
-
-Probation public requests live in `server/providers/probation/` and `client/pages/probation-requests/` (migration prefix `2026101028`). Salary proposals remain private HTTP facades; SDK records, outputs, history and employee history carry references, never salary amounts. A declined final probation decision calls `probationDepartureAdapterToken` in the same lifecycle transaction; no adapter means rollback, never a synthetic departure success.
-
-Departure lives in `server/providers/departure/` (migration prefix `2026101029`). Main approval, four handover work records, HR settlement and daily execution are separate facts. Normal finance clearance calls reimbursement and loan public services in the same transaction. Missing asset clearance blocks normal completion; HR exemptions retain the underlying asset/financial facts. Post-interview cancellation uses the independent HR confirmation contract, restores the frozen real employee status and invalidates future replacements; actual left is irreversible through cancellation. Departure releases real occupancy in the employee/account transaction and checks registered seal/vehicle custody before disabling. Departure browser pages and shared home/center routes are implemented; complete company-role browser acceptance remains separate. See [cancellation and capacity contract](docs/designs/departure/cancellation-capacity-design.md).
-
-`server/providers/departure-reassignment/` binds `departureApprovalReassignmentToken` after all approval owners. It uses their public tasks and actions with actual authorization view policies. The SDK request dedupe does not compare payloads, so application-owned `departureReassignmentCommands` (migration `202610103102`) fixes actor/from/to/reason before any action. Partial task migration commits independently and retries outstanding tasks; disable the departing account only after an actual zero-remaining scan. Notification administrator configuration grants no authority. Add every new registered OA approval owner to its explicit registry and coverage test.
-
-Assets foundation lives in `server/providers/assets/` and `server/routes/assets/` (migration `202610103101`). Administrative metadata changes do not issue, return or scrap assets. `assetClearanceServiceToken` reads real employee custody and pending reservations in the caller transaction and is registered as `departureAssetClearanceToken` after real legacy and issued return verification. Employee `viewHeld` fixes the holder to the current employee and excludes valuation fields. Asset request backend uses migration prefix `2026101034` and is registered under `server/providers/asset-requests/` and `server/routes/asset-requests/`. Its public asset service owns same-transaction single-unit holds, full-batch issue/return/disposal and audit; partial physical confirmations cannot release inventory. Default request grants use `oa.assetRequestsOwned` for create/edit and `oa.assetRequestsReadable` for view/operate; valuation needs the separate `viewValue` grant. Asset request client pages are being integrated under `client/pages/asset-requests/`; real-role browser acceptance remains pending. The contextual `eligibleAssets` picker returns only safe identification fields, excludes active holds for scrap and restricts issue/receive to the frozen allocation. Approval-center kind `oa.assetRequest` differs from composite resource `oa.assetRequests`; authorize the latter explicitly. Legacy physical returns require the active admin duty role plus the scoped `returnHeld` grant, confirmed holder/serial/version, an immutable receipt, and same-transaction audit; outstanding workflow issuance must return through its actual source.
-
-Vendor qualification/removal lives in `server/providers/vendor-qualification/` (migration prefix `2026101030`) and shares lifecycle `oa.vendorQualification`. Its committee generation is frozen business data, separate from the installed SDK's static application adapter version. Retain historical committee stage declarations on restart so existing runs can finish. Reuse `supplierCategory`; qualification applies to the existing vendor through its public transaction-aware service. Bank information and evidence downloads use their guarded facades. Browser pages and acceptance remain pending.
-
-### Approval foundation and first leave flow
-
-P0b backend work lives in `server/providers/approval-directory/`, `approval-notifications/` and `leave/`, with migrations prefixed `2026101006` (delegations) and `2026101007` (leave and application lifecycle storage). The confirmed approval-center design is implemented under `client/pages/approvals/` and `client/pages/approval-delegations/`, with routes in `client/route-modules/approvals.ts`. Browser role acceptance remains separate from code and automated verification.
-
-- Construct application lifecycle journals through `createAppLifecycleStore` in `server/providers/approval-runtime/repository-store.ts`. The installed public Repository store writes integer references into our string `transitionId` columns; SQLite may return `N.0`, which its integer-key lookup rejects. This application adapter canonicalizes only exact safe-integer references on public reads and wraps transaction children, forwarding caller `within` options and preserving outer `afterCommit`. Keep it until an upgrade proves the public store handles our executed journal schemas; do not rewrite immutable journals or patch SDK internals.
-- Resolve `approvalDirectoryServiceToken` and acquire `snapshot(connection)` inside the lifecycle transaction. The plugin directory is synchronous; never reuse a directory snapshot across writes. Delegations use `kind: 'oa.leave'`, fixed proxy mode, half-open time intervals and one hop only. The administrative duty role `admin` is not `approval.admin`.
-- Leave uses `leaveServiceToken` and the plugin's public `ApprovalService`, not direct writes to approval tables. Balance-backed leave uses `leaveBalanceServiceToken` (`server/providers/leave-balances/contract.ts`) in the lifecycle transaction: amounts are integer half-days; submit adjusts the hold, return retains it, final approval deducts and every cancelling exit releases. `ruleSnapshot['leave.balanceType']` fixes the submission's balance obligation against later dictionary changes. HR adjustments are audited. Annual accrual resolves careerStartDate (the employee’s first work date, not company hireDate), includes the hire month and floors to half-days. The employee/date validation is shared with import preflight. The annual provider uses Scheduler for daily current-year reconciliation, joins balance grants and audit in one transaction, and snapshots its policy; leave.annualAccrualEnabled defaults to 0 until HR has filled the dates. Cancellation uses an independent `oa.leaveCancellation` lifecycle under `server/providers/leave-cancellations/`, with migration prefix `2026101013`; final confirmation refunds balances, adjusts the effective `leaveAttendance` range and invalidates automatic delegations in one transaction, while the original approved leave record retains its frozen history. Its pages are embedded under each approval-center tab, the workbench and the original leave detail. Browser acceptance remains pending. Secure attachments use `leaveAttachmentServiceToken`: create a draft first, upload through File Repository, and validate linked IDs on edit/submit. Upload and download routes independently enforce leave record and attachment field access; do not expose an unwrapped public File Repository content route. The form creates a draft before its first upload and supports secure upload and attachment selection; removing a selection preserves stored evidence. Non-default SLA rules are also blocked while the installed stage API accepts only static clocks; do not silently apply 24/48 hours to a different rule snapshot.
-- Notifications select explicit channel names in `oaApprovals` (see `server/config/oa-approvals.ts` and `config.example.yml`). `administrators` identifies alert recipients, never authorization. Result notifications are lifecycle effects; engine maintenance uses `createLifecycleJobs` under jobs scope `oa-approvals`, every ten minutes. Pruning successful/cancelled effect attempts after thirty days must not delete approval or audit history.
-- Overtime backend lives in `server/providers/overtime/` and `server/routes/overtime/`, with migration prefix `2026101010`; `2026101011` adds employee careerStartDate and `2026101012` stores annual accruals. Its approval lifecycle and jobs scope `oa-overtime` are independent of leave. Compensatory settlement uses fixed 240-minute half-days with persisted source lots; residual minutes accumulate and converted grants take the earliest consumed expiry. Notification calls carry `kind`; kinds without browser pages receive notices without a route target. The overtime browser flow is implemented under `client/pages/overtime/` and embedded under each approval-center tab and the workbench; real-role browser acceptance remains pending.
-- The approval center uses `GET /api/approvalCenter` to aggregate each business service after its own composite view grant and collection policy. Filtering and stable sorting precede pagination; totals come from the server, and the workbench uses `own=true` before paging personal draft/revision attention. Record keys combine business kind and id. Register new kinds explicitly in the source list, summary schema, type filters and current-view child routes. Do not route every kind to a leave page.
-- Shared OA transfer/add-signer/urge declarations live in `server/providers/approval-directory/operations.ts`. Public action declarations explicitly include delegates; transfer and signer scopes use the original assignee's department/duty roles. Candidate endpoints return only eligible people, and UI pickers use them rather than broad `/users` searches. Urge uses the submitted rule snapshot and working calendar; distinct events retain distinct notification idempotency keys.
-- Outbound translations use the server default locale until a durable recipient-locale resolver is supplied; the installed i18n plugin stores language only on browser sessions. Do not borrow the submitting user's locale for another person's notification.
-
-`invoiceServiceToken` (`server/providers/invoices/contract.ts`, migration `202610102101`) reserves normalized invoice numbers globally per document/line, retains evidence on return, marks it permanently used only on cash completion, and releases on terminal cancellation. `financeAssignmentServiceToken` resolves department ancestry and the unique finance-manager fallback; administration lives under `financeAssignments`. Do not replace reimbursement line review with an arbitrary first member of the finance role.
-
-`loanLedgerServiceToken` (`server/providers/loan-ledger/contract.ts`, migration `202610102301`) owns immutable issued principal and repayment/offset facts. Pending offsets and cash receipts reserve available debt; only the borrower may confirm a cash repayment. Receipt references are globally unique and cannot move between loans. Resolve the token and join the caller transaction; the ledger alone is not the loan approval workflow.
-
-Reimbursement lives under `server/providers/reimbursement/` and `server/routes/reimbursement/` (migration `202610102102`); the main lifecycle, HTTP and secure attachment wrappers are implemented, including frozen per-day travel standards and idempotent draft creation; the browser flow is registered under `client/pages/reimbursement-requests/` with child routes in the approval center and workbench; independent/browser acceptance remains pending. `standardSnapshot` freezes category classifications and the approved travel source standard on first submission; dictionary changes cannot retroactively weaken it. A new category outside that snapshot requires a new application. Finance corrections retain the submitted `financeCorrectionLines` baseline so repeated edits cannot alter already approved or pending lines. Banking information is stored separately in `reimbursementPayees`, never in public records or approval snapshots. Trusted lifecycle services obtain the three bank fields through `employeeServiceToken.paymentAccountOf(userId, tx)`; ordinary employee HTTP access still enforces bank-field permissions. The reimbursement settlement coordinator consumes gross expense allowance, offsets only the declared debt amount, and records net cash separately, with invoice, quota, debt, payment and audit in one transaction. Administrative cashier-exception recovery uses guarded `retryCashAsAdmin` / `forcePayException` business transitions because the native unable-to-pay run is closed; never reopen it or write plugin tables. Forced completion requires explicit exact gross/offset/net confirmation and a reason; a nullable voucher never means a fabricated bank transfer.
-
-Bank-account grants are independent of ordinary record viewing. Inherited employee/HR bank permissions use ownership scopes (`oa.reimbursementOwned` / `oa.loanOwned`, applicant or creator); financial roles need explicit bank grants. The private account endpoint must apply the **bank action's** record policy as well as its domain guard and ordinary view policy, rather than discarding that scoped policy after checking its action name. Changing the signed-in viewer clears private account content synchronously. Loan inherited bank access is tightened by forward seed `202610102312`; retain the original executed seed.
-
-Salary-grade foundation is registered under `server/providers/job-grades/`, with migration/seed prefix `2026101040`. Resolve `salaryGradeServiceToken` for caller-transaction full-table publication and immutable grade snapshots; grades remain owned by Org. `assertSalaryRange` checks inclusive integer-cent bounds. A new snapshot requires an active grade; an explicitly submitted revision remains readable after grade/table changes. Publish uses the persistent current-pointer lock and CAS, and audits revision/count only so ordinary audit metadata never exposes salary bands. No salary values are seeded. Read HTTP routes under `/salaryGradeTables` and `oa.salaryGrades` view/viewSalary/manage action definitions are registered; metadata reads omit both bands and freeform reasons, and private reads use record/field policies. Resolve publisher names after the source transaction releases its connection; Users administration reads cannot join that transaction. Publish HTTP is registered with actor-bound requestKey replay and actual pointer/revision write policies; default view/viewSalary/manage grants are assigned only to duty role hr through a forward seed. Public audit never stores the private publication reason. UI and recruitment/onboarding/transfer bindings remain pending; do not claim this service finishes those workflows.
-
-## Building a feature
-
-### Pages and routes
-
-Declare the route in `client/routes.ts` and keep the page component behind a lazy `componentLoader`. The loaded module must default-export the component.
-
-```ts
-const appRoutes: AppClientRouteContribution = defineAppRoutes([
-  {
-    name: 'orders',
-    path: '/orders',
-    auth: 'required',
-    authz: { resource: { type: 'page', id: 'orders' }, action: 'access' },
-    componentLoader: () => import('./pages/orders.js'),
-  },
-]);
-```
-
-Route paths are application-internal. Never write the deployment base path such as `/main` into one — the runtime restores it.
-
-`auth` controls browser navigation only: `required` for signed-in pages, `guest` for sign-in and registration, `optional` for pages that work either way. It is not server security. An endpoint the page calls enforces its own authentication independently.
-
-Declare every page with `defineAppRoutes()`; there is no `/settings` or `/dev` surface. An administrative page is an ordinary route with `navigation` and `authz`, enforced by the server, and plugins contribute no settings pages for the application to host.
-
-**Declare navigation on the route.** Menus read `navigation: { title: 'navigation.orders' }`; titles resolve in the owning locale namespace. Add the translation in `client/locales/`. Refine resources do not add menu entries.
-
-Use recursive groups to organize menus; their path is optional. Pages may also have children, but must manually render `Outlet`. For URL-addressable dialogs and drawers, declare the child in `defineAppRoutes()` in `client/routes.ts`, place the owning page's `Outlet`, then render `RouteDialog` or `RouteDrawer`. A child page of its own — a record's page, a form too long for a dialog — returns `RouteChildPage` around its `PageContainer`; only tab content renders inline, and a child route that returns a bare `PageContainer` renders below the parent's content instead of covering it. Call `useRouteOverlay()` only from a descendant rendered inside the overlay, including its footer, never from the page returning the wrapper. A record opens over the page the user is on: a dashboard or a board that shows records declares their drawer under its own route instead of linking to the list's, and a row menu's Edit opens its own dialog rather than the one stacked on the drawer. On a page with tabs the user is on the tab being shown: an overlay the page's header opens is declared under every tab and linked through the current tab (`` `${tab}/edit` ``, never a bare `edit`, which resolves beside the tabs), so it stacks on that tab and closing returns to it. Read `.agents/skills/nocobase-app-development/references/frontend/references/overlay.md` before implementing overlays or close guards.
-
-Declare `authz` on the first page of every path: `{ resource: { type: 'page', id: 'orders' }, action: 'access' }` for a product page, `'unrestricted'` for a page only root may open, or `'skip'`. A nested page that omits it inherits its nearest ancestor page's value, and a child's own value overrides it. A first page that omits it still registers, with a development warning: protected pages become unrestricted-only, which hides them from everyone but root, while guest and optional pages skip the check. Always declare it rather than relying on that default. Parent guards still apply when a child skips. Menus and loaders read the declared rule; endpoints enforce authorization independently. The page id identifies stored page grants, so changing it requires migrating the grants that reference it.
-
-### Components and styling
-
-Use package-local imports such as `#components/ui/button` and `#extensions/nocobase-auth-forms/form-parts`. `package.json#imports` declares their targets, and `components.json` uses the same prefixes for shadcn generation. Keep directory entry points explicitly mapped to their index files. Do not add a Vite alias or TypeScript `paths` mapping for these imports.
-
-Use shadcn/ui for UI. The template ships only the primitives its shell and compositions use: `button`, `dialog`, `dropdown-menu`, `input`, `label`, `popover`, `spinner`, `toast` and `tooltip`. Check `client/components/ui/` first; if the primitive is not there, add it from the shadcn registry rather than writing your own. `yes n |` answers "no" when the CLI offers to overwrite a primitive that is already installed; without an answer, a non-interactive run stops at that question. Format the files it created and translate the English a few primitives carry, as `.agents/skills/nocobase-app-development/references/frontend/references/shadcn.md` lists; otherwise keep them as the CLI writes them:
-
-```bash
-yes n | pnpm exec shadcn add card
-pnpm exec prettier --write client/components/ui/card.tsx
-```
-
-Build your own components by composing these primitives, and put them in `client/components/`. A page below another one — a covering child page, a record's own page — leaves by the header's breadcrumb when its route declares `breadcrumb` or the page declares its trail with `usePageBreadcrumb`, and otherwise by `BackButton` (`client/components/back-button.tsx`) above its heading; never both.
-
-`PageContainer`, `PageHeader`, `RouteDialog`, `RouteDrawer`, `RouteChildPage` and `useRouteOverlay` in `client/components/` come from the NocoBase UI Library, as do the authentication blocks in `client/extensions/nocobase-auth-forms/`, `nocobase-auth-methods/`, `nocobase-auth-split-layout/` and `nocobase-device-approval/` that `client/pages/auth/` composes, and the inbox block in `client/extensions/nocobase-inbox/` that `client/pages/inbox.tsx` renders on `/inbox`; like the rest of the source, they belong to the application. `yes n | pnpm exec shadcn add @nocobase/<item>` adds another item from the library: a single component lands in `client/components/`, a complete feature in `client/extensions/nocobase-<item>/`. A date field and a list's `DataTable` are the application's own components: compose `DatePicker` in `client/components/date-picker.tsx` from the `calendar` and `popover` primitives, following shadcn's Date Picker guide, and build `DataTable` in `client/components/` from the `table` primitive and `@tanstack/react-table`, following shadcn's Data Table guide. The CLI adds the packages an item or primitive needs to `dependencies`: move the new ones, such as `react-day-picker` for `calendar`, to `devDependencies`, as "Adding a dependency" below explains for everything client code imports, but leave `@nocobase/i18n` in `dependencies`, where the server needs it, and put back the `^` of its range, which the CLI pins.
-
-**Look components up in the shadcn skill.** The development Skill carries the shadcn/ui skill, unchanged from shadcn 4.21.0, in `.agents/skills/nocobase-app-development/references/frontend/shadcn/`. Read `references/frontend/references/shadcn.md` first: it routes to the skill's rules and states where this application departs from them, among others `pnpm exec shadcn` instead of `npx shadcn@latest`, no `shadcn apply` or `--preset`, and create, edit and detail as `RouteDialog` or `RouteDrawer` child routes rather than a `Sheet`. `pnpm exec shadcn docs <name>` gives one primitive's documentation and examples for the Base UI version. For a whole page, start from the worked example that `references/frontend/references/example.md` indexes.
-
-Style with the semantic Tailwind tokens — `bg-background`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary` — so pages follow the light and dark themes. Do not hard-code colors like `bg-white` or `text-gray-900`; they break the moment someone switches theme.
-
-**Visual consistency is a whole-application property.** Match the surrounding code's spacing, typography, and component choices. If a change genuinely calls for a different look, change the application's design tokens in `client/theme/themes/*.css` so every page moves together. Never restyle only the part you are working on — a page that looks different from the rest is a defect, not a customization.
-
-The default brand palette and density live in `client/theme/themes/*.css`; shared hover/cursor and Badge geometry live in `client/styles.css`, outside generated shadcn primitives. For semantic status labels, use `StatusBadge` from `client/components/status-badge.tsx` with `neutral`, `info`, `warning`, or `success`; choose the tone by meaning and keep the visible status text. Reuse these shared components and tokens in new pages so template upgrades can carry the design consistently.
-
-**Follow the UI guidelines.** `.agents/skills/nocobase-app-development/references/frontend/ui-guidelines.md` sets the conventions every page follows, among them the page header and the single placement of the primary action, empty states, row actions behind one "…" menu, dates picked from a `Calendar` in a `Popover` rather than a native date input, and medium-width drawers; the frontend workflow says how much of it to read for a change.
-
-### Server routes
-
-`defineApiRoutes()` mounts under `/api`, and `defineRootRoutes()` mounts at the root for callbacks and webhooks. Do not repeat `/api` in the path. Each route factory creates and returns its own Hono router.
-
-```ts
-export const apiRoutes: AppApiRouteContribution<Application> = defineApiRoutes(
-  (app) => {
-    const router = new Hono();
-    const auth = app.container.resolve(authenticationToken);
-
-    router.use('/orders', auth.required());
-    router.get(
-      '/orders',
-      describeRoute({
-        tags: ['Orders'],
-        summary: 'List orders',
-        operationId: 'listOrders',
-        responses: {
-          '200': listResponse(OrderSchema),
-          // A session but no permission check; the query validator adds the 400.
-          '401': apiErrorResponse(401),
-          '500': apiErrorResponse(500),
-        },
-      }),
-      apiValidator('query', ListOrdersQuery),
-      async (context) =>
-        context.json(await listOrders(context.req.valid('query'))),
-    );
-
-    return router;
-  },
-);
-```
-
-**Every `/api` route follows the HTTP API design** in `.agents/skills/nocobase-app-development/references/http-api.md`: camelCase paths, `{ data }` on success, `throw new ApiError(...)` from `@nocobase/app-server/router` on failure, input validated with zod through `apiValidator()`, and a `describeRoute()` declaration for the API document, all from `@nocobase/app-server/router`. Never write an error body by hand.
-
-**Every route owns its own security.** Mounting under `/api` does not authenticate anything. Install `auth.required()` on the paths the route owns, and add `authorization.middleware()` with an explicit `resource`/`action` check when the operation needs permission rather than just identity. Never rely on middleware from another route or on the order routes happen to be registered in.
-
-Scope middleware to the exact paths you own, or to an isolated sub-router mounted at your prefix. A `router.use('*', ...)` leaks into contributions mounted later.
-
-A webhook that a third party calls cannot use a login session, so it is deliberately public — but public still means verifying a signature, timestamp, or one-time state, and testing that anonymous requests without a valid signature are rejected.
-
-Keep HTTP concerns in the route and domain logic in a service under `server/providers/`. Services do not read Hono contexts, return HTTP status codes, or decide retry behavior.
-
-Bind services to their existing tokens in a provider's `register()`; calling `createServiceToken` twice with the same name creates different keys. Do not connect to databases, start workers, or execute route factories at module top level. Acquire long-lived resources in `start()` and release them in `shutdown()`. Providers and routes read typed configuration rather than `process.env`.
-
-### API documentation
-
-The running application serves an OpenAPI 3.1 document of every `/api` route it has — its own, every registered plugin's, the data endpoints and Better Auth's `/api/auth/...` — at `<origin><APP_BASE_PATH>/api/swagger` (JSON), with Swagger UI at `<origin><APP_BASE_PATH>/api/swagger/docs`. Locally that is `http://127.0.0.1:13000/main/api/swagger/docs`, with `/main` replaced by the actual `APP_BASE_PATH`.
-
-Reading either needs a signed-in session or an API key: open the Swagger UI in a browser where you are signed in, or send a key in `x-api-key`. A signed-in user creates keys with `POST <APP_BASE_PATH>/api/apiKeys`; the `nocobase-app-plugin-api-keys` Skill covers the plugin. Without a valid credential the routes answer `401` with reason `API_DOCS_UNAUTHENTICATED`, and an application with no access check registered, such as one without the authentication plugin, answers `404`.
-
-```bash
-curl -H "x-api-key: <key>" http://127.0.0.1:13000/main/api/swagger
-```
-
-**Learn the available endpoints from this document instead of reading route sources.** Before calling an endpoint or building on one, fetch the JSON with a key the user gives you and find the operations by `tags` or `operationId`; read the source only for what the document does not say. Fetch it again after registering a plugin or changing a Collection.
-
-Every `/api` route the application writes declares itself, as in the example above: `tags`, an English `summary` and a unique camelCase `operationId`; input through `apiValidator()`; responses through `dataResponse()`, `listResponse()`, `emptyResponse()` and `apiErrorResponse(status)` for exactly the statuses the route can produce. Do not list `400` for input validation: a route that uses `apiValidator` gets the `400` automatically. List `400` yourself only for another reason, such as a failed precondition. `apiErrorResponses` is `401`, `403` and `500`, for an authenticated route with a permission check; otherwise list each status the route can return with `apiErrorResponse(code)`. Response schemas live in `server/routes/schemas.ts`, typed against what the service returns. A route reached without a credential adds `security: []`. Hide a route with `describeRoute({ hide: true })` and a comment only for the few reasons `references/http-api.md` lists. Data endpoints are documented without a declaration; a field a data exposure adds to every record goes in its `computedFields`. A test starting the application expects `findUndeclaredApiRoutes()` and `findApiDocumentSchemaProblems()` to be empty; `.agents/skills/nocobase-app-development/references/testing.md` shows it.
-
-### Database
-
-Schema changes are migrations under `database/main/migrations/`. Data the application requires to run is a seed under `database/main/seeds/`. Seeds never create structure. Sample data is not required data: it is a seed declared with `defineSeed({ name, sample: true, run })` in the same directory, or, when it has to go through plugins' services, a registration on `sampleDataToken` from `@nocobase/app-server/sample-data`. Either loads only when the database is installed with `app.sampleData` set (`APP_SAMPLE_DATA=true`) and is recorded as skipped otherwise; `pnpm nocobase db sample` loads what was skipped, in development.
-
-Declare database defaults with `export default defineAppDatabaseConfig((runtime) => ({ connections }))`. Before provider registration, the runtime asynchronously imports configured official drivers; explicit `drivers` registrations override them. Keep `isolatedDeclarations: false` for application server declarations so configuration and connection fields retain inference. See `.agents/skills/nocobase-app-development/references/database-connections.md`.
-
-`database/<connection>/collections/` holds what the database currently resolves each Collection to — `collection.json`, `metadata.json` and `schema.json` per Collection plus a `_manifest.json` — written by `pnpm nocobase collections generate`, which `db apply`, `db redo`, `db rollback`, `db reset` and `pnpm dev` run for every connection whose migrations they change. Every file there is derived, for every connection: the directory is gitignored, safe to delete, and never read back. Edit metadata through migrations or the Collection Metadata Service and regenerate, never by hand, and never import these files from a migration. An `external` connection, if you add one, takes its hand-written metadata from `database/<connection>/metadata/<name>.json` instead, which is committed. `pnpm nocobase collections generate --check` fails when they are out of date.
-
-```ts
-const migration: MigrationDefinition = defineMigration({
-  name: '202609020001_create_orders',
-  async up({ builder }) {
-    await builder.createCollection('orders', (collection) => {
-      collection.increments('id');
-      collection.string('reference', { length: 64, nullable: false });
-      collection.datetime('createdAt', { nullable: false });
-    });
-  },
-  async down({ builder }) {
-    await builder.dropCollection('orders');
-  },
-});
-```
-
-**A migration is immutable history and must be self-contained.** Spell out every field, index, and constraint in the migration itself. Never import a collection definition, model, or registry that keeps evolving — doing so silently changes what an already-applied migration means. Write `down` as the explicit reverse in a safe dependency order.
-
-Edit an existing migration only while the branch that introduced it is unmerged. Once merged, every correction is a new migration. Editing one that has already run changes nothing on its own: it is recorded as executed, so `pnpm nocobase db apply` skips it. Run `pnpm nocobase db redo` to roll the latest batch back and apply it again from the corrected source. Editing it also makes its recorded checksum stop matching; a run reports that as a warning and keeps going, `onChecksumMismatch: 'error'` makes it refuse, and `pnpm nocobase db repair` realigns the history for a change that leaves the schema identical — a reformat or a comment — never for one the database has not received. `pnpm nocobase db reset` starts over from an empty schema when the batch cannot be rolled back, and takes every row with it.
-
-The exported `name` must match the filename. Apply with `pnpm nocobase db apply` and verify against a real database.
-
-At runtime, resolve `databaseManagerToken` from the container and use `database.query()` to read and write the default connection. Use `database.query('analytics')` for another connection. Application tasks use `database/<connectionName>/{migrations,seeds}` and bind to that connection explicitly; plugin tasks and default runtime access stay on `database.default`. Only managed connections run migrations or seeds. See the migrations reference for execution and upgrade rules.
-
-### User-facing text
-
-Every string a user reads goes through a translation key. `client/locales/en-US.ts` states the wording and derives the shape that other locales are checked against, so a missing key in `zh-CN.ts` is a compile error. Each application locale file first spreads the template's own copy from `client/locales/system/` — the shell, shared components, and the sign-in pages under `auth.*`, whose components take their text as props that the pages in `client/pages/auth/` translate — and then adds the application's groups. Write the application's copy in `client/locales/en-US.ts` and `zh-CN.ts`, never in `system/`, which a template upgrade replaces. A group written there replaces the system group of the same name, so extend a shared one by spreading it first: `navigation: { ...systemEnUS.navigation, orders: 'Orders' }`.
-
-```tsx
-const { t } = useTranslation();
-t('orders.title');
-```
-
-To reword a plugin's string, add an `overrides` block keyed by that plugin's package name in your locale file. Do not edit the plugin.
-
-The languages the application offers are its own locale files, not a configured list, and the two sides are read separately: `client/locales/` decides what the picker shows, while `server/locales/` decides which languages the server can answer in. Prefer adding a language to both when server-produced text needs translating, but a client-only language is valid: the interface switches normally and the server falls back to English with an informational notice. `pnpm nocobase locales check` reports one declared on a single side and exits nonzero until the lists align; that check does not block the runtime switch.
-
-The account menu language control in `client/layouts/components/language-switcher.tsx` uses a shadcn submenu with radio items. Render it inside `DropdownMenuContent` to preserve menu keyboard navigation and selection semantics.
-
-## Development file watching
-
-Changes to `.env` and `.env.local` (including creation, atomic replacement, and deletion) restart the full development run after its previous processes exit. The new run reloads environment files, ports, proxy settings, and startup hooks; explicit shell variables still take precedence. Use the newly printed URL if the port or base path changes. This also applies in proxy mode. `config.yml` changes restart only the local server. `NOCOBASE_STRICT_STARTUP=true` disables both automatic restarts.
-
-Changes to `package.json`, the lockfile, and the package manager's install state restart the local server once they have been quiet for a few seconds. An install writes several of them over as long as fetching and linking take, so restarting on the first write would bring the server back against a half-installed `node_modules` — and the next write would arrive while it was still shutting down, which is where the watcher escalates to SIGKILL. Waiting for quiet turns one install into one restart.
-
-One development server runs per application root; a second is refused with the first one's process id. Nothing else catches it, because the port check advances to the next free port and the duplicate then fails on the migration lock the first server holds, long before it binds anything. `NOCOBASE_DEV_ALLOW_MULTIPLE=true` starts one anyway. A run that only proxies a remote backend does not take the lock, and a lock left behind by a killed run is taken over rather than reported.
-
-`pnpm dev` also shortens the shutdown budget, through `APP_SHUTDOWN_TIMEOUT_MS`, to less than the five seconds the file watcher waits before force-killing the server. The deployment defaults — a 30 second HTTP drain behind a load balancer — would never be reached here, and a force-killed server never releases its migration lock. Set the variable explicitly to override it in either direction.
-
-The application's Vite cache lives in `storage/vite`, outside `node_modules`, so dependency installation or tooling cleanup does not remove prebundles from a running server and break lazy page imports with HTTP 504. Preserve this application override on template upgrades. Tests that start auxiliary Vite servers must use an isolated temporary `cacheDir`, including when their fixture links the application's `node_modules`. Never delete or rewrite a running development server's dependency cache. See the shared application development Skill's `references/testing.md` for cache ownership and recovery.
-
-`pnpm dev` checks native file watching before starting its children. If watcher resources are exhausted or native events are unavailable, it uses polling for client and server hot updates and disables agent annotations for that run, with a warning. An explicit `CHOKIDAR_USEPOLLING=true` selects the same mode. Configuration files use stat polling so atomic saves and newly created files restart the server without native directory watchers.
-
-Vite must exclude the application's entire `dist/` tree from development file watching. Its default exclusion covers only `dist/client`; watching the compiled server and vendored packages can cause `EMFILE` after a build. Keep the exclusion scoped to this application so linked workspace dependencies, including their `dist/` files, still receive hot updates.
-
-## Developing against another backend
-
-Do not hard-code `/main` from the examples below. It is only the fallback for an unset `APP_BASE_PATH`. Local development resolves that variable from the command-line environment, then `.env.local`, then `.env`. The remote mount path is independently supplied in `PROXY_TARGET_URL`: inspect the target application's actual public URL instead of assuming it matches the local path. For example, `APP_BASE_PATH=/local PROXY_TARGET_URL=http://127.0.0.1:13000/crm pnpm dev` forwards local `/local/api` and `/local/ws` to remote `/crm/api` and `/crm/ws`.
-
-Use `PROXY_TARGET_URL=https://backend.example.com/main pnpm dev` to run only the local Vite client against another application's API and WebSocket service. The URL is the remote application base, including its mount path, without `/api`. Open the printed Local URL. The local server and server watchers are skipped; `beforeDev` hooks still run. Requests, including writes, affect the target backend. See README.MD for path mapping and authentication requirements. Leave the variable unset for normal full-stack development.
-
-The development proxy adapts same-origin HTTP and WebSocket Origin headers to the target origin, and maps same-origin Referer paths to the target app base. Other origins remain unchanged and missing Origin headers are not added. Keep backend origin checks enabled; this adaptation belongs only to Vite development, not production deployment. Production uses `APP_PUBLIC_ORIGIN` and a reverse proxy that preserves the public Host and protocol.
-
-`APP_SERVER_PORT` selects the local application entry port: Vite in proxy development mode (default 5173), or the local backend in normal development mode (default 13000). Normal development keeps Vite's preferred port at 5173. An occupied port advances to the next available port; use the printed Local URL. This variable does not change the backend URL supplied through `PROXY_TARGET_URL`.
-
-## The command line
-
-`pnpm nocobase <topic> <command>` runs this application's CLI, the `nocobase` bin of `@nocobase/app-cli`. Only `pnpm dev`, `pnpm build`, `pnpm start` and the quality scripts are scripts; every other command goes through `pnpm nocobase`, with no script alias. `pnpm nocobase --help` lists the tree and `--help` on a command gives its flags.
-
-Before running a command, read `.agents/skills/nocobase-app-development/references/cli.md`: it maps tasks to commands, explains the data-model snapshot under `database/<connection>/collections/`, and states the flags an agent must not add on its own — `db reset`, `db rollback`, `db redo` and `db repair` refuse to run without `--force` outside a terminal, and that refusal is not something to work around.
-
-A command this application owns is a file under `cli/commands/` whose path is its name below the `app` topic: `cli/commands/sync-orders.ts` answers to `pnpm nocobase app sync-orders`. Each extends `AppCommand` from `@nocobase/app-cli`: it returns its result, throws `CommandError` on failure, and gets `--json` for free. A command that needs the application creates it with `this.withApp(async ({ app }) => …)`, which always shuts it down again; work users trigger while the application serves is a server route or a job, not a command. The `nocobase-app-development` Skill's reference on adding an application command covers the file layout, the directory names to avoid, the output contract and testing.
-
-`cli/` is compiled into `dist`, and a deployment runs the same CLI without the development commands as `node dist/cli/index.js <topic> <command>`. Change shared behavior in `@nocobase/app-cli` rather than copying it into the application; use plugin build and dev hooks for local build and development extensions.
-
-## Plugins
-
-Plugins are registered in `client/plugins.ts`, `server/plugins.ts`, and `cli/plugins.ts`. Presence in the array enables a plugin and array order is contribution order. A plugin appears in the roots matching what it ships, so a plugin with only commands is listed in `cli/plugins.ts` alone. Bulk Skills synchronization and plugin updates discover plugins from these composition roots.
-
-Let `pnpm nocobase plugin register` and `pnpm nocobase plugin unregister` add and remove entries. Edit these files by hand only to reorder entries or to pass a plugin its options.
-
-Update one registered plugin with `pnpm nocobase plugin update @nocobase/app-plugin-authentication`, or omit the name to update all registered plugins. Prefer the full package name; `authentication` is also accepted as a short name. The name is a positional argument, not `--plugin`. Use `--dry-run` to preview. With pnpm, updates stay within declared version ranges; after a successful update, all registered plugin Skills are re-synchronized. See [Plugins in the README](README.MD#plugins) for examples and update scope.
-
-To customize a page a plugin owns, pass an option on its registration, add a source extension under `client/extensions/*/extension.ts`, or add an entry to `client/route-overrides.ts`. Do not redeclare the plugin's route — a duplicate `/install` is a conflict, not a customization. An override replaces only `componentLoader`; route identity, path, and auth mode stay with the plugin. One route takes one override across all three mechanisms. Authentication pages are not plugin-owned: `/login`, `/register`, `/forgot-password`, and `/reset-password` are application routes declared in `client/routes.ts`.
-
-Route overrides must stay lazy, declare a `componentEntry`, and load a default-exported component. Authentication pages in `client/pages/auth/` use relative links and the authentication plugin's `client/actions` hooks; do not call authentication endpoints directly or create a second session store.
-
-### Read a plugin's Skill before building what it already does
-
-**You are not starting from scratch.** This application ships with NocoBase packages that already solve whole categories of requirement, and packages may publish a Skill explaining how to use them. `pnpm nocobase skills sync` copies Skills from direct `@nocobase/*` dependencies and registered plugins into `.agents/skills/`. Before implementing a feature, check whether an installed and registered plugin already covers it:
-
-| The requirement sounds like                                                                  | Read the Skill for                    |
-| -------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Email, IM, or in-app messages; notifying someone that something happened                     | `@nocobase/app-plugin-notification`   |
-| Roles, permissions, "user A may only see their own records", field-level or row-level access | `@nocobase/app-plugin-authorization`  |
-| Sign-in, registration, sessions, password reset                                              | `@nocobase/app-plugin-authentication` |
-| User listing, account state, password reset, and application-owned role assignment           | `@nocobase/app-plugin-users`          |
-| File upload and metadata through Repository                                                  | `@nocobase/app-plugin-file`           |
-| Translated text and language switching                                                       | `@nocobase/app-plugin-i18n`           |
-
-Run `pnpm nocobase skills sync` if `.agents/skills/` is missing or looks out of date, then read the Skill for the plugin you need. It documents that plugin's public entries, the ownership boundary, and how to verify the result — which is faster and more correct than inferring an API from its source.
-
-Building a permission system, a notification sender, or a job scheduler by hand when a registered plugin already provides one is the most expensive mistake available here. Prefer the plugin; write your own only when you have read its Skill and confirmed it genuinely does not fit.
-
-`.agents/skills/` is generated output: gitignored, and every synchronized package-owned directory is replaced wholesale on the next sync, so never edit a file there. The same sync mirrors each synchronized directory into `.claude/skills/` as a symbolic link, because Claude Code discovers skills only there; that mirror is generated and gitignored too. Put application-specific guidance in committed `AGENTS.md` files.
-
-## Removing a NocoBase dependency
-
-Before removing a direct `@nocobase/*` dependency, search application imports, Client/Server/CLI plugin registrations, routes, services, configuration, tests, and build scripts for its package name and public contracts. Migrate or delete those references first. The command below changes dependency metadata and generated Skills; it does not edit application source or configuration, so never use it to remove a capability the application still needs.
-
-Use `pnpm nocobase package remove @nocobase/example`. It invokes the application's package manager so `package.json` and the lockfile stay consistent, then deletes only synchronized Skills recorded as belonging to that package. For an `@nocobase/app-plugin-*` package it delegates to the plugin unregister command, removing its Client, Server, and CLI registrations together; `pnpm nocobase plugin unregister <name>` remains a supported plugin-specific entry point. Preview with `--dry-run`, and use `--json` when another tool needs structured output.
-
-After an interrupted or manual removal, first confirm the manifest no longer declares the package, then run a full `pnpm nocobase skills sync` to reconcile stale package-owned output. `package remove` may also be passed a package already absent from the manifest to clean recorded historical Skill ownership, and it must not uninstall or clean Skills owned by another package.
-
-## Adding a dependency
-
-Keep `@nocobase/db` in `dependencies` alongside the database driver. It supplies the driver's runtime peer and lets TypeScript resolve the inferred database configuration declaration through the public package name. Moving it to `devDependencies` can cause TS2883 in an installed application even while the source workspace builds successfully.
-
-Put a package your **server** code imports in `dependencies`. Put everything your **client** code imports — along with build tooling, tests, and type-only imports — in `devDependencies`.
-
-That split looks backwards until you see how the two halves are deployed. `pnpm build` bundles the client: Vite resolves every client import and inlines it into `dist/client`, so nothing has to resolve it again later. The server is not bundled. `dist/server` keeps its bare imports, and `pnpm build` generates `dist/package.json` from your `dependencies` and installs a `node_modules` next to it — that tree is what the deployed server resolves against, and `devDependencies` are not in it.
-
-So the two mistakes fail in opposite ways. A server import left in `devDependencies` works all through development and fails only on the server, with a bare `Cannot find package` naming nothing that points back here. A client package put in `dependencies` never breaks anything — it is just installed into every deployment, where the server never requires it. That one is invisible, so it accumulates: `lucide-react` and `@xyflow/react` were 44 MB of it before this rule was written down.
-
-What decides it is where the importing file lives and what the import is, not what the package is for. `import ts from 'typescript'` in `server/` is a runtime dependency even though TypeScript sounds like tooling. `import type { Config } from 'x'` is erased before anything runs, so it stays a devDependency wherever it appears. A dynamic `import()` counts — deferring the load changes when a package is needed, not whether.
-
-### Adding a dependency
-
-Which half of the application imports it decides where it goes.
-
-| The import is reached from              | Declare it in     |
-| --------------------------------------- | ----------------- |
-| `server/`, `database/`, or `cli/`       | `dependencies`    |
-| `client/`, build tooling, tests         | `devDependencies` |
-| `import type` only, wherever it appears | `devDependencies` |
-
-`dist/package.json` is generated from `dependencies` and is what a deployment installs from, so a server import declared as a devDependency resolves in every development checkout and is absent exactly once — on the deployed server. A client import needs nothing at runtime: Vite resolves and inlines it into `dist/client` at build time.
-
-A plugin's browser packages arrive by a third route and need nothing from you. Plugins declare those as peer dependencies, so installing a plugin brings one shared copy into this application, while `dist/` sets `autoInstallPeers: false` and installs none of them.
-
-`pnpm build` checks the server half: it reads every value import in `server/`, `database/`, and `cli/` and fails the build if any of those packages is missing from `dist/package.json`. It cannot see an import whose specifier is built at run time:
-
-```ts
-await import(`${name}/index.js`); // invisible to the check
-```
-
-Declare such a package in `dependencies` when you write the code; nothing will remind you later.
-
-### CDN assets at build time
-
-`CDN_BASE_URL` sets Vite's `base` only during a production build: `CDN_BASE_URL=https://cdn.example.com/my-app/v1/ pnpm build`. Use a full HTTPS URL ending in `/`; unset, empty or whitespace-only values keep the default `./`. `pnpm build` reads it from the process environment, then `.env.local`, then `.env`; development ignores it and continues using `APP_BASE_PATH`. It is a build parameter, absent from `config variables` and `dist/variables.json`, with no `config.yml` setting. Changing it requires rebuilding.
-
-Upload the static files from `dist/client/` to that CDN prefix with their directory structure preserved, and enable CORS for the application's origin. Keep `index.html` and the complete client tree on the application server so it can inject runtime configuration into HTML and serve files still addressed there. Use `resolveAssetUrl('/assets/logo.png')` from `@nocobase/app-client` for a file shipped as `dist/client/assets/logo.png`; template logos use this helper. It reads Vite's build-time `BASE_URL`, uses an absolute HTTP(S) CDN base when configured, and otherwise falls back to the runtime mount path. Keep API paths, page links and runtime-generated files on `resolveAppUrl`. Vite does not rewrite arbitrary URL strings. The README's CDN section describes deployment and Docker usage.
-
-For a Docker source build, pass `--build-arg CDN_BASE_URL=https://cdn.example.com/my-app/v1/`. With `DIST=prebuilt`, set `CDN_BASE_URL` when building `dist/` beforehand. Neither a prebuilt image's build argument nor `docker run -e CDN_BASE_URL=...` can change compiled asset URLs.
-
-### Packing the build for a deployment
-
-`pnpm build --tar` writes `storage/exports/dist.tar.gz` after the build. The archive holds `dist/` as a directory next to `config.example.yml`, so extracting it produces exactly those two paths rather than scattering `server/` and `node_modules/` into whatever directory you unpacked in.
-
-`config.example.yml` travels with it because a deployment has to write a `config.yml` before it can start — `pnpm nocobase config init`, run inside `dist/`, does that from the example, in place, and `pnpm nocobase config check` there verifies it, database connection included, before the first start — and the example is the only statement of what may go in it. Directories of executable shims are left out: a `.bin` entry points at a path on the machine that installed it, and a dangling one makes `pnpm install` in the extracted tree report a corrupt store rather than repair it.
-
-Without `--tar` no archive is produced, which is what you want when the build is only going to be run locally.
-
-### Building a Docker image
-
-`Dockerfile` and `Dockerfile.dockerignore` build this application from its sources: a build stage runs `pnpm install --frozen-lockfile` and `pnpm build`, and a `node:24-bookworm-slim` runtime stage receives `dist/` and `config.example.yml` only. The runtime has no pnpm, so it runs the two `dist/package.json` scripts directly: `start` is `node ./server/standalone.js`, which the image starts as `node dist/server/standalone.js`, and `nocobase` is `node ./cli/index.js`, run as `node dist/cli/index.js <topic> <command>`. The deployment root is `/app`, so configuration is `/app/config.yml` and storage is `/app/storage`, both mounted at runtime.
-
-The client is not tied to a mount path, so `APP_BASE_PATH` is a runtime variable, `/main` in the image unless the container is started with `-e APP_BASE_PATH=<path>`; the health check probes the same path. The build stage runs on `$BUILDPLATFORM` and passes `--target linux-$TARGETARCH`, so a multi-platform build does not compile under emulation; do not move the build stage to the target platform or switch the runtime to Alpine, which would need the musl target. Keep `Dockerfile.dockerignore` beside the Dockerfile: BuildKit reads it only there, and without it `config.yml`, `.env`, and `storage/` enter the build context.
-
-`--build-arg DIST=prebuilt` skips the build stage and packages the `dist/` in the context instead, selected through `FROM dist-${DIST}` so BuildKit never runs the stage it does not use. That stage refuses a `dist/` whose `nocobase.buildTarget` is not linux, glibc, the target architecture and the image's Node major, and one from an `@nocobase/app-cli` that does not record `nocobase.relocatable`, whose client is tied to the path it was built for. The ignore file re-includes `dist/` last and whole, so dependency directories inside it named like excluded paths (`langchain/storage`) survive, and then excludes `dist/.env`, which can carry `DB_PASSWORD` from local `.env` files. Keep those rules in that order.
-
-### Building for another platform
-
-`pnpm build --help` (or `-h`) lists build options and exits without loading build dependencies, running hooks, or modifying `dist/`. Every successful build records `nocobase.buildTarget` in `dist/package.json`, including builds with no native modules: `platform`, `arch`, `libc`, `nodeMajor`, and `nodeAbi`. Use `libc` only for Linux; its value on other platforms is a compatibility placeholder. Deployment checks should compare these fields with the host runtime and also respect `engines.node`. With `--target current` (the default), the Node version and ABI come from the running process; an explicit platform target defaults to Node 24 unless `--node-version` is supplied.
-
-`pnpm build` targets the machine it runs on, so `pnpm build && pnpm start` works. A deployment build says where it is going: `--target linux-x64`, `--target linux-arm64`, `--target linux-x64-musl`, plus `--node-version` when the server's Node major differs. Every build prints the platform it produced and records it in `dist/package.json` under `nocobase.buildTarget`.
-
-A `.node` binary must match the target platform, architecture, and C library; addons using the Node ABI must also match its version. `better-sqlite3` 13 uses N-API and bundles its platform binaries, so cross-platform builds retain the target's binary, including the separate `linuxmusl` build for Alpine. `pg`, `mysql2`, and `tedious` are plain JavaScript, so an application using only those is portable as built.
-
-### When a build or a deployment fails
-
-| Symptom                                                                                 | Cause                                                                        | Fix                                                                                                                                                                                  |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Cannot find module 'x'` on the server, works locally                                   | `x` is in `devDependencies`, which `dist/package.json` is not generated from | Move it to `dependencies`                                                                                                                                                            |
-| A browser package will not resolve while building the application                       | A plugin declares it as a peer and nothing provides it                       | Add it to the application's `devDependencies`                                                                                                                                        |
-| `Error loading shared library`, `invalid ELF header`, or a bare `.node` path at startup | The binary does not match the server                                         | Compare `require('./dist/package.json').nocobase.buildTarget` with the server's `process.platform`, `process.arch`, and `process.versions.modules`, then rebuild with matching flags |
-| `no prebuilt binary for <target>` during the build                                      | The package publishes no build for that combination                          | Check the package supports the target; musl coverage is thinner than glibc                                                                                                           |
-
-Node ABI to major version: 115 is Node 20, 127 is 22, 137 is 24, 147 is 26.
-
-## Before you finish
-
-For each change, scope all verification to the affected files, projects, or packages and their affected consumers. This applies to formatting, lint, type checking, tests, builds, and runtime verification. Run only the checks relevant to the change: use explicit file paths for formatting, lint, and tests; use the owning project's TypeScript configuration for type checking; build only affected packages or supported build targets. In a workspace, use `pnpm --filter <affected-package> <script>`. In a standalone application, use its supported file or project selectors; do not invent flags or bypass project configuration to force a narrower check.
-
-Do not run full-application or workspace-wide checks, or an aggregate `pnpm check`, as a routine step after each edit. If a necessary check cannot be narrowed further, run the smallest supported project or package scope and explain why. Expand scope only when shared code, dependencies, configuration, or a failure gives a concrete reason, or when the user explicitly requests it. After checks pass, repeat them only for further relevant changes or unresolved failures. Documentation-only changes need formatting and link checks for the changed documents, not type checking, runtime tests, or builds.
-
-Report which checks ran, their scope, and any unverified behavior. See the application development Skill's `references/testing.md` for selection examples.
-
-Add tests for what you changed: a route's authenticated, unauthenticated, and unauthorized responses; a migration's `up` and `down` against a real database; a page's actual behavior. Tests belong in `tests/`; browser tests go in `tests/playwright/`, which Playwright runs against a running application at `APP_URL` and Vitest skips. Never place a test beside the source it covers.
-
-For any UI work, start with `.agents/skills/nocobase-app-development/references/frontend/ui-workflow.md` (from the application root), which decides the workflow and routes to the rest. Its styling rules are in `references/styling.md` beside it: which semantic Tailwind utilities to use so components respond to theme changes, and how to keep deliberate fixed-size exceptions explicit. The full color, font, size, spacing, radius and shadow token contract, and creating or editing theme presets, are in `references/theme.md`.
-
-Application startup defaults belong in `config.yml`: `i18n.defaultLocale` for the language, and `client.app.defaultColorScheme` and `client.app.defaultTheme` for appearance. Valid browser-local choices take precedence. Which languages the application offers is not configured — its own `client/locales/` and `server/locales/` are that list. See the i18n and themes references.
-
-## Compiled migration and seed manifests
-
-The application build generates `.manifest.json` in each compiled migrations and seeds directory after server compilation, path rewriting, and `afterServerBuild` hooks. Keep the manifest generator in the build when customizing it. Plugins generate their own manifests when built; an application must not regenerate manifests for installed dependencies.
-
-TypeScript and compiled JavaScript use the same source checksum for migration history, while the loader separately verifies emitted JavaScript. Marked JavaScript requires its manifest. For a database with old raw JavaScript checksums, first run the compiled representation with matching original output; verified legacy hashes are converted under the task lock. Unreproducible old output remains an error. Never edit historical migrations, and never edit the history table by hand, to resolve an upgrade failure; `pnpm nocobase db repair` is the supported way to realign a checksum you can account for, and `pnpm nocobase db redo` the way to re-run a migration whose branch is still unmerged.
-
-The account menu checks Better Auth sign-out results before refreshing the session and shows a localized error toast for API or network failures. Preserve this behavior when upgrading the shell; navigation alone does not revoke a session.
-
-The authorization provider clears the permission snapshot before rendering a new session. Route navigation and page guards subscribe to the authorization revision; preserve these checks when customizing the shell so account changes and permission updates take effect without a reload. Pending checks hide protected content, and failed checks deny access.
-
-Navigation groups retain their expanded or collapsed state while the navigation tree stays mounted. Selecting a new page expands its ancestor groups without collapsing other groups; users can still collapse the active group manually.
-
-## Development logging
-
-`pnpm dev` owns the ready banner and public URL; `APP_SERVER_START_LOG=false` suppresses the underlying listener announcement through the `env` of `server/config/server.ts`. Keep that mapping when editing deployment environment settings. Request starts, request headers and config diagnostics use DEBUG; the normal INFO output contains completion summaries. See the shared application development Skill for hosted logging and upgrade limits.
-
-## Runtime paths and application creation
-
-`runtime.paths`, configuration context `paths`, and `app.paths` share one resolved `AppPaths` object. Use `paths.storage('...')`, `paths.database('...')`, or the corresponding directory fields. `AppPathOptions` is input only; application path policies run before the final object is created and configuration is loaded. Standalone entries declare the deployment root in `server/runtime.ts` so the server and CLI share persistent storage outside the compiled code directory.
-
-`server/app.ts` calls `createAppFromRuntime(runtime)` to transfer configuration, paths, mode and Host logging policy and bind `runtime.app`. Keep Provider, middleware and route registration explicit and ordered; `startApplicationInScope` owns startup and shutdown binding.
-
-## Branded loading
-
-Use `Loading` for page or panel waits and `Spinner` (the shadcn-compatible adapter to `BrandSpinner`) for inline pending actions, uploads, and refresh indicators. Both share the stable NocoBase mark and orbit animation; do not introduce independent Lucide spinners for application loading. Keep skeletons for content placeholders and progress bars for determinate progress. `index.html` has the matching pre-JavaScript mark and must stay visually consistent. All animations respect reduced motion.
-
-## Unified OA navigation
-
-The inbox navigation entry displays its durable unread count through `client/components/inbox-menu-badge.tsx`, with a dot instead of a number in desktop icon mode. Navigation metadata has no live badge slot, so `NavigationMenu` composes the indicator outside the clipped menu button and leaves the shadcn primitive unchanged. It uses the public inbox query and event-driven refresh hooks to follow incoming messages, reconnects, focus and read/delete actions without polling; zero counts are hidden and counts above 99 display `99+`.
-
-All business and administrative pages use `defineAppRoutes()` and root-relative URLs. There is no Settings layout or header entry. Daily pages precede organization, process configuration, automation and system administration. Existing `settings` authorization resource ids remain unchanged: they are stored grants, not URL prefixes. Migrated administration UI is application-owned in `client/pages/administration/`; its copy is supplied through application locale overrides in `client/locales/administration/`. Reuse public plugin API clients and tokens. AI Employee and Hub CLI are not used by this application and are removed.
-
-Approval covering forms register `useNavigationGuard` from `@nocobase/app-client` for dirty/in-flight navigation and `beforeunload` for leaving the document. The shell uses a declarative router: do not use React Router `useBlocker` here. Tabs rendered as links set `nativeButton={false}`.
-
-### OA access management
-
-Daily authorization administration lives under `client/pages/access/` and `/access/roles` / `/access/people`, with one `/access` navigation entry under System. `client/route-modules/access.ts` retains existing `authorization.permission-sets` / `authorization.inspector` checks. Legacy generic authorization and rule pages remain protected deep links with no navigation. Roles, positions, departments and automatic subjects come from the public authorization directory; duty membership still uses the audited organization API and changes approval candidates. Users direct-access links lead to the new personal-access page.
-
-`server/routes/access/` performs narrow business action patches and managed-subset direct assignment replacements through the decorated public permissionSets service. Unknown policies and unrelated grants are preserved; sensitive operations stay separate. Custom policies cannot be edited by the simplified editor. Snapshots include assignments so shared impact changes cause conflict too. `database/main/migrations/202610104301_access_write_lock.ts` adds only a private single-row coordinator. `server/providers/audit/access-lock.ts` and the existing audit decorator serialize _all_ public permission mutations (including legacy management and Users) in the caller transaction before comparing snapshots. Preserve this adapter on upgrade: the installed plugin has no compare-and-swap definition API. No authorization facts are stored in this lock table.
-
-Onboarding is registered under `server/providers/onboarding/` and `server/routes/onboarding/`, prefix `2026101046`. Its public service creates a real disabled account and probation employee through the public authentication, organization and EmployeeService contracts, consumes a real requisition and capacity in the caller transaction, and freezes private salary separately. Four business-owned tasks precede enablement; maintenance and notification jobs are registered by its provider. Cancellation disables the account, records real employee departure, releases actual capacity and creates recovery facts without restoring consumed recruitment allocation. Equipment/card text references alone are not actual asset issue/return. Explicit whole code/serial lists use onboardingAssetServiceToken in the caller transaction for real issue and return facts; cancellation does not return stock, and outstanding physical recovery cannot be force-completed. Cross-year allocation uses explicit target-account rebind through the public requisition owner. Browser pages are registered; same-pool claimed-task transfer and guarded non-finance task attachments now use the public onboarding owner and File Repository contributions. Transfer uses its own caller transaction with sorted public actor/recipient user locks and current identity/pool checks, then task CAS; it does not take a capacity guard or alter asset custody. Metadata and bytes require current parent/task view and readable facts, uploads recheck task/version in the File transaction, and completion freezes validated references. Finance attachments, fixed-mentor reassignment, Office formats, non-approval center composition and remaining original fields stay pending; full cross-database lock-order acceptance remains separate. See [onboarding contract](docs/designs/onboarding/process-design.md) and [inventory contract](docs/designs/assets/onboarding-inventory-design.md).
-
-### Personnel approvals in the task center
-
-Transfer and certificates are composed through their public `listForCenter` facades with each owner’s current view policy. Center summaries always return null amounts for these sources. Pending/done/copied eligibility uses public SDK offers, tasks and involvement, never SDK storage tables. Center child routes retain owner policies; home child loaders additionally check the center page grant with `client/pages/approvals/center-entry.tsx`. The landing page itself stays available to every signed-in user. Shared resource identities include actor and authorization revision so revoked content, counts and capabilities clear immediately. Ordinary work items and announcement receipts remain separate business sources pending their actual center composition. DepartureReassignmentProvider binds the ordinary work-item owner confirmation handover before the final locked account scan: each item commits independently with current view/handover grants and actual independent maintenance duties; assignee work remains a blocker, and a successor cannot confirm their own handled task.
-
-The application toast host is wrapped by `client/components/application-toaster.tsx`: the public generated Toaster exposes no viewport-position option, so this adapter measures visible RouteOverlay footers and sets `--oa-toast-bottom` in `client/styles.css` to keep notices above record actions. Keep the generated toast primitive untouched and preserve this adapter during template upgrades. When a generated dropdown, submenu, popover, select or combobox popup is open, application CSS temporarily places the toast viewport below its z-50 positioner so notices cannot intercept menu clicks; closing the popup restores the viewport above overlays. Raising only popup children cannot escape the positioner stacking context.
-
-Development Vite uses the application adapter `createApplicationDevProxy` in `vite.config.ts` to proxy File Repository `/uploads` and `/private` content routes in addition to the CLI API/WS proxy. It reuses the public API proxy options, including guarded Origin and cookie/mount rewriting, and adds only bounded content prefixes. The current CLI factory does not include these routes; preserve or reconcile this adapter during upgrades, rather than letting attachment URLs fall through to SPA HTML.
-
-User identities in application-owned views use `UserName` (`client/components/user-name.tsx`): a circular shadcn Avatar with a stable name-based random color beside the readable name. Chinese names use the first character; English names use the first two words' initials, or the first two letters for a single word. Use `UserAvatar` when the surrounding control already renders the name, including selected combobox inputs and approval UI's public `renderAvatar` option. Keep editable name inputs, plain-text search labels and accessible labels as strings; do not add avatars to record numbers, department names or duty-role titles. Identity colors intentionally use a fixed high-contrast palette independently of status/theme colors. The account menu uses this application-wide identity presentation instead of its old local initials implementation.
-
-Vitest owns a unique SQLite test-database directory per run through `tests/setup/database-directory.ts`, registered in `vitest.config.ts`. The public test provisioner still chooses the dialect and database names; the directory isolates stale-PID cleanup between concurrent runners, and global teardown removes only the owned directory after workers close. An explicit `NOCOBASE_TEST_DB_SQLITE_DIRECTORY` supplies its parent, never a directory to recursively delete. Keep this test adapter during upgrades until the shared tooling offers equivalent runner isolation. Historical readonly failures remain unproven unless independently reproduced.
-
-The independent seal ledger is composed through the existing seals provider/routes/client module. Its public ledger detail and paginated HTTP require current ledger/request/receipt view and field policies; an existing unreadable receipt denies the detail rather than presenting it as unreturned. Lists use the company calendar timezone. Ordinary viewing does not grant template-use/source-print. Seals register the public departureCustodyClearanceToken; any actual unreturned ledger, including administratively closed requests, blocks departure until an immutable receipt exists. Physical borrowing and actual departure share the public user administration lock and recheck account state in the caller transaction. See [current seals contract](docs/designs/seals/process-design.md) and [departure cancellation contract](docs/designs/departure/cancellation-capacity-design.md).
-
-### Application UI component choices
-
-Use native shadcn primitives or configured NocoBase registry compositions before building ordinary UI components. Process diagrams use registry `FlowDiagram` (`client/components/flow-diagram.tsx`) with React Flow and ELK automatic routing; do not replace it with hand-positioned SVG nodes and paths. `client/pages/process-management/graph.tsx` owns safe DTO adaptation. Definition graphs use `overview.ts` to select submission, approved decisions and normal fulfillment actions (not just filter terminal state names), without full-state/table switches; `definition.tsx` owns the single textual Process rules section, grouping approvers, operations, destinations and branch conditions by state. The application extends the installed registry copy with optional `compact` ELK spacing, multiline edge labels and an `initialZoomLimit` for auto-height diagrams because fixed registry spacing cannot fit explicit OA branch explanations. Defaults remain available; preserve these extensions when refreshing the registry. Execution diagrams load the independently authorized current definition, use the same business overview as their background, and overlay actual visited nodes/edges and the current state; actual historical routes remain visible even if the definition changed. Process diagrams limit the initial scale to 0.75, fitting narrower containers below that limit and deriving the canvas height from the same scale. Definition branch captions are display-only, audited against owner selectors, and refer to rules frozen at submission.
-
-Database Explorer is deliberately absent from this OA application: no plugin, page, API or navigation entry. The independent `/sequences` counter-monitoring page was removed by user decision; actual document numbers remain visible in authorized business/flow execution lists. Keep the transactional `sequenceServiceToken` and its counters: this UI removal does not remove numbering from business submission. See [process management](docs/designs/approval-center/process-management-design.md).
+Find current status, source reviews, module gaps, and development plans through the [documentation index](docs/README.md). The owning module design defines its business contracts.
