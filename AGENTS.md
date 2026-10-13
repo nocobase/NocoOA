@@ -6,6 +6,10 @@ Do not create a plugin to add a feature. Plugins are separately published packag
 
 When users refer to annotations, marks, or selections in the current application, first run `pnpm exec agent-annotations list --json` from the application root to find Agent Annotations records, ask for clarification only if none match or the target remains unclear, and do not implement annotation requests when the user only asks where they are.
 
+## Pull requests
+
+Write pull request titles and descriptions in English. Apply this rule when creating or updating a pull request, even when the conversation is in another language.
+
 ## Documentation rules
 
 Read [docs/README.md](docs/README.md) before creating or updating project documentation. Documentation belongs to one category, then one module:
