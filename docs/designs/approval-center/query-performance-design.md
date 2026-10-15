@@ -29,3 +29,7 @@ candidateSnapshot只预取当前人及反向代理涉及的有效员工/账号�
 ## 剩余成本
 
 主连接授权仍逐Collection检查物理结构，每来源taskCandidates仍打开所属runtime事务并初始化事务Registry；42个权限集key逐条读取。未绕过公开API或用长时间缓存掩盖这些成本。完整容量、生产p95、全角色原浏览器验收及生产发布独立判断。
+
+## 发布内核复测（2026-10-15）
+
+可用的授权/认证/用户及所需通知兼容链、config/logging/session/snowflake和测试内核已更新；db/server/client/cli/lifecycle当前没有更新的发布版。新授权实现仍逐key读取权限集并获取物理结构，实测请求仍约514条SQL，没有消除本契约所列剩余成本。版本、完整分组与前后对照见[内核升级记录](../../records/approval-center/kernel-upgrade-query-check-2026-10-15.md)。
