@@ -1,3 +1,8 @@
+import { runTaskViewsFor } from '../approval-runtime/task-views.js';
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+} from '../approval-runtime/query-service.js';
 import {
   appointAction,
   reassignAction,
@@ -11,7 +16,6 @@ import {
   type UserAdministrationService,
 } from '@nocobase/app-plugin-authentication';
 import {
-  ApprovalService,
   APPROVAL_COLLECTIONS,
   approvalState,
   defineApproval,
@@ -939,7 +943,7 @@ export function createProbationService(d: ProbationDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -1374,15 +1378,27 @@ export function createProbationService(d: ProbationDependencies) {
       const rows = partialRows.map(fullRecord);
       const selected: ProbationRecord[] = [];
       for (const record of rows) {
+        if (
+          view === 'pending' &&
+          rows.length > 10 &&
+          !(await hasApprovalCandidate(
+            approvals,
+            PROBATION_LIFECYCLE,
+            record.id,
+            actorId,
+          ))
+        )
+          continue;
+
         if (view === 'mine') {
           if (record.applicantId === actorId || record.createdById === actorId)
             selected.push(record);
           continue;
         }
-        const runs = await approvals.runViewsFor(
-          PROBATION_LIFECYCLE,
-          record.id,
-        );
+        const runs =
+          view === 'done' || view === 'copied'
+            ? await runTaskViewsFor(approvals, PROBATION_LIFECYCLE, record.id)
+            : [];
         const tasks = runs.flatMap((v) => v.tasks);
         const match =
           view === 'copied'

@@ -1,4 +1,8 @@
 import { requestPerformanceMiddleware } from './providers/request-performance/index.js';
+import {
+  RequestSqlProvider,
+  requestSqlMiddleware,
+} from './providers/request-performance/sql.js';
 import { permissionAuditMiddleware } from './providers/audit/permission-sets.js';
 import type { Application } from '@nocobase/app-server/application';
 import { DatabaseProvider } from '@nocobase/app-server/database';
@@ -28,6 +32,7 @@ export function createApp(runtime: AppRuntimeContext): Application {
   const app = createAppFromRuntime(runtime);
 
   app.addServiceProvider(DatabaseProvider);
+  app.addServiceProvider(RequestSqlProvider);
   app.addServiceProvider(I18nProvider);
   app.addServiceProvider(LoggingProvider);
   app.addServiceProvider(CachingProvider);
@@ -42,6 +47,7 @@ export function createApp(runtime: AppRuntimeContext): Application {
     nodeEnv: runtime.env.NODE_ENV,
   });
   app.addHttpMiddleware(requestLoggingMiddleware);
+  app.addHttpMiddleware(requestSqlMiddleware);
   app.addHttpMiddleware(sessionHttpMiddleware);
   app.addHttpMiddleware(i18nHttpMiddleware);
   // Provider registration starts after middleware is frozen; capture actors here for transactional permission auditing.

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { OrgError } from '../../../server/providers/org/index.ts';
 import { startOrgTestApp, type OrgTestApp } from './helpers.ts';
+import { withBusinessReads } from '../../../server/providers/request-performance/business-reads.js';
 
 const ctx = { actorId: 'tester' };
 
@@ -22,6 +23,60 @@ describe('organisation service rules', () => {
   let alice: string;
   let bob: string;
   let carol: string;
+
+  it('shares organisation facts on explicit root reads but observes transactional changes', async () => {
+    const org = test.organization;
+    const connection = test.testApp.database.connection();
+    const client = await connection.client();
+    const counts = new Map<string, number>();
+    const count = (query: { sql: string }) => {
+      const table = query.sql.match(
+        /from\s+(?:"public"\.)?"(departments|positions|duty_roles|duty_role_members|department_members)"/i,
+      )?.[1];
+      if (table) counts.set(table, (counts.get(table) ?? 0) + 1);
+    };
+    client.on('query', count);
+    try {
+      await withBusinessReads(async () => {
+        await Promise.all(
+          Array.from({ length: 4 }, async () => {
+            await org.departmentsOf(alice, connection);
+            await org.headedBy(alice, connection);
+            await org.listPositions(connection);
+            await org.hasDutyRole(alice, 'admin', connection);
+            await org.hasDutyRole(alice, 'hr', connection);
+          }),
+        );
+      });
+      expect(counts.get('departments')).toBe(1);
+      expect(counts.get('positions')).toBe(1);
+      expect(counts.get('department_members')).toBe(1);
+      expect(counts.get('duty_role_members')).toBe(1);
+    } finally {
+      client.removeListener('query', count);
+    }
+    const createdId = await withBusinessReads(async () => {
+      await org.listPositions(connection);
+      const id = await connection.transaction(async (tx) => {
+        const position = await org.createPosition(
+          { title: 'Transactional read', code: `tx-${Date.now()}` },
+          ctx,
+          tx,
+        );
+        expect(
+          (await org.listPositions(tx)).some((row) => row.id === position.id),
+        ).toBe(true);
+        return position.id;
+      });
+      expect(
+        (await org.listPositions(connection)).some((row) => row.id === id),
+      ).toBe(false);
+      return id;
+    });
+    expect(
+      (await org.listPositions(connection)).some((row) => row.id === createdId),
+    ).toBe(true);
+  });
 
   beforeAll(async () => {
     test = await startOrgTestApp();
@@ -200,6 +255,9 @@ describe('organisation service rules', () => {
     expect((await org.getDepartment(child.id))?.active).toBe(true);
     expect(await org.departmentsOf(user)).toEqual([]);
     expect(await org.activeChain(child.id)).toBeUndefined();
+    expect(
+      (await org.activeChainsOf([child.id, 'missing'])).get(child.id),
+    ).toBeUndefined();
     expect(await org.primaryDepartmentOf(user)).toBeUndefined();
     expect(await org.filterActive([parent.id, child.id])).toEqual([]);
 
@@ -208,6 +266,16 @@ describe('organisation service rules', () => {
       child.id,
       parent.id,
     ]);
+    const chains = await org.activeChainsOf([
+      child.id,
+      parent.id,
+      child.id,
+      'missing',
+    ]);
+    expect(chains.size).toBe(3);
+    expect(chains.get(child.id)).toEqual(await org.activeChain(child.id));
+    expect(chains.get(parent.id)).toEqual(await org.activeChain(parent.id));
+    expect(chains.get('missing')).toBeUndefined();
     expect(await auditActions(test, parent.id)).toEqual([
       'department.create',
       'department.disable',

@@ -1,3 +1,8 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import {
   appointAction,
@@ -20,7 +25,6 @@ import {
 } from '@nocobase/app-plugin-authentication';
 import {
   isOpenRun,
-  ApprovalService,
   APPROVAL_COLLECTIONS,
   approvalState,
   defineApproval,
@@ -1488,7 +1492,7 @@ export function createReimbursementService(d: ReimbursementDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -1823,10 +1827,11 @@ export function createReimbursementService(d: ReimbursementDependencies) {
             ids.push(record.id);
             continue;
           }
-          const runs = await runTaskViewsFor(
+          const acted = await hasApprovalTaskActor(
             approvals,
             REIMBURSEMENT_LIFECYCLE,
             record.id,
+            actorId,
           );
           const head = Boolean(
             (record.departmentId
@@ -1838,7 +1843,7 @@ export function createReimbursementService(d: ReimbursementDependencies) {
             record.applicantId === actorId ||
             record.createdById === actorId ||
             involvement.length ||
-            runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+            acted ||
             outside.directory.hasRole(actorId, 'finance') ||
             outside.directory.hasRole(actorId, 'financeManager') ||
             outside.directory.hasRole(actorId, 'cfo') ||
@@ -2227,6 +2232,18 @@ export function createReimbursementService(d: ReimbursementDependencies) {
         );
         const selected: ReimbursementRecord[] = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              REIMBURSEMENT_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           const runs =
             view === 'done' || view === 'copied'
               ? await runTaskViewsFor(

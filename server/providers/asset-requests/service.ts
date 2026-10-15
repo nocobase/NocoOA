@@ -1,3 +1,8 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import { createHash } from 'node:crypto';
 import {
@@ -5,7 +10,6 @@ import {
   type UserAdministrationService,
 } from '@nocobase/app-plugin-authentication';
 import {
-  ApprovalService,
   type Approval,
   type PerformInput,
 } from '@nocobase/app-plugin-approval/server';
@@ -460,7 +464,7 @@ export function createAssetRequestService(d: AssetRequestDependencies) {
   runtime.register(graph, {
     services: (handle: unknown) => store.services(handle),
   });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [graph.approval as unknown as Approval<never>],
     (handle: unknown) => store.services(handle),
@@ -502,6 +506,18 @@ export function createAssetRequestService(d: AssetRequestDependencies) {
               sort: (s) => [s.field('id').asc()],
             });
           for (const row of rows) {
+            if (
+              view === 'pending' &&
+              rows.length > 10 &&
+              !(await hasApprovalCandidate(
+                approvals,
+                ASSET_REQUEST_LIFECYCLE,
+                row.id,
+                actorId,
+              ))
+            )
+              continue;
+
             if (typeof row.id !== 'string') continue;
             let match =
               view === 'mine' &&
@@ -614,17 +630,18 @@ export function createAssetRequestService(d: AssetRequestDependencies) {
               ids.push(record.id);
               continue;
             }
-            const runs = await runTaskViewsFor(
+            const acted = await hasApprovalTaskActor(
               approvals,
               ASSET_REQUEST_LIFECYCLE,
               record.id,
+              actorId,
             );
             if (
               record.applicantId === actorId ||
               record.createdById === actorId ||
               record.headApproverId === actorId ||
               involvement.length ||
-              runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+              acted ||
               ['admin', 'finance', 'gm', 'approval.admin'].some((role) =>
                 directory.hasRole(actorId, role),
               )

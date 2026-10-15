@@ -1,5 +1,11 @@
+import { runTaskViewsFor } from '../approval-runtime/task-views.js';
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+} from '../approval-runtime/query-service.js';
 import type { UserAdministrationService } from '@nocobase/app-plugin-authentication';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { candidateDirectory } from '../approval-runtime/candidate-directory.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServiceToken } from '@nocobase/service-provider';
 import type {
@@ -15,7 +21,6 @@ import {
   type JsonObject,
 } from '@nocobase/lifecycle';
 import {
-  ApprovalService,
   isOpenRun,
   type Approval,
   type PerformInput,
@@ -35,7 +40,10 @@ import type {
 import type { CalendarService, RuleService } from '../platform/index.js';
 import type { ApprovalNotificationService } from '../approval-notifications/contract.js';
 import { createOaApprovalOperations } from '../approval-directory/operations.js';
-import { createAppLifecycleStore } from '../approval-runtime/repository-store.js';
+import {
+  appLifecycleTransaction,
+  createAppLifecycleStore,
+} from '../approval-runtime/repository-store.js';
 import {
   createRecruitmentApproval,
   RECRUITMENT_LIFECYCLE,
@@ -196,11 +204,15 @@ export function createRecruitmentService(d: RecruitmentDependencies) {
                 },
                 { ...options, within },
               );
-            const within = options?.within ?? context.getStore()?.tx;
+            const within =
+              options?.within ??
+              appLifecycleTransaction() ??
+              context.getStore()?.tx;
             if (within) return join(within);
             // readableIds only calls the public involvement read model. It neither
             // allocates capacity nor answers approval work; do not take the writer gate.
-            if (readDirectory.getStore()) return join(undefined);
+            if (readDirectory.getStore() || candidateDirectory())
+              return join(undefined);
             return d.headcounts.within(d.db.connection(), (locked) =>
               join(locked),
             );
@@ -387,7 +399,7 @@ export function createRecruitmentService(d: RecruitmentDependencies) {
   const source = (handle: unknown) =>
     handle ? snapshots.get(handle)! : outside;
   runtime.register(definition, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [definition.approval as unknown as Approval<never>],
     source,
@@ -1394,66 +1406,83 @@ export function createRecruitmentService(d: RecruitmentDependencies) {
       policy: RepositoryPolicy,
     ) {
       await refresh();
-      const rows = await d.db
-        .repository<RecruitmentRecord>('recruitmentRequests')
-        .withPolicy(policy)
-        .findMany({ sort: (s) => [s.field('createdAt').desc()] });
-      const selected: Partial<RecruitmentRecord>[] = [];
-      for (const record of rows) {
-        if (
-          !record.id ||
-          !record.applicantId ||
-          !record.status ||
-          !record.createdAt ||
-          !('expectedStartDate' in record)
-        )
-          fail('RECRUITMENT_FORBIDDEN');
-        if (view === 'mine' && record.applicantId !== actorId) continue;
-        if (['pending', 'done', 'copied'].includes(view)) {
-          const runs = await approvals.runViewsFor(
-            RECRUITMENT_LIFECYCLE,
-            record.id,
-          );
-          const tasks = runs.flatMap((run) => run.tasks);
-          const match =
-            view === 'done'
-              ? tasks.some(
-                  (task) =>
-                    task.actorId === actorId &&
-                    ['completed', 'transferred'].includes(task.status),
-                )
-              : view === 'copied'
+      return readDirectory.run(outside.directory, async () => {
+        const rows = await d.db
+          .repository<RecruitmentRecord>('recruitmentRequests')
+          .withPolicy(policy)
+          .findMany({ sort: (s) => [s.field('createdAt').desc()] });
+        const selected: Partial<RecruitmentRecord>[] = [];
+        for (const record of rows) {
+          if (
+            !record.id ||
+            !record.applicantId ||
+            !record.status ||
+            !record.createdAt ||
+            !('expectedStartDate' in record)
+          )
+            fail('RECRUITMENT_FORBIDDEN');
+          if (
+            view === 'pending' &&
+            rows.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              RECRUITMENT_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+          if (view === 'mine' && record.applicantId !== actorId) continue;
+          if (['pending', 'done', 'copied'].includes(view)) {
+            const runs =
+              view === 'pending'
+                ? []
+                : await runTaskViewsFor(
+                    approvals,
+                    RECRUITMENT_LIFECYCLE,
+                    record.id,
+                  );
+            const tasks = runs.flatMap((run) => run.tasks);
+            const match =
+              view === 'done'
                 ? tasks.some(
                     (task) =>
-                      task.kind === 'copy' && task.assigneeId === actorId,
+                      task.actorId === actorId &&
+                      ['completed', 'transferred'].includes(task.status),
                   )
-                : (
-                    await approvals.actionsFor(
-                      RECRUITMENT_LIFECYCLE,
-                      record.id,
-                      { id: actorId },
+                : view === 'copied'
+                  ? tasks.some(
+                      (task) =>
+                        task.kind === 'copy' && task.assigneeId === actorId,
                     )
-                  ).some((offer) =>
-                    offer.actions.some((action) =>
-                      ['approve', 'reject', 'return'].includes(action.name),
-                    ),
-                  );
-          if (!match) continue;
+                  : (
+                      await approvals.actionsFor(
+                        RECRUITMENT_LIFECYCLE,
+                        record.id,
+                        { id: actorId },
+                      )
+                    ).some((offer) =>
+                      offer.actions.some((action) =>
+                        ['approve', 'reject', 'return'].includes(action.name),
+                      ),
+                    );
+            if (!match) continue;
+          }
+          selected.push(record);
         }
-        selected.push(record);
-      }
-      return Promise.all(
-        selected.map(async (record) => {
-          const user = await d.users.get(record.applicantId!);
-          return {
-            ...record,
-            // The current recruitment schema has no request number column; do not invent one.
-            number: null,
-            createdAt: String(record.createdAt),
-            applicant: user ? { id: user.id, name: user.name } : null,
-          };
-        }),
-      );
+        return Promise.all(
+          selected.map(async (record) => {
+            const user = await d.users.get(record.applicantId!);
+            return {
+              ...record,
+              // The current recruitment schema has no request number column; do not invent one.
+              number: null,
+              createdAt: String(record.createdAt),
+              applicant: user ? { id: user.id, name: user.name } : null,
+            };
+          }),
+        );
+      });
     },
     async salary(
       id: string,

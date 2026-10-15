@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { requestUserSummary } from '../request-performance/user-summaries.js';
+import { hasApprovalCandidate } from '../approval-runtime/query-service.js';
 import type {
   DatabaseConnection,
   DatabaseManager,
@@ -19,7 +21,10 @@ import type { EmployeeArchiveService } from '../employees/archive.js';
 import type { OrgService } from '../org/contract.js';
 import type { AuditService } from '../audit/index.js';
 import type { CalendarService, SequenceService } from '../platform/index.js';
-import type { ApprovalDirectoryService } from '../approval-directory/contract.js';
+import type {
+  ApprovalDirectoryService,
+  OaApprovalDirectory,
+} from '../approval-directory/contract.js';
 import type { ApprovalNotificationService } from '../approval-notifications/contract.js';
 import { createOaApprovalOperations } from '../approval-directory/operations.js';
 import type { TemplatePrintService } from '../template-print/service.js';
@@ -691,116 +696,140 @@ export function createCertificateApplication(d: CertificateDependencies) {
       policy: RepositoryPolicy,
     ): Promise<CertificateCenterItem[]> {
       if (policy.read === false) fail('CERTIFICATE_ACCESS_DENIED');
-      const selected = await d.db.transaction((tx) =>
-        engine.within(tx, () =>
-          engine.read(async () => {
-            const rows = await tx
-              .repository<CertificateRequest>('certificateRequests')
-              .withPolicy(policy)
-              .findMany({
-                sort: (s) => [s.field('createdAt').desc(), s.field('id').asc()],
-              });
-            const result: Omit<CertificateCenterItem, 'applicant'>[] = [];
-            const directory = await d.directory.snapshot(tx);
-            if (!directory.isActive(actorId)) return result;
-            for (const partial of rows) {
-              if (CERTIFICATE_VIEW_FIELDS.some((field) => !(field in partial)))
-                fail('CERTIFICATE_ACCESS_DENIED');
-              const row = partial as CertificateRequest;
-              if (view === 'mine' && row.applicantId !== actorId) continue;
-              if (view === 'pending') {
-                const offers = await engine.approvals.actionsFor(
-                  CERTIFICATE_KIND,
-                  row.id,
-                  { id: actorId },
-                );
+      const load = (queryDirectory?: OaApprovalDirectory) =>
+        d.db.transaction((tx) =>
+          engine.within(tx, () =>
+            engine.read(async () => {
+              const rows = await tx
+                .repository<CertificateRequest>('certificateRequests')
+                .withPolicy(policy)
+                .findMany({
+                  sort: (s) => [
+                    s.field('createdAt').desc(),
+                    s.field('id').asc(),
+                  ],
+                });
+              const result: Omit<CertificateCenterItem, 'applicant'>[] = [];
+              const directory =
+                queryDirectory ?? (await d.directory.snapshot(tx));
+              if (!directory.isActive(actorId)) return result;
+              for (const partial of rows) {
                 if (
-                  !offers.some(
-                    (offer) =>
-                      OPEN.includes(offer.task.status) &&
-                      offer.actions.some((action) => {
-                        if (
-                          ![
-                            'approve',
-                            'reject',
-                            'return',
-                            'claim',
-                            'complete',
-                            'unable',
-                            'assign',
-                            'transfer',
-                            'reassign',
-                            'appoint',
-                          ].includes(action.name)
-                        )
-                          return false;
-                        if (row.status !== 'issuing') return true;
-                        return (
-                          directory.hasRole(actorId, 'hr') ||
-                          (['reassign', 'appoint'].includes(action.name) &&
-                            directory.hasRole(actorId, 'admin'))
-                        );
-                      }),
-                  )
+                  CERTIFICATE_VIEW_FIELDS.some((field) => !(field in partial))
+                )
+                  fail('CERTIFICATE_ACCESS_DENIED');
+                const row = partial as CertificateRequest;
+                if (
+                  view === 'pending' &&
+                  rows.length > 10 &&
+                  !(await hasApprovalCandidate(
+                    engine.approvals,
+                    CERTIFICATE_KIND,
+                    partial.id,
+                    actorId,
+                  ))
                 )
                   continue;
-              }
-              if (view === 'done') {
-                const tasks = await engine.approvals.tasksFor(
-                  CERTIFICATE_KIND,
-                  row.id,
-                );
-                if (
-                  !tasks.some(
-                    (task) =>
-                      task.actorId === actorId &&
-                      ['completed', 'transferred'].includes(task.status),
-                  )
-                )
-                  continue;
-              }
-              if (
-                view === 'copied' &&
-                !(
-                  await engine.approvals.involvementOf(
+                if (view === 'mine' && row.applicantId !== actorId) continue;
+                if (view === 'pending') {
+                  const offers = await engine.approvals.actionsFor(
                     CERTIFICATE_KIND,
                     row.id,
-                    actorId,
+                    { id: actorId },
+                  );
+                  if (
+                    !offers.some(
+                      (offer) =>
+                        OPEN.includes(offer.task.status) &&
+                        offer.actions.some((action) => {
+                          if (
+                            ![
+                              'approve',
+                              'reject',
+                              'return',
+                              'claim',
+                              'complete',
+                              'unable',
+                              'assign',
+                              'transfer',
+                              'reassign',
+                              'appoint',
+                            ].includes(action.name)
+                          )
+                            return false;
+                          if (row.status !== 'issuing') return true;
+                          return (
+                            directory.hasRole(actorId, 'hr') ||
+                            (['reassign', 'appoint'].includes(action.name) &&
+                              directory.hasRole(actorId, 'admin'))
+                          );
+                        }),
+                    )
                   )
-                ).includes('copied')
-              )
-                continue;
-              const issue = row.issueId
-                ? await tx
-                    .repository<Issue>('certificateIssues')
-                    .findOne({ filter: { id: row.issueId, requestId: row.id } })
-                : undefined;
-              result.push({
-                id: row.id,
-                kind: CERTIFICATE_KIND,
-                title: row.purpose.trim().replace(/\s+/g, ' ').slice(0, 240),
-                number: issue?.number ?? null,
-                applicantId: row.applicantId,
-                status: row.status,
-                createdAt: new Date(row.createdAt).toISOString(),
-                startDate: issue?.issueDate ?? null,
-                endDate: null,
-                amount: null,
-                unit: null,
-              });
-            }
-            return result;
-          }, tx),
-        ),
-      );
+                    continue;
+                }
+                if (view === 'done') {
+                  const tasks = await engine.approvals.tasksFor(
+                    CERTIFICATE_KIND,
+                    row.id,
+                  );
+                  if (
+                    !tasks.some(
+                      (task) =>
+                        task.actorId === actorId &&
+                        ['completed', 'transferred'].includes(task.status),
+                    )
+                  )
+                    continue;
+                }
+                if (
+                  view === 'copied' &&
+                  !(
+                    await engine.approvals.involvementOf(
+                      CERTIFICATE_KIND,
+                      row.id,
+                      actorId,
+                    )
+                  ).includes('copied')
+                )
+                  continue;
+                const issue = row.issueId
+                  ? await tx.repository<Issue>('certificateIssues').findOne({
+                      filter: { id: row.issueId, requestId: row.id },
+                    })
+                  : undefined;
+                result.push({
+                  id: row.id,
+                  kind: CERTIFICATE_KIND,
+                  title: row.purpose.trim().replace(/\s+/g, ' ').slice(0, 240),
+                  number: issue?.number ?? null,
+                  applicantId: row.applicantId,
+                  status: row.status,
+                  createdAt: new Date(row.createdAt).toISOString(),
+                  startDate: issue?.issueDate ?? null,
+                  endDate: null,
+                  amount: null,
+                  unit: null,
+                });
+              }
+              return result;
+            }, tx),
+          ),
+        );
       // Identity resolution happens after the owner transaction; the Users facade
       // has no caller-connection argument and must not acquire a second SQLite connection.
+      // Preserve administrative pending offers while sharing this pure query's
+      // directory through the existing owner SDK facade; writes use fresh read().
+      const selected =
+        view === 'pending' ? await engine.query(load) : await load();
       return Promise.all(
         selected.map(async (row) => ({
           ...row,
           applicant: {
             id: row.applicantId,
-            name: (await d.users.get(row.applicantId))?.name ?? row.applicantId,
+            name:
+              (await requestUserSummary(d.users, row.applicantId))?.name ??
+              row.applicantId,
           },
         })),
       );

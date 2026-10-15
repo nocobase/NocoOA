@@ -10,6 +10,9 @@ import { defineHttpMiddleware } from '@nocobase/app-server/router';
 import { databaseManagerToken } from '@nocobase/db';
 import { approvalDirectoryServiceToken } from '../approval-directory/contract.js';
 import { installRequestSchemaReads, withRequestSchemaReads } from './schema.js';
+import { withApprovalQueryReads } from '../approval-runtime/query-service.js';
+import { withBusinessReads } from './business-reads.js';
+import { withRequestUserSummaries } from './user-summaries.js';
 
 /** Registered before route freezing, like the application's audit context. */
 export const requestPerformanceMiddleware = defineHttpMiddleware<Application>({
@@ -30,12 +33,18 @@ export const requestPerformanceMiddleware = defineHttpMiddleware<Application>({
       const { timings } = await measureRequestScopes(() =>
         withRequestSchemaReads(() =>
           context.req.method === 'GET'
-            ? withRequestRecordAccess(() =>
-                app.container.has(approvalDirectoryServiceToken)
-                  ? app.container
-                      .resolve(approvalDirectoryServiceToken)
-                      .withReadSnapshot(next)
-                  : next(),
+            ? withRequestUserSummaries(() =>
+                withBusinessReads(() =>
+                  withApprovalQueryReads(() =>
+                    withRequestRecordAccess(() =>
+                      app.container.has(approvalDirectoryServiceToken)
+                        ? app.container
+                            .resolve(approvalDirectoryServiceToken)
+                            .withReadSnapshot(next)
+                        : next(),
+                    ),
+                  ),
+                ),
               )
             : next(),
         ),

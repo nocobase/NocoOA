@@ -3,6 +3,11 @@ import { createAppAuthorization } from '@nocobase/app-plugin-authorization/serve
 import type { DatabaseConnection } from '@nocobase/db';
 import { describe, expect, test, vi } from 'vitest';
 import {
+  requestBusinessRead,
+  requestConnectionRead,
+  withBusinessReads,
+} from '../../server/providers/request-performance/business-reads.js';
+import {
   installRequestSchemaReads,
   withRequestSchemaReads,
 } from '../../server/providers/request-performance/schema.js';
@@ -13,6 +18,59 @@ import {
 } from '../../server/providers/request-performance/record-access.js';
 
 describe('request-local read deduplication', () => {
+  test('explicit root reads share facts while transaction reads and later requests remain fresh', async () => {
+    const root = {},
+      transaction = {};
+    let value = 1;
+    const load = vi.fn(async () => ({ value }));
+    await withBusinessReads(async () => {
+      const first = await requestConnectionRead(root, root, 'tree', load);
+      first.value = 99;
+      value = 2;
+      expect(await requestConnectionRead(root, root, 'tree', load)).toEqual({
+        value: 1,
+      });
+      expect(
+        await requestConnectionRead(root, transaction, 'tree', load),
+      ).toEqual({ value: 2 });
+      value = 3;
+      expect(
+        await requestConnectionRead(root, transaction, 'tree', load),
+      ).toEqual({ value: 3 });
+    });
+    expect(
+      await withBusinessReads(() =>
+        requestConnectionRead(root, root, 'tree', load),
+      ),
+    ).toEqual({ value: 3 });
+    expect(load).toHaveBeenCalledTimes(4);
+  });
+  test('business graphs are isolated by request and owner, cloned, and failures can retry', async () => {
+    const owner = {},
+      other = {};
+    const load = vi.fn(async () => new Map([['node', { active: true }]]));
+    await withBusinessReads(async () => {
+      const first = await requestBusinessRead(owner, 'tree', load);
+      first.get('node')!.active = false;
+      expect(
+        (await requestBusinessRead(owner, 'tree', load)).get('node')?.active,
+      ).toBe(true);
+      await requestBusinessRead(other, 'tree', load);
+      expect(load).toHaveBeenCalledTimes(2);
+    });
+    await withBusinessReads(() => requestBusinessRead(owner, 'tree', load));
+    await requestBusinessRead(owner, 'tree', load);
+    expect(load).toHaveBeenCalledTimes(4);
+    await withBusinessReads(async () => {
+      await expect(
+        requestBusinessRead(owner, 'tree', async () => {
+          throw new Error('unavailable');
+        }),
+      ).rejects.toThrow('unavailable');
+      await requestBusinessRead(owner, 'tree', load);
+      expect(load).toHaveBeenCalledTimes(5);
+    });
+  });
   test('scope timings count actual resolutions and isolate concurrent requests', async () => {
     const registry = createAppAuthorization({}).recordAccess;
     registry.resolve = vi.fn().mockResolvedValue(false);

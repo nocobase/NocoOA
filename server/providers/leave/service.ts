@@ -1,5 +1,10 @@
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
+import {
   appointAction,
   reassignAction,
 } from '../process-management/actions.js';
@@ -18,7 +23,6 @@ import { lockUserForAdministration } from '@nocobase/app-plugin-authentication';
 import { randomUUID } from 'node:crypto';
 import {
   isOpenRun,
-  ApprovalService,
   approvalState,
   defineApproval,
   stagesFor,
@@ -784,7 +788,7 @@ export function createLeaveService(d: LeaveDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -960,10 +964,11 @@ export function createLeaveService(d: LeaveDependencies) {
             record.id,
             actorId,
           );
-          const runs = await runTaskViewsFor(
+          const acted = await hasApprovalTaskActor(
             approvals,
             LEAVE_LIFECYCLE,
             record.id,
+            actorId,
           );
           let head = false;
           const dept = await d.org.primaryDepartmentOf(record.applicantId);
@@ -977,7 +982,7 @@ export function createLeaveService(d: LeaveDependencies) {
             record.applicantId === actorId ||
             record.createdById === actorId ||
             involvement.length ||
-            runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+            acted ||
             outside.directory.hasRole(actorId, 'hr') ||
             outside.directory.hasRole(actorId, 'gm') ||
             outside.directory.hasRole(actorId, 'approval.admin') ||
@@ -1361,13 +1366,25 @@ export function createLeaveService(d: LeaveDependencies) {
         );
         const selected: LeaveRecord[] = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              LEAVE_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           // Draft is a plain lifecycle state, not an approvalState: it cannot
           // offer approve/reject/return. Keep submitted/revision/terminal reads
           // on the real SDK path, including delegates and historical actors.
           if (view === 'pending' && record.status === 'draft') continue;
           const runs =
             view === 'done' || view === 'copied'
-              ? await approvals.runViewsFor(LEAVE_LIFECYCLE, record.id)
+              ? await runTaskViewsFor(approvals, LEAVE_LIFECYCLE, record.id)
               : [];
           const tasks = runs.flatMap((r) => r.tasks);
           const match =

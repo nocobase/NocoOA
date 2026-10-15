@@ -1,8 +1,6 @@
+import { createAppApprovalService } from '../approval-runtime/query-service.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import {
-  ApprovalService,
-  type Approval,
-} from '@nocobase/app-plugin-approval/server';
+import { type Approval } from '@nocobase/app-plugin-approval/server';
 import {
   LifecycleRuntime,
   type EffectDispatcher,
@@ -16,7 +14,10 @@ import type {
   RepositoryRecord,
 } from '@nocobase/db';
 import type { ApprovalDirectoryService } from '../approval-directory/contract.js';
-import { createAppLifecycleStore } from '../approval-runtime/repository-store.js';
+import {
+  appLifecycleTransaction,
+  createAppLifecycleStore,
+} from '../approval-runtime/repository-store.js';
 import { certificateGraph, type CertificateGraphHost } from './graph.js';
 import type { CertificateTypes } from './graph.js';
 type CertificateServices = CertificateTypes['services'];
@@ -141,7 +142,10 @@ export function createCertificateRuntime(
               },
               {
                 ...options,
-                within: options?.within ?? transactions.getStore(),
+                within:
+                  options?.within ??
+                  appLifecycleTransaction() ??
+                  transactions.getStore(),
               },
             );
         const value: unknown = Reflect.get(target, key);
@@ -165,7 +169,7 @@ export function createCertificateRuntime(
   const runtime = new LifecycleRuntime({ store: wrap(base), dispatcher });
   const definition = certificateGraph(host);
   runtime.register(definition, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [definition.approval as unknown as Approval<never>],
     source,
@@ -210,9 +214,12 @@ export function createCertificateRuntime(
     },
     approvals,
     /** Explicit pure read-model facade; mutation callers use read/write instead. */
-    async query<T>(work: () => Promise<T>): Promise<T> {
-      return queryDirectory.run(await directory.snapshot(), () =>
-        this.read(work),
+    async query<T>(
+      work: (directory: CertificateServices['directory']) => Promise<T>,
+    ): Promise<T> {
+      const snapshot = await directory.snapshot();
+      return queryDirectory.run(snapshot, () =>
+        this.read(() => work(snapshot)),
       );
     },
     definition,
@@ -225,7 +232,8 @@ export function createCertificateRuntime(
     ): Promise<T> {
       return reads.run(
         {
-          directory: await directory.snapshot(connection),
+          directory:
+            queryDirectory.getStore() ?? (await directory.snapshot(connection)),
           ...(await prepare.getStore()?.(connection ?? db.connection())),
           connection: connection ?? db.connection(),
         },

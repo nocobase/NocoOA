@@ -120,6 +120,7 @@ test('registered HTTP durable creation and secure text enforce owner scope and i
     [
       'id',
       'kind',
+      'title',
       'number',
       'applicant',
       'applicantId',

@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { userAdministrationServiceToken } from '@nocobase/app-plugin-authentication';
-import { describe, expect } from 'vitest';
+import { describe, expect, vi } from 'vitest';
+import { withBusinessReads } from '../../../server/providers/request-performance/business-reads.js';
+import { employeeServiceToken } from '../../../server/providers/employees/contract.js';
+import { randomUUID } from 'node:crypto';
 import {
   approvalDirectoryServiceToken,
   type DelegationInput,
@@ -146,6 +149,83 @@ describe('approval directory and proxy delegations', () => {
       actor,
     );
     const directory = await service.snapshot();
+    expect(
+      directory.principalsFor?.(b.userId, 'oa.leave', interval.from),
+    ).toEqual([a.userId]);
+    const employees =
+      testApp.application.container.resolve(employeeServiceToken);
+    const employeeReads = vi.spyOn(employees, 'getByUserIds');
+    try {
+      const candidates = await withBusinessReads(() =>
+        Promise.all(
+          Array.from({ length: 5 }, () => service.candidateSnapshot(c.userId)),
+        ),
+      );
+      expect(employeeReads).toHaveBeenCalledTimes(1);
+      expect(new Set(employeeReads.mock.calls[0][0])).toEqual(
+        new Set([b.userId, c.userId]),
+      );
+      for (const light of candidates) {
+        expect(
+          light.principalsFor?.(c.userId, 'oa.leave', interval.from),
+        ).toEqual([b.userId]);
+        expect(
+          light.principalsFor?.(c.userId, 'oa.leave', interval.to),
+        ).toEqual([]);
+        expect(
+          light.principalsFor?.(c.userId, 'oa.expense', interval.from),
+        ).toEqual([]);
+        expect(
+          light.delegateOf?.(
+            b.userId,
+            'oa.leave',
+            interval.from,
+            interval.from,
+          ),
+        ).toEqual({ to: c.userId, mode: 'proxy' });
+        expect(() => light.hasRole(c.userId, 'hr')).toThrow(
+          'business qualifications',
+        );
+      }
+    } finally {
+      employeeReads.mockRestore();
+    }
+    // Corrupt competing data must still be seen even when it targets another delegate.
+    const conflictId = randomUUID();
+    await testApp.database.repository('approvalDelegations').createOne({
+      values: {
+        id: conflictId,
+        ...input,
+        delegateId: c.userId,
+        source: 'manual',
+        sourceApplication: null,
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    try {
+      const light = await service.candidateSnapshot(b.userId);
+      expect(
+        light.delegateOf?.(a.userId, 'oa.leave', interval.from, interval.from),
+      ).toBeUndefined();
+      expect(
+        light.principalsFor?.(b.userId, 'oa.leave', interval.from),
+      ).toEqual([a.userId]);
+    } finally {
+      await testApp.database
+        .repository('approvalDelegations')
+        .deleteMany({ filter: { id: conflictId } });
+    }
+    expect(
+      directory.principalsFor?.(c.userId, 'oa.leave', interval.from),
+    ).toEqual([b.userId]);
+    expect(
+      directory.principalsFor?.(b.userId, 'oa.expense', interval.from),
+    ).toEqual([]);
+    expect(
+      directory.principalsFor?.(b.userId, 'oa.leave', interval.to),
+    ).toEqual([]);
     expect(
       directory.delegateOf?.(
         a.userId,

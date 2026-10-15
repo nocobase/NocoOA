@@ -1,3 +1,8 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import {
   appointAction,
@@ -10,7 +15,6 @@ import { loanCashActions } from './handling.js';
 
 import { randomUUID } from 'node:crypto';
 import {
-  ApprovalService,
   APPROVAL_COLLECTIONS,
   type TaskRow,
   approvalState,
@@ -1005,7 +1009,7 @@ export function createLoanRequestService(d: LoanRequestDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -1222,16 +1226,17 @@ export function createLoanRequestService(d: LoanRequestDependencies) {
             ids.push(record.id);
             continue;
           }
-          const runs = await runTaskViewsFor(
+          const acted = await hasApprovalTaskActor(
             approvals,
             LOAN_REQUEST_LIFECYCLE,
             record.id,
+            actorId,
           );
           if (
             record.applicantId === actorId ||
             record.createdById === actorId ||
             involvement.length ||
-            runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+            acted ||
             outside.directory.hasRole(actorId, 'finance') ||
             outside.directory.hasRole(actorId, 'cashier') ||
             outside.directory.hasRole(actorId, 'cfo') ||
@@ -1750,6 +1755,18 @@ export function createLoanRequestService(d: LoanRequestDependencies) {
         );
         const selected: LoanRequestRecord[] = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              LOAN_REQUEST_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           const runs =
             view === 'done' || view === 'copied'
               ? await runTaskViewsFor(

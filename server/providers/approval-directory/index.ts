@@ -12,6 +12,7 @@ import {
   DELEGATION_SETTINGS,
 } from './contract.js';
 import { createApprovalDirectoryService } from './service.js';
+import { approvalStatisticsChangesToken } from '../approval-runtime/statistics-contract.js';
 export * from './contract.js';
 export { DelegationError } from './errors.js';
 export { createApprovalDirectoryService } from './service.js';
@@ -25,6 +26,8 @@ export default class ApprovalDirectoryProvider extends ServiceProvider<Applicati
         employees: container.resolve(employeeServiceToken),
         org: container.resolve(orgServiceToken),
         audit: container.resolve(auditServiceToken),
+        statisticsChanges: () =>
+          container.resolve(approvalStatisticsChangesToken),
         authorization: container.has(authorizationToken)
           ? container.resolve(authorizationToken)
           : undefined,

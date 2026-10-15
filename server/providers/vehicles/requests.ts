@@ -1,10 +1,13 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import { reassignAction } from '../process-management/actions.js';
 import { processDirectorySnapshot } from '../process-management/context.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  ApprovalService,
   approvalState,
   defineApproval,
   stagesFor,
@@ -727,7 +730,7 @@ export function createVehicleRequestService(d: VehicleRequestDependencies) {
     ),
   });
   runtime.register(approval, { services });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     services,
@@ -1041,6 +1044,17 @@ export function createVehicleRequestService(d: VehicleRequestDependencies) {
             fail('VEHICLE_FIELDS_RESTRICTED', 'Request identity is required.');
           // The owner facade checks the complete current ordinary field policy before SDK reads.
           const record = await readable(row.id!, actorId, policy);
+          if (
+            view === 'pending' &&
+            rows.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              VEHICLE_LIFECYCLE,
+              row.id,
+              actorId,
+            ))
+          )
+            continue;
           if (view === 'mine' && record.applicantId !== actorId) continue;
           const runs =
             view === 'done' || view === 'copied'
@@ -1132,7 +1146,7 @@ export function createVehicleRequestService(d: VehicleRequestDependencies) {
           .findOne({ filter: { id } });
         const reader = new LifecycleRuntime({ store: child });
         reader.register(approval, { services });
-        const readerApprovals = new ApprovalService(
+        const readerApprovals = createAppApprovalService(
           reader,
           [approval.approval as unknown as Approval<never>],
           services,

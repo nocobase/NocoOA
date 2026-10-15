@@ -1,4 +1,5 @@
 import type { HeadcountService } from '../headcounts/contract.js';
+import { requestConnectionRead } from '../request-performance/business-reads.js';
 import { createHash } from 'node:crypto';
 import {
   lockUserForAdministration,
@@ -480,17 +481,24 @@ export function createEmployeeService(
   async function loadGraph(
     connection?: DatabaseConnection,
   ): Promise<ReportingGraph> {
-    const rows = await conn(connection)
-      .query.selectFrom('employees')
-      .select(['id', 'userId', 'managerId', 'active'])
-      .execute();
-    return buildReportingGraph(
-      rows.map((row) => ({
-        id: str(row.id),
-        userId: str(row.userId),
-        managerId: row.managerId == null ? null : str(row.managerId),
-        active: Boolean(row.active),
-      })),
+    return requestConnectionRead(
+      conn(),
+      conn(connection),
+      'employees.reportingGraph',
+      async () => {
+        const rows = await conn(connection)
+          .query.selectFrom('employees')
+          .select(['id', 'userId', 'managerId', 'active'])
+          .execute();
+        return buildReportingGraph(
+          rows.map((row) => ({
+            id: str(row.id),
+            userId: str(row.userId),
+            managerId: row.managerId == null ? null : str(row.managerId),
+            active: Boolean(row.active),
+          })),
+        );
+      },
     );
   }
 
@@ -508,10 +516,17 @@ export function createEmployeeService(
     userId: string,
     connection?: DatabaseConnection,
   ): Promise<Employee | undefined> {
-    const row = await conn(connection)
-      .repository('employees')
-      .findOne({ filter: { userId } });
-    return row ? (toEmployee(row) as Employee) : undefined;
+    return requestConnectionRead(
+      conn(),
+      conn(connection),
+      `employees.byUser:${JSON.stringify(userId)}`,
+      async () => {
+        const row = await conn(connection)
+          .repository('employees')
+          .findOne({ filter: { userId } });
+        return row ? (toEmployee(row) as Employee) : undefined;
+      },
+    );
   }
 
   async function byIds(
@@ -1008,11 +1023,20 @@ export function createEmployeeService(
 
     async getByUserIds(userIds, connection) {
       if (!userIds.length) return new Map();
-      const rows = await conn(connection)
-        .repository('employees')
-        .findMany({ filter: (f) => anyEq(f, 'userId', [...new Set(userIds)]) });
-      return new Map(
-        rows.map((row) => [str(row.userId), toEmployee(row) as Employee]),
+      return requestConnectionRead(
+        conn(),
+        conn(connection),
+        `employees.byUsers:${JSON.stringify([...new Set(userIds)].sort())}`,
+        async () => {
+          const rows = await conn(connection)
+            .repository('employees')
+            .findMany({
+              filter: (f) => anyEq(f, 'userId', [...new Set(userIds)]),
+            });
+          return new Map(
+            rows.map((row) => [str(row.userId), toEmployee(row) as Employee]),
+          );
+        },
       );
     },
 

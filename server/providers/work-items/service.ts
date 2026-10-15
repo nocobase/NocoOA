@@ -1,4 +1,5 @@
 import { actionMutation } from './action-mutation.js';
+import { requestBusinessRead } from '../request-performance/business-reads.js';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   lockUserForAdministration,
@@ -62,6 +63,23 @@ export function createWorkItemService(d: {
   notify?: (users: string[], id: string, key: string) => Promise<void>;
 }): WorkItemService & { runtime: LifecycleRuntime } {
   const now = () => d.now?.() ?? new Date();
+  const qualificationReads = {};
+  function readQualification<T>(
+    tx: DatabaseConnection,
+    key: string,
+    read: () => Promise<T>,
+  ): Promise<T> {
+    // Only immutable facts in the current GET on the root connection are shared.
+    // Transactional guards, commands and explicit snapshots always read afresh.
+    return tx === d.db.connection()
+      ? requestBusinessRead(qualificationReads, key, read)
+      : read();
+  }
+  function hasDutyRole(actorId: string, role: string, tx: DatabaseConnection) {
+    return readQualification(tx, `duty:${actorId}:${role}`, () =>
+      d.org.hasDutyRole(actorId, role, tx),
+    );
+  }
   const final = (w: WorkItem) => ['completed', 'cancelled'].includes(w.status);
   // Share the authentication administration locks with departure before taking
   // the business row lock. Reassignment during acquisition fails closed.
@@ -99,15 +117,19 @@ export function createWorkItemService(d: {
     }
   }
   async function active(userId: string, tx: DatabaseConnection) {
-    const e = await d.employees.getByUserId(userId, tx);
-    const user = await d.users.withConnection(tx).get(userId);
-    return (
-      !!e?.active &&
-      e.status !== 'left' &&
-      !!user &&
-      user.disabledAt === null &&
-      user.kind === 'person'
-    );
+    return readQualification(tx, `active:${userId}`, async () => {
+      const [e, user] = await Promise.all([
+        d.employees.getByUserId(userId, tx),
+        d.users.withConnection(tx).get(userId),
+      ]);
+      return (
+        !!e?.active &&
+        e.status !== 'left' &&
+        !!user &&
+        user.disabledAt === null &&
+        user.kind === 'person'
+      );
+    });
   }
   async function candidate(
     w: WorkItem,
@@ -117,14 +139,13 @@ export function createWorkItemService(d: {
     return (
       (await active(actorId, tx)) &&
       (w.dutyRoleCode
-        ? await d.org.hasDutyRole(actorId, w.dutyRoleCode, tx)
+        ? await hasDutyRole(actorId, w.dutyRoleCode, tx)
         : w.targetUserId === actorId)
     );
   }
   async function admin(actorId: string, tx: DatabaseConnection) {
     return (
-      (await active(actorId, tx)) &&
-      (await d.org.hasDutyRole(actorId, 'admin', tx))
+      (await active(actorId, tx)) && (await hasDutyRole(actorId, 'admin', tx))
     );
   }
   async function qualification(
@@ -372,7 +393,13 @@ export function createWorkItemService(d: {
     if (p?.read === false) fail('ACCESS_DENIED');
     const repo = tx.repository<WorkItem>('workItems'),
       row = await (p ? repo.withPolicy(p) : repo).findOne({ filter: { id } });
-    if (!row) return undefined;
+    return row ? readableRow(row, actorId, tx) : undefined;
+  }
+  async function readableRow(
+    row: Partial<WorkItem>,
+    actorId: string,
+    tx: DatabaseConnection,
+  ) {
     if (WORK_ITEM_FIELDS.some((k) => !(k in row))) fail('ACCESS_DENIED');
     if (row.requiresConfirmation && !row.confirmationOwnerUserId)
       fail('ACCESS_DENIED');
@@ -386,10 +413,7 @@ export function createWorkItemService(d: {
     if (
       !(await qualification(w, actorId, tx)) &&
       !(await admin(actorId, tx)) &&
-      !(
-        (await active(actorId, tx)) &&
-        (await d.org.hasDutyRole(actorId, 'hr', tx))
-      )
+      !((await active(actorId, tx)) && (await hasDutyRole(actorId, 'hr', tx)))
     )
       return undefined;
     return w;
@@ -605,8 +629,8 @@ export function createWorkItemService(d: {
         )
           return false;
         if (
-          !(await d.org.hasDutyRole(actorId, 'hr', tx)) &&
-          !(await d.org.hasDutyRole(actorId, 'admin', tx))
+          !(await hasDutyRole(actorId, 'hr', tx)) &&
+          !(await hasDutyRole(actorId, 'admin', tx))
         )
           return false;
         const w = await get(id, actorId, tx, policies.view);
@@ -648,8 +672,8 @@ export function createWorkItemService(d: {
             !policies?.view ||
             !policies?.handover ||
             !(await active(input.actorId, tx)) ||
-            (!(await d.org.hasDutyRole(input.actorId, 'hr', tx)) &&
-              !(await d.org.hasDutyRole(input.actorId, 'admin', tx)))
+            (!(await hasDutyRole(input.actorId, 'hr', tx)) &&
+              !(await hasDutyRole(input.actorId, 'admin', tx)))
           )
             fail('ACCESS_DENIED');
           const w = await get(input.id, input.actorId, tx, policies.view);
@@ -1121,7 +1145,7 @@ export function createWorkItemService(d: {
         }),
         items = [];
       for (const row of rows) {
-        const w = await get(row.id!, actorId, tx, p);
+        const w = await readableRow(row, actorId, tx);
         if (!w) continue;
         const available = await actions(w, actorId, tx),
           relevant = available.filter((a) =>

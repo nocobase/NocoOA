@@ -1,3 +1,8 @@
+import { runTaskViewsFor } from '../approval-runtime/task-views.js';
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+} from '../approval-runtime/query-service.js';
 import {
   appointAction,
   reassignAction,
@@ -12,7 +17,6 @@ import {
   type UserAdministrationService,
 } from '@nocobase/app-plugin-authentication';
 import {
-  ApprovalService,
   approvalState,
   defineApproval,
   stagesFor,
@@ -1056,7 +1060,7 @@ export function createPaymentRequestService(d: PaymentRequestDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -1681,9 +1685,28 @@ export function createPaymentRequestService(d: PaymentRequestDependencies) {
         );
       const selected: PaymentRequestRecord[] = [];
       for (const record of records) {
-        const tasks = (
-          await approvals.runViewsFor(PAYMENT_REQUEST_LIFECYCLE, record.id)
-        ).flatMap((run) => run.tasks);
+        if (
+          view === 'pending' &&
+          records.length > 10 &&
+          !(await hasApprovalCandidate(
+            approvals,
+            PAYMENT_REQUEST_LIFECYCLE,
+            record.id,
+            actorId,
+          ))
+        )
+          continue;
+
+        const tasks =
+          view === 'done' || view === 'copied'
+            ? (
+                await runTaskViewsFor(
+                  approvals,
+                  PAYMENT_REQUEST_LIFECYCLE,
+                  record.id,
+                )
+              ).flatMap((run) => run.tasks)
+            : [];
         const match =
           view === 'copied'
             ? tasks.some(

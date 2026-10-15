@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { requestBusinessRead } from '../request-performance/business-reads.js';
 import type { AppAuthorization } from '@nocobase/app-plugin-authorization/server';
 import {
   lockUserForAdministration,
@@ -17,6 +18,8 @@ import type {
   OaApprovalDirectory,
 } from './contract.js';
 import { DelegationError } from './errors.js';
+import type { ApprovalStatisticsChanges } from '../approval-runtime/statistics-contract.js';
+import { candidateDirectory } from '../approval-runtime/candidate-directory.js';
 
 const instant = (value: unknown): string =>
   new Date(String(value)).toISOString();
@@ -49,6 +52,7 @@ export interface DirectoryDependencies {
   audit: AuditService;
   generateId: () => string;
   authorization?: AppAuthorization;
+  statisticsChanges?: () => ApprovalStatisticsChanges;
 }
 export function createApprovalDirectoryService({
   database,
@@ -58,6 +62,7 @@ export function createApprovalDirectoryService({
   audit,
   generateId,
   authorization,
+  statisticsChanges,
 }: DirectoryDependencies): ApprovalDirectoryService {
   const readSnapshots = new AsyncLocalStorage<{
     value?: Promise<OaApprovalDirectory>;
@@ -65,12 +70,113 @@ export function createApprovalDirectoryService({
   function snapshot(
     connection?: DatabaseConnection,
   ): Promise<OaApprovalDirectory> {
+    const indexedRead = candidateDirectory();
+    if (indexedRead) return Promise.resolve(indexedRead);
     const scope = readSnapshots.getStore();
     if (connection || !scope) return buildSnapshot(connection);
     return (scope.value ??= buildSnapshot());
   }
   const connectionOf = (connection?: DatabaseConnection) =>
     connection ?? database.connection();
+  async function candidateSnapshot(
+    actorId: string,
+  ): Promise<OaApprovalDirectory> {
+    const existing = readSnapshots.getStore()?.value;
+    if (existing) return existing;
+    return requestBusinessRead(candidateOwner, actorId, async () => {
+      const tx = database.connection();
+      const incoming = await tx
+        .repository<ApprovalDelegation>('approvalDelegations')
+        .findMany({
+          filter: { active: true, delegateId: actorId },
+        });
+      const principals = [
+        ...new Set([actorId, ...incoming.map((entry) => entry.principalId)]),
+      ];
+      // Include competing outgoing delegations, so ambiguity still fails closed.
+      const entries = (
+        await tx.repository('approvalDelegations').findMany({
+          filter: (f) =>
+            f.and([
+              f.boolean('active').isTrue(),
+              f.or(principals.map((id) => f.string('principalId').eq(id))),
+            ]),
+        })
+      ).map((entry) => row(entry));
+      const ids = [
+        ...new Set([
+          ...principals,
+          ...entries.map((entry) => entry.delegateId),
+        ]),
+      ];
+      const active = await eligibility(ids, []);
+      // Functions cannot be cloned by the request cache. Cache only sampled facts.
+      return { entries, activeIds: ids.filter((id) => active.isActive(id)) };
+    }).then(({ entries, activeIds }) => {
+      const active = new Set(activeIds);
+      const unavailable = (): never => {
+        throw new Error(
+          'Indexed-candidate directory cannot resolve business qualifications.',
+        );
+      };
+      return {
+        isActive: (id: string) => active.has(id),
+        ...delegationLookups(entries, (id) => active.has(id)),
+        managerOf: unavailable,
+        headOf: unavailable,
+        executiveOf: unavailable,
+        hasRole: unavailable,
+        roleMembers: unavailable,
+        uniqueRoleMember: unavailable,
+        searchPeople: unavailable,
+      };
+    });
+  }
+  const candidateOwner = {};
+  async function delegationChanged(
+    before: ApprovalDelegation | undefined,
+    after: ApprovalDelegation,
+    tx: DatabaseConnection,
+  ): Promise<void> {
+    const changes = statisticsChanges?.();
+    if (!changes) return;
+    const entries = before ? [before, after] : [after];
+    const change = {
+      kinds: entries.some((entry) => entry.scope === 'all')
+        ? ('all' as const)
+        : [...new Set(entries.flatMap((entry) => entry.scope as string[]))],
+      userIds: [
+        ...new Set(
+          entries.flatMap((entry) => [entry.principalId, entry.delegateId]),
+        ),
+      ],
+      reason: 'delegationChanged',
+    };
+    await changes.replaceBoundaries(
+      `delegation/${after.id}`,
+      { ...change, reason: 'delegationTimeChanged' },
+      after.active ? [after.from, after.to] : [],
+      tx,
+    );
+    await changes.recompute(change, tx);
+  }
+  function mutate<T>(
+    context: DelegationWriteContext,
+    run: (tx: DatabaseConnection) => Promise<T>,
+  ): Promise<T> {
+    // Dependency edits can change their scope. Acquire all installed gates before
+    // reading old scope/people and before the directory's account lock.
+    const changes = statisticsChanges?.();
+    if (changes)
+      return changes.change(
+        { kinds: 'all', userIds: [], reason: 'delegationChanged' },
+        run,
+        context.connection,
+      );
+    return context.connection
+      ? run(context.connection)
+      : database.transaction(run);
+  }
   async function eligibility(
     userIds: readonly string[],
     roleCodes: readonly string[],
@@ -164,9 +270,11 @@ export function createApprovalDirectoryService({
     const executives = new Map<string, string>();
     const roles = new Map<string, readonly string[]>();
     const departments = await org.primaryDepartmentsOf([...active], tx);
-    // Many employees share a primary department. Resolve its chain once per
-    // fresh snapshot, retaining the caller connection and avoiding a persistent cache.
-    const chains = new Map<string, ReturnType<OrgService['activeChain']>>();
+    // One tree read for all department chains, on the caller connection.
+    const chains = await org.activeChainsOf(
+      [...departments.values()].map((department) => department.id),
+      tx,
+    );
     const managerChains = await employees.managerChainsOf([...active], tx);
     for (const person of people) {
       const manager = (managerChains.get(person.userId) ?? []).find(
@@ -175,12 +283,7 @@ export function createApprovalDirectoryService({
       if (manager) managers.set(person.userId, manager.userId);
       const department = departments.get(person.userId);
       if (!department) continue;
-      let pendingChain = chains.get(department.id);
-      if (!pendingChain) {
-        pendingChain = org.activeChain(department.id, tx);
-        chains.set(department.id, pendingChain);
-      }
-      const chain = await pendingChain;
+      const chain = chains.get(department.id);
       const head = chain?.find(
         (entry) => entry.managerId && active.has(entry.managerId),
       );
@@ -252,25 +355,7 @@ export function createApprovalDirectoryService({
           )
           .map((person) => person.userId)
           .slice(offset, offset + limit),
-      // Existing tasks may be answered during the delegation interval, regardless of assignment time.
-      // Resolve exactly one hop: B's delegation never alters A -> B. Ambiguous concurrent entries fail closed.
-      delegateOf(principal, kind, at) {
-        if (!active.has(principal) || !Number.isFinite(Date.parse(at)))
-          return undefined;
-        const matches = delegations.filter(
-          (entry) =>
-            entry.active &&
-            entry.principalId === principal &&
-            active.has(entry.delegateId) &&
-            entry.delegateId !== principal &&
-            (entry.scope === 'all' || entry.scope.includes(kind)) &&
-            Date.parse(entry.from) <= Date.parse(at) &&
-            Date.parse(at) < Date.parse(entry.to),
-        );
-        return matches.length === 1
-          ? { to: matches[0].delegateId, mode: 'proxy' }
-          : undefined;
-      },
+      ...delegationLookups(delegations, (id) => active.has(id)),
     };
   }
   async function validate(
@@ -408,11 +493,10 @@ export function createApprovalDirectoryService({
         },
         tx,
       );
+      await delegationChanged(before, after, tx);
       return after;
     };
-    return context.connection
-      ? run(context.connection)
-      : database.transaction(run);
+    return mutate(context, run);
   }
   async function disable(
     id: string,
@@ -448,15 +532,15 @@ export function createApprovalDirectoryService({
         },
         tx,
       );
+      await delegationChanged(before, after, tx);
       return after;
     };
-    return context.connection
-      ? run(context.connection)
-      : database.transaction(run);
+    return mutate(context, run);
   }
   return {
     eligibility,
     snapshot,
+    candidateSnapshot,
     withReadSnapshot: (read) => readSnapshots.run({}, read),
     list,
     createManualDelegation: (input, context) =>
@@ -476,6 +560,58 @@ export function createApprovalDirectoryService({
           entry.active
         )
           await disable(entry.id, context, false);
+    },
+  };
+}
+
+/** Shared delegation rules for complete directories and indexed candidate reads. */
+function delegationLookups(
+  delegations: readonly ApprovalDelegation[],
+  isActive: (id: string) => boolean,
+): Pick<OaApprovalDirectory, 'delegateOf' | 'principalsFor'> {
+  const principalsByDelegate = new Map<string, ApprovalDelegation[]>();
+  for (const entry of delegations) {
+    const entries = principalsByDelegate.get(entry.delegateId) ?? [];
+    entries.push(entry);
+    principalsByDelegate.set(entry.delegateId, entries);
+  }
+  return {
+    // Existing tasks may be answered during the delegation interval, regardless of assignment time.
+    // Resolve exactly one hop: B's delegation never alters A -> B. Ambiguous concurrent entries fail closed.
+    delegateOf(principal, kind, at) {
+      if (!isActive(principal) || !Number.isFinite(Date.parse(at)))
+        return undefined;
+      const matches = delegations.filter(
+        (entry) =>
+          entry.active &&
+          entry.principalId === principal &&
+          isActive(entry.delegateId) &&
+          entry.delegateId !== principal &&
+          (entry.scope === 'all' || entry.scope.includes(kind)) &&
+          Date.parse(entry.from) <= Date.parse(at) &&
+          Date.parse(at) < Date.parse(entry.to),
+      );
+      return matches.length === 1
+        ? { to: matches[0].delegateId, mode: 'proxy' }
+        : undefined;
+    },
+    principalsFor(actor, kind, at) {
+      if (!isActive(actor) || !Number.isFinite(Date.parse(at))) return [];
+      return [
+        ...new Set(
+          (principalsByDelegate.get(actor) ?? [])
+            .filter(
+              (entry) =>
+                entry.active &&
+                isActive(entry.principalId) &&
+                entry.principalId !== actor &&
+                (entry.scope === 'all' || entry.scope.includes(kind)) &&
+                Date.parse(entry.from) <= Date.parse(at) &&
+                Date.parse(at) < Date.parse(entry.to),
+            )
+            .map((entry) => entry.principalId),
+        ),
+      ];
     },
   };
 }

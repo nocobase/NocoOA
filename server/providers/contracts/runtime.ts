@@ -1,8 +1,6 @@
+import { createAppApprovalService } from '../approval-runtime/query-service.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import {
-  ApprovalService,
-  type Approval,
-} from '@nocobase/app-plugin-approval/server';
+import { type Approval } from '@nocobase/app-plugin-approval/server';
 import {
   LifecycleRuntime,
   type EffectDispatcher,
@@ -16,7 +14,10 @@ import type {
   RepositoryRecord,
 } from '@nocobase/db';
 import type { ApprovalDirectoryService } from '../approval-directory/contract.js';
-import { createAppLifecycleStore } from '../approval-runtime/repository-store.js';
+import {
+  appLifecycleTransaction,
+  createAppLifecycleStore,
+} from '../approval-runtime/repository-store.js';
 import { contractGraph, type ContractGraphHost } from './graph.js';
 import type { ContractServices } from './types.js';
 /** Public store adapter supplies a fresh synchronous directory inside each SDK transaction. */
@@ -120,7 +121,10 @@ export function createContractRuntime(
               },
               {
                 ...options,
-                within: options?.within ?? transactions.getStore(),
+                within:
+                  options?.within ??
+                  appLifecycleTransaction() ??
+                  transactions.getStore(),
               },
             );
         const value: unknown = Reflect.get(target, key);
@@ -142,7 +146,7 @@ export function createContractRuntime(
   const runtime = new LifecycleRuntime({ store: wrap(base), dispatcher });
   const definition = contractGraph(host);
   runtime.register(definition, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [definition.approval as unknown as Approval<never>],
     source,

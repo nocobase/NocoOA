@@ -1,4 +1,7 @@
 import { matchesCategory, readableSummary } from './summary.js';
+import { measureRequestRead } from '../../providers/request-performance/record-access.js';
+import { pendingCandidateRecordIds } from '../../providers/approval-runtime/pending-candidates.js';
+import { requestUserSummary } from '../../providers/request-performance/user-summaries.js';
 import { approvalDirectoryServiceToken } from '../../providers/approval-directory/index.js';
 import { mapConcurrent } from '../../providers/map-concurrent.js';
 import { batchRoutes } from './batch.js';
@@ -59,7 +62,12 @@ import {
   describeRoute,
   listResponse,
 } from '@nocobase/app-server/router';
-import { RepositoryError, type RepositoryPolicy } from '@nocobase/db';
+import {
+  RepositoryError,
+  narrowRepositoryPolicy,
+  normalizeRepositoryPolicy,
+  type RepositoryPolicy,
+} from '@nocobase/db';
 import { Hono } from 'hono';
 import { cancellationServiceToken } from '../../providers/leave-cancellations/index.js';
 import { leaveServiceToken } from '../../providers/leave/index.js';
@@ -128,10 +136,11 @@ const routes = [
               )?.[collection];
         }
         async function initiator(id: string) {
-          const users = await app.container
-            .resolve(userAdministrationServiceToken)
-            .list({ userIds: [id], pageSize: 1, kind: 'all' });
-          return { id, name: users.items[0]?.name ?? id };
+          const user = await requestUserSummary(
+            app.container.resolve(userAdministrationServiceToken),
+            id,
+          );
+          return { id, name: user?.name ?? id };
         }
         const sources = [
           {
@@ -862,7 +871,65 @@ const routes = [
                 )?.[source.collection];
           if (!policy) return undefined;
           try {
-            return { kind: source.kind, rows: await source.load(policy) };
+            let rows: CenterRecord[];
+            const ids =
+              query.view === 'pending'
+                ? await measureRequestRead(
+                    `approvalCenter.candidates.${source.kind}`,
+                    () =>
+                      pendingCandidateRecordIds(
+                        app,
+                        source.kind,
+                        actorId,
+                        policy,
+                      ),
+                  )
+                : undefined;
+            if (ids === undefined) {
+              rows = await measureRequestRead(
+                `approvalCenter.${query.view}.${source.kind}`,
+                () => source.load(policy),
+              );
+            } else {
+              rows = [];
+              // Exhaust the actor's candidates before global business ordering
+              // and exact total. Page size never truncates source candidates.
+              const collection = ids.length
+                ? await db.collections().get(source.collection)
+                : undefined;
+              for (let offset = 0; offset < ids.length; offset += 1000) {
+                const batch = ids.slice(offset, offset + 1000);
+                const narrowed = narrowRepositoryPolicy(
+                  normalizeRepositoryPolicy(policy),
+                  {
+                    read: {
+                      // Scoped Repository nodes require concrete field names.
+                      // Preserve the original full scalar grant when adding IDs.
+                      fields:
+                        policy.read === true
+                          ? (collection?.fields ?? []).map(
+                              (field) => field.name,
+                            )
+                          : policy.read === false
+                            ? false
+                            : policy.read.fields,
+                      scope: (f) =>
+                        f.or(batch.map((id) => f.string('id').eq(id))),
+                    },
+                  },
+                );
+                rows.push(
+                  ...(await measureRequestRead(
+                    `approvalCenter.${query.view}.${source.kind}`,
+                    () => source.load(narrowed),
+                  )),
+                );
+              }
+            }
+            return {
+              kind: source.kind,
+              rows,
+            };
           } catch (error) {
             if (
               ((error instanceof WorkItemError ||

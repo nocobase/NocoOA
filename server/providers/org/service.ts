@@ -2,6 +2,7 @@ import {
   lockUserForAdministration,
   type UserAdministrationService,
 } from '@nocobase/app-plugin-authentication';
+import { requestConnectionRead } from '../request-performance/business-reads.js';
 import type { AuthorizationTitle } from '@nocobase/authorization/core';
 import type { DatabaseConnection, DatabaseManager } from '@nocobase/db';
 import {
@@ -494,24 +495,31 @@ export function createOrganizationService(
   }
 
   async function loadTree(connection?: DatabaseConnection): Promise<Tree> {
-    const rows = await root(connection)
-      .query.selectFrom('departments')
-      .select([
-        'id',
-        'title',
-        'code',
-        'parentId',
-        'managerId',
-        'executiveId',
-        'active',
-        'sortOrder',
-      ])
-      .execute();
-    return new Map(
-      rows.map((row) => {
-        const node = toNode(row);
-        return [node.id, node];
-      }),
+    return requestConnectionRead(
+      root(),
+      root(connection),
+      'org.departmentTree',
+      async () => {
+        const rows = await root(connection)
+          .query.selectFrom('departments')
+          .select([
+            'id',
+            'title',
+            'code',
+            'parentId',
+            'managerId',
+            'executiveId',
+            'active',
+            'sortOrder',
+          ])
+          .execute();
+        return new Map(
+          rows.map((row) => {
+            const node = toNode(row);
+            return [node.id, node];
+          }),
+        );
+      },
     );
   }
 
@@ -519,21 +527,29 @@ export function createOrganizationService(
     connection: DatabaseConnection,
     where: { userIds?: readonly string[]; departmentIds?: readonly string[] },
   ): Promise<{ departmentId: string; userId: string; primary: boolean }[]> {
-    if (where.departmentIds?.length === 0 || where.userIds?.length === 0)
-      return [];
-    let query = connection.query
-      .selectFrom('departmentMembers')
-      .select(['departmentId', 'userId', 'primary'])
-      .where('active', '=', true);
-    if (where.userIds) query = query.where('userId', 'in', [...where.userIds]);
-    if (where.departmentIds)
-      query = query.where('departmentId', 'in', [...where.departmentIds]);
-    const rows = await query.execute();
-    return rows.map((row) => ({
-      departmentId: text(row.departmentId),
-      userId: text(row.userId),
-      primary: toBoolean(row.primary),
-    }));
+    return requestConnectionRead(
+      root(),
+      connection,
+      `org.memberships:${JSON.stringify([where.userIds ? [...where.userIds].sort() : null, where.departmentIds ? [...where.departmentIds].sort() : null])}`,
+      async () => {
+        if (where.departmentIds?.length === 0 || where.userIds?.length === 0)
+          return [];
+        let query = connection.query
+          .selectFrom('departmentMembers')
+          .select(['departmentId', 'userId', 'primary'])
+          .where('active', '=', true);
+        if (where.userIds)
+          query = query.where('userId', 'in', [...where.userIds]);
+        if (where.departmentIds)
+          query = query.where('departmentId', 'in', [...where.departmentIds]);
+        const rows = await query.execute();
+        return rows.map((row) => ({
+          departmentId: text(row.departmentId),
+          userId: text(row.userId),
+          primary: toBoolean(row.primary),
+        }));
+      },
+    );
   }
 
   async function requireEnabledUser(
@@ -681,25 +697,39 @@ export function createOrganizationService(
   async function activeDutyRoleCodes(
     connection: DatabaseConnection,
   ): Promise<Set<string>> {
-    const rows = await connection.query
-      .selectFrom('dutyRoles')
-      .select('code')
-      .where('active', '=', true)
-      .execute();
-    return new Set(rows.map((row) => text(row.code)));
+    return requestConnectionRead(
+      root(),
+      connection,
+      'org.activeDutyRoleCodes',
+      async () => {
+        const rows = await connection.query
+          .selectFrom('dutyRoles')
+          .select('code')
+          .where('active', '=', true)
+          .execute();
+        return new Set(rows.map((row) => text(row.code)));
+      },
+    );
   }
 
   async function activeDutyRoleMembers(
     connection: DatabaseConnection,
     code: string,
   ): Promise<string[]> {
-    const rows = await connection.query
-      .selectFrom('dutyRoleMembers')
-      .select('userId')
-      .where('dutyRoleCode', '=', code)
-      .where('active', '=', true)
-      .execute();
-    return rows.map((row) => text(row.userId)).sort();
+    return requestConnectionRead(
+      root(),
+      connection,
+      `org.dutyMembers:${JSON.stringify(code)}`,
+      async () => {
+        const rows = await connection.query
+          .selectFrom('dutyRoleMembers')
+          .select('userId')
+          .where('dutyRoleCode', '=', code)
+          .where('active', '=', true)
+          .execute();
+        return rows.map((row) => text(row.userId)).sort();
+      },
+    );
   }
 
   function dutyRoleOption(role: DutyRoleView): SubjectOption {
@@ -752,6 +782,15 @@ export function createOrganizationService(
         toDepartment,
       );
     },
+    async activeChainsOf(departmentIds, connection) {
+      const tree = await loadTree(connection);
+      return new Map(
+        [...new Set(departmentIds)].map((id) => [
+          id,
+          activeChainOf(tree, id)?.map(toDepartment),
+        ]),
+      );
+    },
 
     async subtreeIds(departmentId, connection) {
       const tree = await loadTree(connection);
@@ -788,6 +827,7 @@ export function createOrganizationService(
     },
 
     async dutyRoleMembersByCodes(codes, connection) {
+      if (!codes.length) return new Map();
       const target = root(connection);
       const active = await activeDutyRoleCodes(target);
       const selected = [...new Set(codes)].filter((code) => active.has(code));
@@ -810,18 +850,25 @@ export function createOrganizationService(
     },
 
     async listPositions(connection) {
-      const rows = await root(connection)
-        .query.selectFrom('positions')
-        .selectAll()
-        .execute();
-      return rows
-        .map(toPosition)
-        .sort(
-          (left, right) =>
-            left.sortOrder - right.sortOrder ||
-            left.title.localeCompare(right.title) ||
-            left.id.localeCompare(right.id),
-        );
+      return requestConnectionRead(
+        root(),
+        root(connection),
+        'org.positions',
+        async () => {
+          const rows = await root(connection)
+            .query.selectFrom('positions')
+            .selectAll()
+            .execute();
+          return rows
+            .map(toPosition)
+            .sort(
+              (left, right) =>
+                left.sortOrder - right.sortOrder ||
+                left.title.localeCompare(right.title) ||
+                left.id.localeCompare(right.id),
+            );
+        },
+      );
     },
 
     async listGrades(connection) {
@@ -1546,17 +1593,24 @@ export function createOrganizationService(
 
     async dutyRolesOf(userId, connection) {
       const target = root(connection);
-      const rows = await target.query
-        .selectFrom('dutyRoleMembers')
-        .select('dutyRoleCode')
-        .where('userId', '=', userId)
-        .where('active', '=', true)
-        .execute();
-      if (!rows.length) return [];
-      const active = await activeDutyRoleCodes(target);
-      return rows
-        .map((row) => text(row.dutyRoleCode))
-        .filter((code) => active.has(code));
+      return requestConnectionRead(
+        root(),
+        target,
+        `org.dutiesOf:${JSON.stringify(userId)}`,
+        async () => {
+          const rows = await target.query
+            .selectFrom('dutyRoleMembers')
+            .select('dutyRoleCode')
+            .where('userId', '=', userId)
+            .where('active', '=', true)
+            .execute();
+          if (!rows.length) return [];
+          const active = await activeDutyRoleCodes(target);
+          return rows
+            .map((row) => text(row.dutyRoleCode))
+            .filter((code) => active.has(code));
+        },
+      );
     },
 
     async filterActiveDutyRoles(codes, connection) {

@@ -1,3 +1,8 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import {
   appointAction,
@@ -9,7 +14,6 @@ import { lockUserForAdministration } from '@nocobase/app-plugin-authentication';
 import { randomUUID } from 'node:crypto';
 import {
   isOpenRun,
-  ApprovalService,
   approvalState,
   defineApproval,
   stagesFor,
@@ -487,7 +491,7 @@ export function createOutingService(d: OutingDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -648,10 +652,11 @@ export function createOutingService(d: OutingDependencies) {
             ids.push(record.id);
             continue;
           }
-          const runs = await runTaskViewsFor(
+          const acted = await hasApprovalTaskActor(
             approvals,
             OUTING_LIFECYCLE,
             record.id,
+            actorId,
           );
           let head = false;
           const dept = await d.org.primaryDepartmentOf(record.applicantId);
@@ -665,7 +670,7 @@ export function createOutingService(d: OutingDependencies) {
             record.applicantId === actorId ||
             record.createdById === actorId ||
             involvement.length ||
-            runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+            acted ||
             outside.directory.hasRole(actorId, 'hr') ||
             outside.directory.hasRole(actorId, 'gm') ||
             outside.directory.hasRole(actorId, 'approval.admin') ||
@@ -865,6 +870,18 @@ export function createOutingService(d: OutingDependencies) {
         );
         const selected: OutingRecord[] = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              OUTING_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           const runs =
             view === 'done' || view === 'copied'
               ? await runTaskViewsFor(approvals, OUTING_LIFECYCLE, record.id)

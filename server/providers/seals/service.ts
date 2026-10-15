@@ -1,5 +1,6 @@
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { hasApprovalCandidate } from '../approval-runtime/query-service.js';
 import { randomUUID } from 'node:crypto';
 import {
   defineEffect,
@@ -702,6 +703,18 @@ export function createSealApplication(d: SealDependencies) {
       return engine.query(async () => {
         const selected = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              engine.approvals,
+              SEAL_KIND,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           if (view === 'mine' && record.applicantId !== actorId) continue;
           if (view !== 'mine') {
             const runs =

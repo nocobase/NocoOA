@@ -1,7 +1,24 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import type { DatabaseConnection } from '@nocobase/db';
 import {
   createRepositoryLifecycleStore,
   type LifecycleStore,
 } from '@nocobase/lifecycle';
+
+const joinedTransactions = new AsyncLocalStorage<DatabaseConnection>();
+
+/** For owning adapters that decide whether to acquire a separate business gate. */
+export function appLifecycleTransaction(): DatabaseConnection | undefined {
+  return joinedTransactions.getStore();
+}
+
+/** Join owner runtimes through the SDK's public same-store/savepoint contract. */
+export function withAppLifecycleTransaction<T>(
+  connection: DatabaseConnection,
+  work: () => Promise<T>,
+): Promise<T> {
+  return joinedTransactions.run(connection, work);
+}
 
 /** SQLite may return an integer foreign reference stored in VARCHAR as "N.0". */
 export function canonicalTransitionReference(id: string): string {
@@ -26,7 +43,14 @@ export function createAppLifecycleStore(
           return <T>(
             callback: (child: LifecycleStore) => Promise<T>,
             options?: Parameters<LifecycleStore['transaction']>[1],
-          ) => target.transaction((child) => callback(wrap(child)), options);
+          ) =>
+            target.transaction((child) => callback(wrap(child)), {
+              ...options,
+              within:
+                options?.within ??
+                target.transactionHandle ??
+                joinedTransactions.getStore(),
+            });
         if (property === 'findTransition')
           return (id: string) =>
             target.findTransition(canonicalTransitionReference(id));

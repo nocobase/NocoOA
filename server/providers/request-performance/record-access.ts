@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { AppAuthorization } from '@nocobase/app-plugin-authorization/server';
+import { withRequestSqlScope } from './sql.js';
 
 type Registry = AppAuthorization['recordAccess'];
 const reads = new AsyncLocalStorage<
@@ -14,6 +15,25 @@ export async function measureRequestScopes<T>(read: () => Promise<T>) {
   const timings = new Map<string, { count: number; ms: number }>();
   const result = await measurements.run(timings, read);
   return { result, timings };
+}
+
+/** Fixed operation names only; never include record or user identifiers. */
+export async function measureRequestRead<T>(
+  name: string,
+  read: () => Promise<T>,
+) {
+  const start = performance.now();
+  try {
+    return await withRequestSqlScope(name, read);
+  } finally {
+    const timings = measurements.getStore();
+    if (timings) {
+      const entry = timings.get(name) ?? { count: 0, ms: 0 };
+      entry.count++;
+      entry.ms += performance.now() - start;
+      timings.set(name, entry);
+    }
+  }
 }
 
 /** Only read requests may reuse an application data-scope resolution. */

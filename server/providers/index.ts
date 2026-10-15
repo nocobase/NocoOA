@@ -26,6 +26,7 @@ import PaymentRequestsProvider from './payment-requests/index.js';
 import ReimbursementProvider from './reimbursement/index.js';
 import VendorsProvider from './vendors/index.js';
 import PurchasesProvider from './purchases/index.js';
+import ApprovalQueryProvider from './approval-runtime/index.js';
 import TravelProvider from './travel/index.js';
 import TravelCancellationProvider from './travel/cancellation-provider.js';
 import FinanceAssignmentsProvider from './finance-assignments/index.js';
@@ -122,6 +123,7 @@ const serviceProviders: readonly ApplicationServiceProviderConstructor[] = [
   TransferProvider,
   DepartureReassignmentProvider,
   ProcessManagementProvider,
+  ApprovalQueryProvider,
 ];
 
 export default serviceProviders;

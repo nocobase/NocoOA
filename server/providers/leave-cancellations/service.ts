@@ -1,3 +1,8 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import {
   appointAction,
@@ -8,7 +13,6 @@ import { createAppLifecycleStore } from '../approval-runtime/repository-store.js
 import { lockUserForAdministration } from '@nocobase/app-plugin-authentication';
 import { randomUUID } from 'node:crypto';
 import {
-  ApprovalService,
   approvalState,
   defineApproval,
   stagesFor,
@@ -165,6 +169,28 @@ export function createCancellationService(d: CancellationDependencies) {
   function wrap(store: LifecycleStore): LifecycleStore {
     return new Proxy(store, {
       get(target, key) {
+        if (key === 'findRecord')
+          return async (...args: Parameters<LifecycleStore['findRecord']>) => {
+            const record = await target.findRecord(...args);
+            if (!record || args[0] !== 'leaveCancellations') return record;
+            // Match submit's canonical half-day string before freeze/hash checks;
+            // PostgreSQL returns decimals such as "1.00" on subsequent reads.
+            const days = Number(record.days);
+            if (
+              (typeof record.days !== 'string' &&
+                typeof record.days !== 'number') ||
+              !Number.isFinite(days) ||
+              days < 0 ||
+              days > 999999.99 ||
+              !Number.isSafeInteger(days * 2)
+            )
+              throw new LeaveError(
+                'LEAVE_FACT_INVALID',
+                'Stored cancellation days must be a finite nonnegative half-day amount.',
+                'precondition',
+              );
+            return { ...record, days: String(days) };
+          };
         const policy = writePolicy.getStore();
         if (policy && key === 'createRecord')
           return async (
@@ -616,7 +642,7 @@ export function createCancellationService(d: CancellationDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -812,10 +838,11 @@ export function createCancellationService(d: CancellationDependencies) {
             ids.push(record.id);
             continue;
           }
-          const runs = await runTaskViewsFor(
+          const acted = await hasApprovalTaskActor(
             approvals,
             CANCELLATION_LIFECYCLE,
             record.id,
+            actorId,
           );
           let head = false;
           const dept = await d.org.primaryDepartmentOf(record.applicantId);
@@ -829,7 +856,7 @@ export function createCancellationService(d: CancellationDependencies) {
             record.applicantId === actorId ||
             record.createdById === actorId ||
             involvement.length ||
-            runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+            acted ||
             outside.directory.hasRole(actorId, 'hr') ||
             outside.directory.hasRole(actorId, 'gm') ||
             outside.directory.hasRole(actorId, 'approval.admin') ||
@@ -1121,6 +1148,18 @@ export function createCancellationService(d: CancellationDependencies) {
         );
         const selected: CancellationRecord[] = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              CANCELLATION_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           const runs =
             view === 'done' || view === 'copied'
               ? await runTaskViewsFor(

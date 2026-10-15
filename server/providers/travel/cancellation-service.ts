@@ -1,3 +1,8 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import {
   appointAction,
@@ -9,7 +14,6 @@ import { z } from 'zod';
 import { bookingPolicy, bookingActions } from './handling.js';
 import { randomUUID } from 'node:crypto';
 import {
-  ApprovalService,
   isOpenRun,
   approvalState,
   defineApproval,
@@ -578,7 +582,7 @@ export function createTravelCancellationService(
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -742,10 +746,11 @@ export function createTravelCancellationService(
             ids.push(record.id);
             continue;
           }
-          const runs = await runTaskViewsFor(
+          const acted = await hasApprovalTaskActor(
             approvals,
             TRAVEL_CANCELLATION_LIFECYCLE,
             record.id,
+            actorId,
           );
           let head = false;
           const dept = await d.org.primaryDepartmentOf(record.applicantId);
@@ -759,7 +764,7 @@ export function createTravelCancellationService(
             record.applicantId === actorId ||
             record.createdById === actorId ||
             involvement.length ||
-            runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+            acted ||
             ['finance', 'financeManager', 'cfo', 'gm'].some((role) =>
               outside.directory.hasRole(actorId, role),
             ) ||
@@ -979,6 +984,18 @@ export function createTravelCancellationService(
         );
         const selected: TravelCancellationRecord[] = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              TRAVEL_CANCELLATION_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           const runs =
             view === 'done' || view === 'copied'
               ? await runTaskViewsFor(

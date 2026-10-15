@@ -1,3 +1,8 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+  hasApprovalTaskActor,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
 import {
   appointAction,
@@ -9,7 +14,6 @@ import { lockUserForAdministration } from '@nocobase/app-plugin-authentication';
 import { randomUUID } from 'node:crypto';
 import {
   isOpenRun,
-  ApprovalService,
   APPROVAL_COLLECTIONS,
   type TaskRow,
   approvalState,
@@ -807,7 +811,7 @@ export function createExpensePlanService(d: ExpensePlanDependencies) {
     ),
   });
   runtime.register(approval, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -992,10 +996,11 @@ export function createExpensePlanService(d: ExpensePlanDependencies) {
             ids.push(record.id);
             continue;
           }
-          const runs = await runTaskViewsFor(
+          const acted = await hasApprovalTaskActor(
             approvals,
             EXPENSE_PLAN_LIFECYCLE,
             record.id,
+            actorId,
           );
           const head = Boolean(
             (record.departmentId
@@ -1007,7 +1012,7 @@ export function createExpensePlanService(d: ExpensePlanDependencies) {
             record.applicantId === actorId ||
             record.createdById === actorId ||
             involvement.length ||
-            runs.some((r) => r.tasks.some((t) => t.actorId === actorId)) ||
+            acted ||
             outside.directory.hasRole(actorId, 'finance') ||
             record.executiveApproverId === actorId ||
             outside.directory.hasRole(actorId, 'gm') ||
@@ -1230,6 +1235,18 @@ export function createExpensePlanService(d: ExpensePlanDependencies) {
         );
         const selected: ExpensePlanRecord[] = [];
         for (const record of records) {
+          if (
+            view === 'pending' &&
+            records.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              EXPENSE_PLAN_LIFECYCLE,
+              record.id,
+              actorId,
+            ))
+          )
+            continue;
+
           const runs =
             view === 'done' || view === 'copied'
               ? await runTaskViewsFor(

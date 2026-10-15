@@ -1,9 +1,7 @@
+import { createAppApprovalService } from '../approval-runtime/query-service.js';
 import { createAppLifecycleStore } from '../approval-runtime/repository-store.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import {
-  ApprovalService,
-  type Approval,
-} from '@nocobase/app-plugin-approval/server';
+import { type Approval } from '@nocobase/app-plugin-approval/server';
 import {
   LifecycleRuntime,
   type EffectDispatcher,
@@ -139,7 +137,7 @@ export function createQualificationRuntime(
   const runtime = new LifecycleRuntime({ store: wrap(base), dispatcher });
   const definition = qualificationGraph(host);
   runtime.register(definition, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [definition.approval as unknown as Approval<never>],
     source,

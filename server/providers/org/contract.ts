@@ -63,6 +63,10 @@ export interface OrgService {
     departmentId: string,
     connection?: DatabaseConnection,
   ): Promise<readonly Department[] | undefined>;
+  activeChainsOf(
+    departmentIds: readonly string[],
+    connection?: DatabaseConnection,
+  ): Promise<ReadonlyMap<string, readonly Department[] | undefined>>;
   /** The department's id plus every active descendant id. */
   subtreeIds(
     departmentId: string,

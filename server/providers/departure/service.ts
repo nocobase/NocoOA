@@ -1,7 +1,15 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+} from '../approval-runtime/query-service.js';
 import { runTaskViewsFor } from '../approval-runtime/task-views.js';
-import { createAppLifecycleStore } from '../approval-runtime/repository-store.js';
+import {
+  appLifecycleTransaction,
+  createAppLifecycleStore,
+} from '../approval-runtime/repository-store.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { candidateDirectory } from '../approval-runtime/candidate-directory.js';
 import {
   lockUserForAdministration,
   type UserAdministrationService,
@@ -33,7 +41,6 @@ import {
 import { departureCreateSchema, departureEditSchema } from './validation.js';
 
 import {
-  ApprovalService,
   type Approval,
   type PerformInput,
 } from '@nocobase/app-plugin-approval/server';
@@ -205,8 +212,14 @@ export function createDepartureService(d: DepartureDependencies) {
                 },
                 { ...options, ...(within ? { within } : {}) },
               );
-            if (options?.within || !d.headcounts || readDirectory.getStore())
-              return join(options?.within);
+            const within = options?.within ?? appLifecycleTransaction();
+            if (
+              within ||
+              !d.headcounts ||
+              readDirectory.getStore() ||
+              candidateDirectory()
+            )
+              return join(within);
             return d.headcounts.within(d.db.connection(), (locked) =>
               join(locked),
             );
@@ -565,7 +578,7 @@ export function createDepartureService(d: DepartureDependencies) {
   runtime.register(departureWorkLifecycle(d), { services: source });
   const execution = departureExecution(d, runtime);
   runtime.register(execution.definition, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [approval.approval as unknown as Approval<never>],
     source,
@@ -1103,6 +1116,17 @@ export function createDepartureService(d: DepartureDependencies) {
               'Complete public departure fields are required.',
               'permission',
             );
+          if (
+            view === 'pending' &&
+            rows.length > 10 &&
+            !(await hasApprovalCandidate(
+              approvals,
+              DEPARTURE_LIFECYCLE,
+              row.id,
+              actorId,
+            ))
+          )
+            continue;
           try {
             await canRead(String(row.id), actorId, policy);
             const runs =

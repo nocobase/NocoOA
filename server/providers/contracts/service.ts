@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hasApprovalAssignment } from '../approval-runtime/query-service.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServiceToken } from '@nocobase/service-provider';
 import {
@@ -376,11 +377,9 @@ export function createContractService(d: Dependencies) {
     },
     d.dispatcher,
   );
-  async function read(id: string, actorId: string, policy?: RepositoryPolicy) {
-    const repo = d.db.repository<ContractRequest>('contractRequests');
-    const row = await (policy ? repo.withPolicy(policy) : repo).findOne({
-      filter: { id },
-    });
+  function policyRecord(
+    row: Partial<ContractRequest> | undefined,
+  ): ContractRequest {
     if (
       !row ||
       !row.id ||
@@ -401,6 +400,15 @@ export function createContractService(d: Dependencies) {
       ].some((key) => !(key in row))
     )
       fail('FIELDS_RESTRICTED', 'Complete contract fields are required.');
+    return { ...row, amountCents: Number(row.amountCents) } as ContractRequest;
+  }
+  async function read(id: string, actorId: string, policy?: RepositoryPolicy) {
+    const repo = d.db.repository<ContractRequest>('contractRequests');
+    const row = policyRecord(
+      await (policy ? repo.withPolicy(policy) : repo).findOne({
+        filter: { id },
+      }),
+    );
     if (policy)
       return {
         ...row,
@@ -1367,17 +1375,22 @@ export function createContractService(d: Dependencies) {
         });
       const result: ContractRequest[] = [];
       for (const row of rows) {
-        const record = await read(
-          typeof row.id === 'string'
-            ? row.id
-            : fail('STORED_ID_INVALID', 'Stored ledger identity is invalid.'),
-          actorId,
-          policy,
-        );
+        if (typeof row.id !== 'string')
+          fail('STORED_ID_INVALID', 'Stored ledger identity is invalid.');
+        const record = policyRecord(row);
         if (view === 'all') {
           result.push(record);
           continue;
         }
+        if (
+          !(await hasApprovalAssignment(
+            kit.approvals,
+            CONTRACT_KIND,
+            record.id,
+            actorId,
+          ))
+        )
+          continue;
         const tasks = await kit.read(() =>
           kit.approvals.tasksFor(CONTRACT_KIND, record.id),
         );

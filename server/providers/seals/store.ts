@@ -1,8 +1,6 @@
+import { createAppApprovalService } from '../approval-runtime/query-service.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import {
-  ApprovalService,
-  type Approval,
-} from '@nocobase/app-plugin-approval/server';
+import { type Approval } from '@nocobase/app-plugin-approval/server';
 import {
   LifecycleRuntime,
   type EffectDispatcher,
@@ -16,7 +14,10 @@ import type {
   RepositoryRecord,
 } from '@nocobase/db';
 import type { ApprovalDirectoryService } from '../approval-directory/contract.js';
-import { createAppLifecycleStore } from '../approval-runtime/repository-store.js';
+import {
+  appLifecycleTransaction,
+  createAppLifecycleStore,
+} from '../approval-runtime/repository-store.js';
 import { sealGraph, type SealGraphHost } from './graph.js';
 import type { SealTypes } from './graph.js';
 type SealServices = SealTypes['services'];
@@ -136,7 +137,10 @@ export function createSealRuntime(
               },
               {
                 ...options,
-                within: options?.within ?? transactions.getStore(),
+                within:
+                  options?.within ??
+                  appLifecycleTransaction() ??
+                  transactions.getStore(),
               },
             );
         const value: unknown = Reflect.get(target, key);
@@ -158,7 +162,7 @@ export function createSealRuntime(
   const runtime = new LifecycleRuntime({ store: wrap(base), dispatcher });
   const definition = sealGraph(host);
   runtime.register(definition, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [definition.approval as unknown as Approval<never>],
     source,

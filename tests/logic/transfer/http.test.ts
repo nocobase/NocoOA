@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { organizationServiceToken } from '../../../server/providers/org/index.js';
 import { employeeServiceToken } from '../../../server/providers/employees/contract.js';
 import { salaryGradeServiceToken } from '../../../server/providers/job-grades/contract.js';
+import { calendarServiceToken } from '../../../server/providers/platform/index.js';
 import { expect } from 'vitest';
 import { databaseManagerToken } from '@nocobase/db';
 import {
@@ -182,7 +183,9 @@ test('default candidate grants permit real HR creation and refuse unrelated acto
       targetPositionId: position.id,
       targetGradeId: grade.id,
       targetManagerId: manager.employeeId,
-      effectiveDate: '2026-10-11',
+      effectiveDate: testApp.application.container
+        .resolve(calendarServiceToken)
+        .localDate(new Date()),
       targetSalary: '1100.00',
       sourceAccountId: null,
       targetAccountId: null,

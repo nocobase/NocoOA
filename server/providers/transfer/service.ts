@@ -1,4 +1,9 @@
+import {
+  hasApprovalCandidate,
+  createAppApprovalService,
+} from '../approval-runtime/query-service.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { candidateDirectory } from '../approval-runtime/candidate-directory.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type {
   DatabaseConnection,
@@ -14,7 +19,6 @@ import {
   type JsonObject,
 } from '@nocobase/lifecycle';
 import {
-  ApprovalService,
   type Approval,
   type PerformInput,
 } from '@nocobase/app-plugin-approval/server';
@@ -28,7 +32,10 @@ import type { AuditService } from '../audit/index.js';
 import type { ApprovalDirectoryService } from '../approval-directory/contract.js';
 import type { ApprovalNotificationService } from '../approval-notifications/contract.js';
 import { createOaApprovalOperations } from '../approval-directory/operations.js';
-import { createAppLifecycleStore } from '../approval-runtime/repository-store.js';
+import {
+  appLifecycleTransaction,
+  createAppLifecycleStore,
+} from '../approval-runtime/repository-store.js';
 import {
   createTransferApproval,
   TRANSFER_LIFECYCLE,
@@ -190,7 +197,10 @@ export function createTransferService(d: TransferDependencies) {
             work: (child: LifecycleStore) => Promise<T>,
             options?: Parameters<LifecycleStore['transaction']>[1],
           ) => {
-            const within = options?.within ?? context.getStore()?.tx;
+            const within =
+              options?.within ??
+              appLifecycleTransaction() ??
+              context.getStore()?.tx;
             const join = (tx: unknown) =>
               target.transaction(
                 async (child) => {
@@ -210,7 +220,7 @@ export function createTransferService(d: TransferDependencies) {
               );
             return within
               ? join(within)
-              : readDirectory.getStore()
+              : readDirectory.getStore() || candidateDirectory()
                 ? join(undefined)
                 : d.headcounts.within(d.db.connection(), join);
           };
@@ -594,7 +604,7 @@ export function createTransferService(d: TransferDependencies) {
   const source = (handle: unknown) =>
     handle ? directories.get(handle)! : outside;
   runtime.register(definition, { services: source });
-  const approvals = new ApprovalService(
+  const approvals = createAppApprovalService(
     runtime,
     [definition.approval as unknown as Approval<never>],
     source,
@@ -1439,6 +1449,18 @@ export function createTransferService(d: TransferDependencies) {
         refuse('TRANSFER_FORBIDDEN');
       const items: TransferCenterItem[] = [];
       for (const row of rows as TransferRecord[]) {
+        if (
+          view === 'pending' &&
+          rows.length > 10 &&
+          !(await hasApprovalCandidate(
+            approvals,
+            TRANSFER_LIFECYCLE,
+            row.id,
+            actorId,
+          ))
+        )
+          continue;
+
         let included = false;
         if (view === 'mine') included = row.applicantId === actorId;
         else if (view === 'pending')

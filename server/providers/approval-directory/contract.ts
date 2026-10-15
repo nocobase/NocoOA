@@ -47,6 +47,9 @@ export interface ApprovalDirectoryService {
   ): Promise<Pick<OaApprovalDirectory, 'isActive' | 'hasRole'>>;
   /** Fresh synchronous directory; acquire within the lifecycle transaction before planning or answering. */
   snapshot(connection?: DatabaseConnection): Promise<OaApprovalDirectory>;
+  /** Only for public taskCandidates reads: active people and one-hop delegation.
+   * Qualification/assignment methods reject use outside that bounded contract. */
+  candidateSnapshot(actorId: string): Promise<OaApprovalDirectory>;
   /** Share a fresh directory only inside a read operation; explicit transactional snapshots remain independent. */
   withReadSnapshot<T>(read: () => Promise<T>): Promise<T>;
   list(connection?: DatabaseConnection): Promise<ApprovalDelegation[]>;
