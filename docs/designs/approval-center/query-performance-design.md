@@ -32,4 +32,6 @@ candidateSnapshot只预取当前人及反向代理涉及的有效员工/账号�
 
 ## 发布内核复测（2026-10-15）
 
-可用的授权/认证/用户及所需通知兼容链、config/logging/session/snowflake和测试内核已更新；db/server/client/cli/lifecycle当前没有更新的发布版。新授权实现仍逐key读取权限集并获取物理结构，实测请求仍约514条SQL，没有消除本契约所列剩余成本。版本、完整分组与前后对照见[内核升级记录](../../records/approval-center/kernel-upgrade-query-check-2026-10-15.md)。
+可用的授权/认证/用户及所需通知兼容链、config/logging/session/snowflake和测试内核已更新；首轮核对时db/server/client/cli/lifecycle没有更新的发布版。新授权实现仍逐key读取权限集并获取物理结构，实测请求仍约514条SQL，没有消除本契约所列剩余成本。版本、完整分组与前后对照见[内核升级记录](../../records/approval-center/kernel-upgrade-query-check-2026-10-15.md)。
+
+后续于同日10:44–10:49（+08:00）再次核对并升级db beta.20、app-server beta.7、app-cli beta.22及配套认证/测试内核。事务元数据命名快照复用使最终分组从514降到487条SQL；普通请求样本为487–492条、126–162ms。结构及元数据相关查询349降到322，但物理结构检查236、权限集读取42、每来源事务仍未减少，不能据此认定查询放大已解决。数据库驱动没有更新版本，迁移预览无待执行项，9文件39项回归通过；完整窗口与验证限制续记于上述内核升级记录。
