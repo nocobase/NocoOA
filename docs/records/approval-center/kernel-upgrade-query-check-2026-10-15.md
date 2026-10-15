@@ -99,3 +99,56 @@ app-testing同时引入db-testing 0.1.0-beta.2。PostgreSQL驱动仍为0.1.0-bet
 - pnpm peers check仍仅报告既有Tiptap core/pm与菜单扩展版本不匹配，无新增NocoBase peer冲突；前轮已记录的登录文案失败未在本轮重复运行。
 
 当前17000已加载本轮更新。原工作区依赖、业务查询源码及私有配置未改；此记录不代表生产发布、并发压测或用户原super admin会话验收。
+
+## 487条SQL调用链追查（2026-10-15 11:05 +08:00）
+
+本节逐项核对上一轮保存的487条完整分组，并以同一演示账号重新登录、读取受保护OpenAPI、调用相同GET（附sqlProfile=true）。新请求489条、193ms、返回3/total3；相对487只增加两条代理读取，其他分类完全一致。SQL计数器的并发请求隔离、连接隔离、去监听、失败路径、结束后任务排除及分组脱敏三项测试再次通过。以下基于487样本，不将不同时间窗口混成同一请求；分析没有修改业务读取实现。
+
+### 两种互不混算的分解
+
+按SQL类型：
+
+| 类型                       | 数量 | 来源                                             |
+| -------------------------- | ---- | ------------------------------------------------ |
+| 物理结构与Collection元数据 | 322  | catalog 236 + Collection元数据59 + 缓存版本27    |
+| 权限集定义                 | 42   | 42个不同key逐项get，不是一个key重复42次          |
+| 事务控制                   | 54   | BEGIN26、COMMIT26、SAVEPOINT1、RELEASE1          |
+| 审批任务查询               | 28   | 25个普通来源候选 + 证明办理3次                   |
+| 其他数据读取               | 41   | 账号/人员/组织/权限分配、业务记录、审批run/event |
+| 合计                       | 487  | 其中前三类418条，占85.8%                         |
+
+按调用阶段，数目同样闭合：授权结构描述145 + 普通候选225 + 权限集42 + 证明办理40 + 其余共享事实/业务读取35 = 487。后一个分解包含事务等成本，不与前一个表相加。
+
+### 授权描述每次重新检查物理结构：145条
+
+应用server/routes/approval-center/index.ts:850附近遍历28个来源，每个来源先调用authz.authorize，再读取候选；工作任务与公告还使用自身业务动作授权。聚合分组在request阶段出现29组不同结构/元数据参数，每组均为4条catalog查询加1条Collection元数据查询，合计29×5=145。
+
+已安装app-plugin-authorization beta.27的server/database/collections.js:35–47在describeCollection内先collections.get(name)，随后无条件getPhysical(name)，用于主键与generatedPrimaryKey描述。db beta.20的registry.js:47–51中getPhysical绕过getResolutionInternal的cache/inFlight，直接inspectLogicalCollection；后者同时调用物理检查器和metadataStore.get。PostgreSQL检查器进一步分表标识、列、约束、索引四次查catalog。因此已有逻辑Collection缓存不代表这条物理检查路径命中缓存；super admin的authorizeUnrestricted也要经过collection描述。
+
+这是授权插件与DB契约结合处的问题。授权应使用DB统一维护、可失效的结构快照；若getPhysical的公共语义要求强制新检查，应新增可复用的结构描述能力，保留显式refresh路径。不能在应用跳过字段/记录策略，也不能把getResolution误当成已包含完整physical schema（当前结果仅有collection/inspection/warnings）。
+
+### 每个候选来源独立事务并重新解析同一任务表：225条
+
+server/providers/approval-runtime/pending-candidates.ts:65–80按来源调用query.taskCandidates，空结果只停止该来源的后续业务加载。审批插件query.js:306–313强制通过source.input.runtime.transaction执行；candidates方法查询相同approvalTasks，以source、当前人/代理及OPEN状态过滤。
+
+此样本共25个普通候选来源；每个来源的共同成本是BEGIN1 + 缓存版本1 + 物理catalog4 + Collection元数据1 + approvalTasks查询1 + COMMIT1 = 9条。25×9=225；recruitment候选scope另外归属了12条共享目录读取，单独计入其余35条，不能把它当成recruitment独有成本。
+
+db的KnexDatabaseConnection构造器每次创建CollectionRegistry；transaction创建新的KnexDatabaseConnection，因此即使25次都读取同一任务表，也有25份事务内首次结构解析。beta.20共享的是符合代际条件的命名快照，不是完整的已解析Collection/物理结构缓存。这解释了升级只降低27条，而未消除这些重复检查。
+
+仅把调用改为现有pending()或authorizedPending()不能解决：已安装query.js:367–372及438–443仍逐业务runtime.transaction，且涉及办理资格、业务授权、排序与总数语义。应由审批插件在同连接/同store范围批量获取跨来源原始候选，再按各来源的代理、资格与业务策略验证；DB负责安全的事务只读结构快照复用。跨连接/不同store不能无条件合并事务，事务内DDL、元数据写入、提交/回滚及失效代际需要测试。应用可负责一次编排与去重，不能自行读取插件内部表绕开契约。
+
+### 权限集42条是逐key加载
+
+authorization beta.13的permission-sets/plugin.js:420–425先查assignments、对permissionSet key去重，再Promise.all(requested.map(key => store.get(key)))；授权插件DatabasePermissionSetStore.get每个key发一条SELECT。分组count=distinct=42，与源码一致。grantsFor已有请求内promise复用，因此不是每次业务授权都重读42项；此处需要store/core支持批量按key加载，保留缺失key错误及事务/授权版本一致性，目标是把42次定义读取收敛为一次或按参数上限分批。应用不能用跨请求权限缓存替代。
+
+### 证明办理40条与其余35条
+
+证明办理不能直接用本人任务候选裁剪，因为其待办包含管理员appoint/reassign。pending-candidates.ts:20–22因此保留原owner读取。certificates/service.ts:700–739开启owner事务，findMany读取授权范围记录，然后逐记录actionsFor；本样本额外出现5组物理解析、2次缓存版本读取、3次任务查询、run/event读取和嵌套savepoint，总计40条。数据量增长时该逐记录资格路径还会继续放大。适合在应用先收窄可进入待办的业务状态、统一owner读上下文；跨记录批量offers需要审批公开能力支持，并覆盖管理员尚无本人任务的办理入口，不能简单替换成assignee筛选。
+
+其余35条是request阶段10条身份/组织/权限分配读取、候选共享目录12条、公告8条和工作任务5条。整个487样本中部门树1次、岗位1次，部门成员2次；账号11次（含不同API路径）、员工6次仍可沿公共服务继续查复用机会，但已经不是最大项。各组织/人员集合不是相同数据，不能只按表名认定可合并。
+
+### pageSize为何没有限制前面的工作
+
+server/routes/approval-center/index.ts:985–1007在所有来源完成读取后，才全局过滤、业务时间排序、计算精确total并slice分页。pageSize=6只限制输出；此样本实际输出3条。保留精确授权total、业务排序、meta.kinds和原有拒绝语义意味着仍需覆盖有效候选，但不要求每个业务都重复事务初始化、物理结构检查。优化应针对这些调用成本，而不是把单条SELECT加LIMIT6或先分页后过滤。
+
+优先顺序：授权/DB的可复用结构描述；审批同store跨来源候选读取及事务结构复用；权限集批量读取；应用证明办理批量资格/状态收窄。上述是已定位的优化边界，尚未实现，不能把理论可消除数量或目标SQL当作实测结果。
