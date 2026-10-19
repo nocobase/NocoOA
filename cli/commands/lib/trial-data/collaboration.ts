@@ -1,3 +1,5 @@
+import documentsEnUS from '../../../../server/locales/trial-documents/en-US.js';
+import documentsZhCN from '../../../../server/locales/trial-documents/zh-CN.js';
 import type { Application } from '@nocobase/app-server/application';
 import { databaseManagerToken } from '@nocobase/db';
 import { knowledgeServiceToken } from '../../../../server/providers/knowledge/contract.js';
@@ -172,7 +174,7 @@ export async function collaboration(
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
     ),
     'word/document.xml': strToU8(
-      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>OA虚构试用模板，仅用于功能演示。编号：{d.number}</w:t></w:r></w:p></w:body></w:document>',
+      `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${documentsZhCN.template}</w:t></w:r></w:p><w:p><w:r><w:t>${documentsEnUS.template}</w:t></w:r></w:p></w:body></w:document>`,
     ),
   });
   for (const source of PRINT_SOURCES) {

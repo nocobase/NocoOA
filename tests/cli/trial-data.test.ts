@@ -24,3 +24,44 @@ it('previews trial coverage without creating an application or opening the datab
   });
   expect(run.stdout).not.toContain('password');
 });
+
+it.each(['en-US', 'zh-CN'])(
+  'previews all trial metadata in %s without starting the application',
+  async (locale) => {
+    const Bound = bindAppCommand(TrialData, {
+      rootDir: process.cwd(),
+      id: 'app:trial-data',
+      loadRuntime: async () => {
+        throw new Error('Must not start a preview runtime.');
+      },
+      createApp: () => {
+        throw new Error('Must not create a preview application.');
+      },
+    });
+    const run = await runAppCommand(Bound, [
+      '--dry-run',
+      '--locale',
+      locale,
+      '--json',
+    ]);
+    expect(run.exitCode ?? 0).toBe(0);
+    const result = run.json() as {
+      result: {
+        accounts: { name: string }[];
+        workflows: string[];
+        resources: string[];
+        excluded: string[];
+      };
+    };
+    const strings = [
+      ...result.result.accounts.map((account) => account.name),
+      ...result.result.workflows,
+      ...result.result.resources,
+      ...result.result.excluded,
+    ];
+    for (const value of strings) {
+      if (locale === 'en-US') expect(value).not.toMatch(/\p{Script=Han}/u);
+      else expect(value).toMatch(/\p{Script=Han}/u);
+    }
+  },
+);

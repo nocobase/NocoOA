@@ -143,7 +143,7 @@ const importEnUS = {
         '"{{value}}" is not a valid code: use letters, digits, ".", "_" and "-", up to 64 characters.',
       TOO_LONG: 'Longer than {{max}} characters.',
       INVALID_INTEGER: '"{{value}}" is not a whole number.',
-      INVALID_BOOLEAN: '"{{value}}" is not 是 / 否 (yes / no).',
+      INVALID_BOOLEAN: '"{{value}}" is not yes / no.',
       CAREER_START_FUTURE:
         'First employment date cannot be later than today in the work calendar time zone.',
       CAREER_START_AFTER_HIRE:
@@ -151,7 +151,7 @@ const importEnUS = {
       INVALID_DATE:
         '"{{value}}" is not a valid date. Use a date cell or YYYY-MM-DD.',
       INVALID_STATUS:
-        '"{{value}}" is not a status: use 试用, 正式, 离职中 or 已离职.',
+        '"{{value}}" is not a status: use probation, regular, leaving or left.',
       INVALID_EMAIL: '"{{value}}" is not an email address.',
       DUPLICATE_IN_FILE: '"{{value}}" already appears on row {{firstRow}}.',
       USER_NOT_FOUND:

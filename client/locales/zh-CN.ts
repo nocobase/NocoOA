@@ -1,3 +1,4 @@
+import trialData from './modules/trial-data.zh-CN.js';
 import processManagementLocale from './modules/process-management.zh-CN.js';
 import attendanceImportZhCN from './modules/attendance-import.zh-CN.js';
 import reportsExpenseZhCN from './modules/reports-expense.zh-CN.js';
@@ -67,6 +68,7 @@ import approvalsZhCN from './modules/approvals.zh-CN.js';
 import system from './system/zh-CN.js';
 
 const zhCN = {
+  trialData,
   ...processManagementLocale,
   ...attendanceImportZhCN,
   ...reportsExpenseZhCN,

@@ -1,0 +1,35 @@
+import type { LocaleResource } from '@nocobase/i18n';
+import type enUS from './trial-data.en-US.js';
+const trialData: LocaleResource<typeof enUS> = {
+  accounts: {
+    system: '示例·系统管理员',
+    gm: '示例·总经理',
+    executive: '示例·分管领导',
+    head: '示例·研发负责人',
+    manager: '示例·直属主管',
+    employee: '示例·普通员工',
+    employee2: '示例·协作员工',
+    probation: '示例·试用员工',
+    departing: '示例·离职申请人',
+    sales: '示例·销售负责人',
+    hr: '示例·人事专员',
+    hrbp: '示例·人事伙伴',
+    hrDirector: '示例·人事总监',
+    finance: '示例·对口会计',
+    finance2: '示例·复核会计',
+    financeManager: '示例·财务经理',
+    cfo: '示例·财务总监',
+    cashier: '示例·出纳',
+    admin: '示例·行政专员',
+    admin2: '示例·行政复核',
+    sealKeeper: '示例·印章保管人',
+    legal: '示例·法务',
+    purchasing: '示例·采购专员',
+    purchasing2: '示例·采购评委',
+    it: '示例·IT专员',
+    committeeTech: '示例·技术评委',
+    driver: '示例·驾驶员',
+    newhire: '示例·待入职员工',
+  },
+};
+export default trialData;

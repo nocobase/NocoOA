@@ -1,3 +1,4 @@
+import { useLocale } from '@nocobase/i18n/client';
 import {
   GuestAuthentication,
   RequiredAuthentication,
@@ -17,6 +18,7 @@ export interface AppRouterProps {
 }
 
 export function AppRouter({ clientRoutes }: AppRouterProps): ReactElement {
+  const { locale } = useLocale();
   const routeGroups = useMemo(
     () => ({
       guest: clientRoutes.filter((route) => route.auth === 'guest'),
@@ -30,7 +32,7 @@ export function AppRouter({ clientRoutes }: AppRouterProps): ReactElement {
   );
 
   return (
-    <Routes>
+    <Routes key={locale}>
       <Route
         element={
           <RequiredAuthentication>

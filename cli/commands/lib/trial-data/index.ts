@@ -1,3 +1,4 @@
+import { trialContentLocalizationToken } from '../../../../server/providers/trial-data-localization/index.js';
 import {
   defaultTrialPasswords,
   resetTrialPasswords,
@@ -220,6 +221,9 @@ export async function generateTrialData(
       manifest.date,
       options.replaceLegacyTrialDuties,
     );
+    await app.container
+      .resolve(trialContentLocalizationToken)
+      .initialize(facts.users.system);
     if (options.resetPasswords) {
       await resetTrialPasswords(app, facts.users.system, password);
       delete access.password;

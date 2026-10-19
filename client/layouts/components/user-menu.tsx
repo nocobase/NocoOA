@@ -1,3 +1,4 @@
+import { trialAccountNameKey } from '#lib/trial-account-names';
 import { UserName } from '#components/user-name';
 import { useToaster } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
@@ -30,8 +31,11 @@ export function UserMenu(): ReactElement {
   const { t } = useTranslation();
   const toaster = useToaster();
 
+  const trialAccount = trialAccountNameKey(identity?.fullName ?? '');
   const name =
-    identity?.fullName ||
+    (trialAccount
+      ? t('trialData.accounts.' + trialAccount)
+      : identity?.fullName) ||
     identity?.email ||
     t('account.fallback', { defaultValue: 'Account' });
 

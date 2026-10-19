@@ -1,3 +1,5 @@
+import documentsEnUS from '../../../../server/locales/trial-documents/en-US.js';
+import documentsZhCN from '../../../../server/locales/trial-documents/zh-CN.js';
 import { randomUUID } from 'node:crypto';
 import type { Application } from '@nocobase/app-server/application';
 import { databaseManagerToken } from '@nocobase/db';
@@ -28,14 +30,18 @@ export interface ScenarioResult {
 
 /** A small real PDF, with offsets calculated from bytes so download/preview works. */
 export function trialPdf(): File {
-  const content =
-    'BT /F1 14 Tf 50 750 Td (OA TRIAL - fictional document, not a real invoice) Tj ET';
+  const chinese = Buffer.from(documentsZhCN.pdf, 'utf16le')
+    .swap16()
+    .toString('hex');
+  const content = `BT /F1 14 Tf 50 750 Td (${documentsEnUS.pdf}) Tj /F2 14 Tf 0 -30 Td <${chinese}> Tj ET`;
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 6 0 R >> >> /Contents 5 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
     `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light /Encoding /UniGB-UCS2-H /DescendantFonts [7 0 R] >>',
+    '<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 4 >> /DW 1000 >>',
   ];
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
@@ -44,10 +50,12 @@ export function trialPdf(): File {
     pdf += `${i + 1} 0 obj\n${object}\nendobj\n`;
   }
   const start = Buffer.byteLength(pdf);
-  pdf += `xref\n0 6\n0000000000 65535 f \n${offsets
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets
     .slice(1)
     .map((v) => `${String(v).padStart(10, '0')} 00000 n \n`)
-    .join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${start}\n%%EOF\n`;
+    .join(
+      '',
+    )}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF\n`;
   return new File([pdf], 'oa-trial-fictional.pdf', { type: 'application/pdf' });
 }
 

@@ -9,6 +9,12 @@ export default class TrialData extends AppCommand {
     '<%= config.bin %> <%= command.id %> --json',
   ];
   static override flags = {
+    locale: Flags.string({
+      options: ['en-US', 'zh-CN'],
+      default: 'en-US',
+      description:
+        'Language of trial coverage metadata; stored business records retain their source text.',
+    }),
     'headcounts-only': Flags.boolean({
       default: false,
       description:
@@ -49,7 +55,13 @@ export default class TrialData extends AppCommand {
       if (flags['headcounts-only'])
         return (await import('./lib/trial-data/headcounts.js'))
           .headcountSamplePlan;
-      return trialPlan;
+      const { trialTranslationEntries } =
+        await import('../../server/locales/trial-data/catalog.js');
+      const { translateTrialMetadata } =
+        await import('../../server/providers/trial-data-localization/transform.js');
+      return flags.locale === 'zh-CN'
+        ? trialPlan
+        : translateTrialMetadata(trialPlan, new Map(trialTranslationEntries()));
     }
     const result = await this.withApp(async ({ app }) => {
       await app.start();
@@ -59,16 +71,24 @@ export default class TrialData extends AppCommand {
         headcountsOnly: flags['headcounts-only'],
       });
     });
+    const { trialTranslationEntries } =
+      await import('../../server/locales/trial-data/catalog.js');
+    const { translateTrialMetadata } =
+      await import('../../server/providers/trial-data-localization/transform.js');
+    const localizedResult =
+      flags.locale === 'zh-CN'
+        ? result
+        : translateTrialMetadata(result, new Map(trialTranslationEntries()));
     if (result.failures.length) {
       throw new CommandError(
         'Trial data is incomplete; successful records are preserved. Rerun after fixing the listed failures.',
         {
           code: 'TRIAL_DATA_INCOMPLETE',
-          details: result,
+          details: localizedResult,
         },
       );
     }
     this.log(`Trial data ready. Account access file: ${result.accessFile}`);
-    return result;
+    return localizedResult;
   }
 }

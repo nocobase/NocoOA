@@ -124,7 +124,9 @@ describe('import routes', () => {
   });
 
   it('serves readers and editors', async () => {
-    const template = await reader.fetch('/imports/templates/employees');
+    const template = await reader.fetch('/imports/templates/employees', {
+      headers: { 'accept-language': 'zh-CN' },
+    });
     expect(template.status).toBe(200);
     expect(template.headers.get('content-type')).toContain('spreadsheetml');
     expect(template.headers.get('content-disposition')).toContain(

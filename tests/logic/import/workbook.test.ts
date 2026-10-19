@@ -158,3 +158,33 @@ describe('reparenting order', () => {
     expect(state.get('z')).toBe(null);
   });
 });
+
+it('builds every English template with translated examples and accepts English headers', async () => {
+  for (const spec of Object.values(KIND_SPECS)) {
+    const bytes = await buildTemplate(spec.kind, 'en-US');
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(bytes as unknown as ArrayBuffer);
+    expect(book.getWorksheet('Instructions')).toBeDefined();
+    for (const sheet of book.worksheets)
+      sheet.eachRow((row) =>
+        row.eachCell((cell) => {
+          expect(String(cell.value ?? '')).not.toMatch(/\p{Script=Han}/u);
+          if (typeof cell.note === 'string')
+            expect(cell.note).not.toMatch(/\p{Script=Han}/u);
+        }),
+      );
+    const parsed = await readSheet(spec.kind, bytes);
+    expect(parsed.columns.map((column) => column.key)).toEqual(
+      spec.columns.map((column) => column.key),
+    );
+    expect(parsed.errors.map((error) => error.code)).toEqual(['SHEET_EMPTY']);
+    book.worksheets[0]!.addRow(
+      spec.example[0]!.map((value) => (value === '是' ? 'Yes' : value)),
+    );
+    const populated = await readSheet(
+      spec.kind,
+      new Uint8Array(await book.xlsx.writeBuffer()),
+    );
+    expect(populated.errors).toEqual([]);
+  }
+});
