@@ -1,3 +1,4 @@
+import { translateTrialPayload } from '../trial-data-localization/transform.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type {
   DatabaseManager,
@@ -32,6 +33,7 @@ interface Dependencies {
   audit: AuditService;
   calendar: CalendarService;
   sources: PrintSourceRegistry;
+  trialTranslations?: () => Promise<readonly (readonly [string, string])[]>;
   users: Pick<UserAdministrationService, 'get'>;
 }
 interface Command {
@@ -561,7 +563,13 @@ export function createTemplatePrintService(d: Dependencies) {
         });
         const output = await renderValidatedDocx({
           template: download.bytes,
-          data,
+          data:
+            input.locale === 'en-US' && d.trialTranslations
+              ? translateTrialPayload(
+                  data,
+                  new Map(await d.trialTranslations()),
+                )
+              : data,
           locale: input.locale,
           timeZone,
           signal: input.signal,

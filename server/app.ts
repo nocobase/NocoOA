@@ -1,3 +1,4 @@
+import { trialContentLocaleMiddleware } from './providers/trial-data-localization/middleware.js';
 import { requestPerformanceMiddleware } from './providers/request-performance/index.js';
 import {
   RequestSqlProvider,
@@ -50,6 +51,7 @@ export function createApp(runtime: AppRuntimeContext): Application {
   app.addHttpMiddleware(requestSqlMiddleware);
   app.addHttpMiddleware(sessionHttpMiddleware);
   app.addHttpMiddleware(i18nHttpMiddleware);
+  app.addHttpMiddleware(trialContentLocaleMiddleware);
   // Provider registration starts after middleware is frozen; capture actors here for transactional permission auditing.
   app.addHttpMiddleware(permissionAuditMiddleware);
   // The authorization plugin repeatedly inspects physical schema through a public API.

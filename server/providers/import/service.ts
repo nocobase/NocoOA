@@ -44,7 +44,7 @@ export interface ListImportRunsQuery {
  * trace beyond its own history row and audit entry.
  */
 export interface ImportService {
-  template(kind: ImportKind): Promise<Uint8Array<ArrayBuffer>>;
+  template(kind: ImportKind, locale?: string): Promise<Uint8Array<ArrayBuffer>>;
   preview(
     kind: ImportKind,
     file: File,

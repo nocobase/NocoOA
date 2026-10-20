@@ -1,3 +1,8 @@
+import { workbookEnUS } from '../../locales/import-workbook/en-US.js';
+import {
+  GENERAL_RULES,
+  guideZhCN,
+} from '../../locales/import-workbook/zh-CN.js';
 import ExcelJS from 'exceljs';
 
 import { KIND_SPECS, type ColumnSpec, type KindSpec } from './columns.js';
@@ -63,13 +68,20 @@ export async function readSheet(
   // The template's data sheet when it is there, otherwise the first sheet that is not the instructions.
   const sheet =
     workbook.getWorksheet(spec.sheet) ??
-    workbook.worksheets.find((candidate) => candidate.name !== '说明');
+    workbook.getWorksheet(workbookEnUS.kinds[kind].sheet) ??
+    workbook.worksheets.find(
+      (candidate) => !['说明', 'Instructions'].includes(candidate.name),
+    );
   if (!sheet || sheet.actualRowCount === 0) return fileError('SHEET_EMPTY');
 
   const byHeader = new Map<string, ColumnSpec>();
   for (const column of spec.columns) {
     byHeader.set(normalizeHeader(column.header), column);
     byHeader.set(normalizeHeader(column.key), column);
+    const translated = workbookEnUS.kinds[kind].columns as Readonly<
+      Record<string, readonly [string, string]>
+    >;
+    byHeader.set(normalizeHeader(translated[column.key][0]), column);
   }
   const headerRow = sheet.getRow(1);
   const positions = new Map<number, ColumnSpec>();
@@ -143,20 +155,39 @@ function fileError(code: 'FILE_UNREADABLE' | 'SHEET_EMPTY'): ParsedSheet {
   };
 }
 
-const GENERAL_RULES: readonly string[] = [
-  '在第一个工作表中按表头填写数据，从第 2 行开始，一行一条；表头文字请勿修改，可以删除非必填的列，也可以调整列的顺序。',
-  '每行按“匹配依据”查找已有记录：找到则更新，找不到则新建。没有出现在表头中的列，已有记录的该项保持不变；出现在表头中但单元格留空，表示该项为空。',
-  '导入前先“检查”：系统校验整个文件并列出每一行的问题（行号、列、原因）。只要有一行有问题，就不会写入任何数据。',
-  '检查通过后“确认导入”。整个文件在一个事务中写入，中途出错会全部撤销。每次导入都会保留原文件并记入导入历史和审计日志。',
-  '导入不会创建登录账号。表中引用的账号（用户名或邮箱）必须已经存在且已启用，否则该行报错。',
-  '编码类单元格请设置为“文本”格式，避免以 0 开头的工号、编码被 Excel 去掉前导零。',
-];
-
-/** A workbook with the kind's header row and an instructions sheet (in Chinese, like the headers). */
+/** Localized headers, instructions and examples. Both languages remain valid when reading a workbook. */
 export async function buildTemplate(
   kind: ImportKind,
+  locale: string = 'zh-CN',
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const spec: KindSpec = KIND_SPECS[kind];
+  const source = KIND_SPECS[kind];
+  const translated = workbookEnUS.kinds[kind];
+  const english = locale === 'en-US';
+  const columns = translated.columns as Readonly<
+    Record<string, readonly [string, string]>
+  >;
+  const spec: KindSpec = english
+    ? {
+        ...source,
+        sheet: translated.sheet,
+        title: translated.title,
+        matchedBy: translated.matchedBy,
+        columns: source.columns.map((column) => ({
+          ...column,
+          header: columns[column.key][0],
+          note: columns[column.key][1],
+        })),
+        example: source.example.map((row) =>
+          row.map(
+            (value) =>
+              workbookEnUS.examples[
+                value as keyof typeof workbookEnUS.examples
+              ] ?? value,
+          ),
+        ),
+      }
+    : source;
+  const guideText = english ? workbookEnUS.guide : guideZhCN;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'OA';
 
@@ -188,21 +219,32 @@ export async function buildTemplate(
     if (column.note) cell.note = column.note;
   });
 
-  const guide = workbook.addWorksheet('说明');
+  const guide = workbook.addWorksheet(guideText.sheet);
   guide.columns = [{ width: 20 }, { width: 10 }, { width: 90 }];
-  guide.addRow([`${spec.title}导入模板`]).font = { bold: true, size: 14 };
+  guide.addRow([guideText.title.replace('{{title}}', spec.title)]).font = {
+    bold: true,
+    size: 14,
+  };
   guide.addRow([]);
-  guide.addRow(['导入规则']).font = { bold: true };
-  GENERAL_RULES.forEach((rule, index) =>
+  guide.addRow([guideText.rules]).font = { bold: true };
+  (english ? workbookEnUS.rules : GENERAL_RULES).forEach((rule, index) =>
     guide.addRow([`${index + 1}.`, '', rule]),
   );
-  guide.addRow(['匹配依据', '', spec.matchedBy]);
+  guide.addRow([guideText.matchedBy, '', spec.matchedBy]);
   guide.addRow([]);
-  guide.addRow(['列名', '必填', '说明']).font = { bold: true };
+  guide.addRow([
+    guideText.column,
+    guideText.required,
+    guideText.explanation,
+  ]).font = { bold: true };
   for (const column of spec.columns)
-    guide.addRow([column.header, column.required ? '是' : '', column.note]);
+    guide.addRow([
+      column.header,
+      column.required ? guideText.yes : '',
+      column.note,
+    ]);
   guide.addRow([]);
-  guide.addRow(['示例（请在第一个工作表中填写，不要填在这里）']).font = {
+  guide.addRow([guideText.example]).font = {
     bold: true,
   };
   guide.addRow(spec.columns.map((column) => column.header)).font = {

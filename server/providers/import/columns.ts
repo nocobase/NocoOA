@@ -10,7 +10,7 @@ export type ColumnType =
 export interface ColumnSpec {
   /** Stable key; the client translates errors about it and the report names it. */
   readonly key: string;
-  /** The header the template writes. The workbooks are Chinese, so the headers are too. */
+  /** Canonical Chinese header; English workbook headers are supplied by the workbook locale. */
   readonly header: string;
   readonly type: ColumnType;
   readonly required: boolean;

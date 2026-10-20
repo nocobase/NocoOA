@@ -19,6 +19,13 @@ export function createApp(runtime: AppRuntimeContext): ClientApplication {
 
   const app = new ClientApplication({
     runtime,
+    fetch: (input, init) => {
+      const headers = new Headers(
+        init?.headers ?? (input instanceof Request ? input.headers : undefined),
+      );
+      headers.set('x-oa-trial-content-locale', runtime.i18n.getLocale());
+      return globalThis.fetch(input, { ...init, headers });
+    },
     createRenderConfig: (): AppClientRenderConfig =>
       defineAppClientRenderConfig({
         basename: runtime.basename,

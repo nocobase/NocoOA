@@ -1,3 +1,4 @@
+import { trialContentLocalizationToken } from '../trial-data-localization/index.js';
 import { contractServiceToken } from '../contracts/contract.js';
 import { userAdministrationServiceToken } from '@nocobase/app-plugin-authentication';
 import type { Application } from '@nocobase/app-server/application';
@@ -180,6 +181,8 @@ export default class TemplatePrintProvider extends ServiceProvider<Application> 
         audit: c.resolve(auditServiceToken),
         calendar: c.resolve(calendarServiceToken),
         sources: c.resolve(printSourceRegistryToken),
+        trialTranslations: () =>
+          c.resolve(trialContentLocalizationToken).pairs(),
         users: c.resolve(userAdministrationServiceToken),
       }),
     );

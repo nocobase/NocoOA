@@ -1,3 +1,4 @@
+import TrialContentLocalizationProvider from './trial-data-localization/index.js';
 import ProcessManagementProvider from './process-management/index.js';
 import PersonalSchedulesProvider from './personal-schedules/index.js';
 import TransferProvider from './transfer/index.js';
@@ -66,6 +67,7 @@ export { orgServiceToken, type OrgService } from './org/contract.js';
 // dependency order: audit first, since every module records into it; org before employees, which reads it.
 const serviceProviders: readonly ApplicationServiceProviderConstructor[] = [
   AuditProvider,
+  TrialContentLocalizationProvider,
   PlatformProvider,
   BudgetsProvider,
   ExpenseAuthorizationsProvider,

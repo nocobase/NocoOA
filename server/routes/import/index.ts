@@ -1,3 +1,4 @@
+import { getRequestLocale } from '@nocobase/i18n/server';
 import {
   authenticationToken,
   type AuthEnv,
@@ -192,7 +193,7 @@ export const importApiRoutes: AppApiRouteContribution<Application> =
         tags,
         summary: 'Download an import template',
         operationId: 'downloadImportTemplate',
-        description: `An \`.xlsx\` workbook with the kind's header row (in Chinese) and an instructions sheet. ${READ}`,
+        description: `An \`.xlsx\` workbook with the kind's header row (in the request language) and an instructions sheet. ${READ}`,
         responses: {
           200: {
             description: 'The template workbook.',
@@ -206,10 +207,11 @@ export const importApiRoutes: AppApiRouteContribution<Application> =
       apiValidator('param', TemplateParams),
       async (c) => {
         const { kind } = c.req.valid('param');
-        const bytes = await imports.template(kind);
+        const locale = getRequestLocale(c) ?? 'en-US';
+        const bytes = await imports.template(kind, locale);
         return c.body(bytes, 200, {
           'Content-Type': XLSX_TYPE,
-          'Content-Disposition': `attachment; filename="${kind}-template.xlsx"; filename*=UTF-8''${encodeURIComponent(TEMPLATE_NAMES[kind])}`,
+          'Content-Disposition': `attachment; filename="${kind}-template.xlsx"; filename*=UTF-8''${encodeURIComponent(locale === 'en-US' ? `${kind}-template.xlsx` : TEMPLATE_NAMES[kind])}`,
           'Cache-Control': 'no-store',
         });
       },
