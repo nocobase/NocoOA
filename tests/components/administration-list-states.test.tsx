@@ -16,8 +16,6 @@ const state = vi.hoisted(() => ({
   api: { request: vi.fn() },
   notification: {
     listLogs: vi.fn(),
-    listTestTargets: vi.fn(),
-    sendTest: vi.fn(),
   },
   refreshSession: vi.fn(),
 }));
@@ -41,7 +39,6 @@ const runtime = await createTestI18nRuntime({
 beforeEach(() => {
   vi.resetAllMocks();
   state.notification.listLogs.mockResolvedValue([]);
-  state.notification.listTestTargets.mockResolvedValue([]);
   state.api.request.mockResolvedValue({ data: [], meta: { total: 0 } });
 });
 function mount(module: 'notification' | 'scheduler') {
@@ -88,7 +85,7 @@ for (const module of ['notification', 'scheduler'] as const) {
     },
   );
 }
-it('keeps notification rows during refresh, reloads targets and clears old rows after access is removed', async () => {
+it('keeps notification rows during refresh and clears old rows after access is removed', async () => {
   state.notification.listLogs.mockResolvedValueOnce([
     {
       log: {
@@ -115,7 +112,7 @@ it('keeps notification rows during refresh, reloads targets and clears old rows 
   );
   expect(screen.getByText('Old source')).toBeInTheDocument();
   await waitFor(() =>
-    expect(state.notification.listTestTargets).toHaveBeenCalledTimes(2),
+    expect(state.notification.listLogs).toHaveBeenCalledTimes(2),
   );
   await act(async () =>
     reject(

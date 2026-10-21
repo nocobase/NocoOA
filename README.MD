@@ -419,7 +419,7 @@ Application tests also use PostgreSQL. Vitest maps the local `DB_*` connection t
 
 ### Notification testing
 
-With the `notification:test` `send` permission, send a real message through the durable Notification Manager with `POST <APP_BASE_PATH>/api/notifications/testSends`. `GET <APP_BASE_PATH>/api/notifications/testTargets` lists each configured channel and the fields its test takes: Email tests require an address and IM tests use the configured logical target. The server enforces the permission when the message is submitted.
+Notification logs are available under **System management → Notification logs**. To diagnose delivery, run an application-local script that resolves `notificationServiceToken` and calls `notification.send()` with the configured channel and native message fields. This performs a real send; use an explicit test recipient. The application does not provide a generic notification test form or depend on the removed test endpoints.
 
 ## API documentation
 
