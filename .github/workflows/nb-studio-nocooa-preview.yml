@@ -63,6 +63,8 @@ jobs:
       - name: Ensure PR preview App
         if: github.event_name == 'pull_request'
         run: nb-studio app ensure "$APP_ID" --environment "$ENVIRONMENT"
+      - name: Disable sample data for this App
+        run: nb-studio app env set "$APP_ID" APP_SAMPLE_DATA false --json
       - run: nb-studio build status --app "$APP_ID" --state building --logs "$LOGS"
       - run: pnpm install --frozen-lockfile
       - name: Prepare SQLite release template for PR preview
